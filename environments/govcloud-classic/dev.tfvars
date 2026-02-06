@@ -27,7 +27,7 @@
 # Cluster Identity
 #------------------------------------------------------------------------------
 
-cluster_name = "byron-classic" # Change this for your cluster
+cluster_name = "dev-classic-gov" # Change this for your cluster
 environment  = "dev"
 
 #------------------------------------------------------------------------------

@@ -23,7 +23,7 @@
 # Cluster Identity
 #------------------------------------------------------------------------------
 
-cluster_name = "rosa-prod" # Change this for your cluster
+cluster_name = "prod-classic-gov" # Change this for your cluster
 environment  = "prod"
 
 #------------------------------------------------------------------------------
