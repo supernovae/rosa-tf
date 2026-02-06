@@ -17,7 +17,7 @@
 # Cluster Identification
 #------------------------------------------------------------------------------
 
-cluster_name = "byron-hcp-gov"
+cluster_name = "dev-hcp-gov"
 environment  = "dev"
 aws_region   = "us-gov-west-1"
 

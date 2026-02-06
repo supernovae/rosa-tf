@@ -14,7 +14,7 @@
 # Cluster Identification
 #------------------------------------------------------------------------------
 
-cluster_name = "byron-dev-hcp"
+cluster_name = "dev-hcp"
 environment  = "dev"
 aws_region   = "us-east-1"
 

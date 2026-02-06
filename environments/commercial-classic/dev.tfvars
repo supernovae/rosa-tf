@@ -23,7 +23,7 @@
 # Cluster Identity
 #------------------------------------------------------------------------------
 
-cluster_name = "rosa-dev" # Change this for your cluster
+cluster_name = "dev-classic" # Change this for your cluster
 environment  = "dev"
 
 #------------------------------------------------------------------------------
