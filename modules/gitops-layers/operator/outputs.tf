@@ -48,7 +48,7 @@ output "layers_repo" {
 
 output "applicationset_deployed" {
   description = "Whether a custom GitOps ApplicationSet was deployed."
-  value       = local.has_custom_gitops_repo
+  value       = local.has_custom_gitops_repo && local.appset_layer_elements != ""
 }
 
 output "install_instructions" {
