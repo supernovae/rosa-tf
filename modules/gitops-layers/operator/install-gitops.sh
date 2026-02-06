@@ -90,7 +90,49 @@ case "$ACTION" in
       exit 1
     fi
     
-    api_call "GET" "/api/v1/namespaces/default" "" "Testing API connectivity"
+    # Retry connectivity check for up to 5 minutes
+    # The API server or OAuth may still be reconciling after cluster changes
+    VALIDATE_MAX_RETRIES=15
+    VALIDATE_WAIT=20
+    VALIDATE_ATTEMPT=0
+    
+    while [ "$VALIDATE_ATTEMPT" -lt "$VALIDATE_MAX_RETRIES" ]; do
+      VALIDATE_ATTEMPT=$((VALIDATE_ATTEMPT + 1))
+      
+      # Attempt the API call (capture exit code without set -e killing us)
+      set +e
+      api_call "GET" "/api/v1/namespaces/default" "" "Testing API connectivity (attempt ${VALIDATE_ATTEMPT}/${VALIDATE_MAX_RETRIES})"
+      VALIDATE_RC=$?
+      set -e
+      
+      if [ $VALIDATE_RC -eq 0 ]; then
+        echo ""
+        echo "Cluster connectivity verified."
+        break
+      fi
+      
+      if [ "$VALIDATE_ATTEMPT" -lt "$VALIDATE_MAX_RETRIES" ]; then
+        echo ""
+        echo "API not ready yet, retrying in ${VALIDATE_WAIT}s... (attempt ${VALIDATE_ATTEMPT}/${VALIDATE_MAX_RETRIES})"
+        sleep "$VALIDATE_WAIT"
+      else
+        echo ""
+        echo "============================================="
+        echo "  Connectivity check timed out"
+        echo "============================================="
+        echo ""
+        echo "  Could not reach the cluster API after ${VALIDATE_MAX_RETRIES} attempts (~5 min)."
+        echo "  The cluster may still be reconciling."
+        echo ""
+        echo "  To resolve:"
+        echo "    1. Wait a few minutes and re-run: terraform apply -var-file=<your>.tfvars"
+        echo "    2. Verify cluster is reachable: curl -sk ${API_URL}/api/v1/namespaces/default"
+        echo "    3. For private clusters, ensure VPN is connected"
+        echo ""
+        echo "============================================="
+        exit 1
+      fi
+    done
     ;;
     
   namespace)

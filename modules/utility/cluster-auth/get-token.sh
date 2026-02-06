@@ -23,7 +23,9 @@
 # All error conditions are captured and returned as JSON.
 
 # Retry configuration
-MAX_RETRIES=${OAUTH_MAX_RETRIES:-6}      # Maximum retry attempts
+# Default: ~5 minutes total wait (10 retries * 30s max = 300s)
+# Retry schedule with exponential backoff: 10, 20, 30, 30, 30, 30, 30, 30, 30, 30 = ~270s + attempt time
+MAX_RETRIES=${OAUTH_MAX_RETRIES:-10}     # Maximum retry attempts
 INITIAL_WAIT=${OAUTH_INITIAL_WAIT:-10}   # Initial wait time in seconds
 MAX_WAIT=${OAUTH_MAX_WAIT:-30}           # Maximum wait time between retries
 
@@ -221,16 +223,35 @@ while [ "$ATTEMPT" -lt "$MAX_RETRIES" ]; do
 done
 
 # All retries exhausted
->&2 echo "All $MAX_RETRIES retry attempts exhausted. Last error: $LAST_ERROR"
+>&2 echo ""
+>&2 echo "============================================="
+>&2 echo "  OAuth token retrieval timed out"
+>&2 echo "============================================="
+>&2 echo ""
+>&2 echo "  All $MAX_RETRIES attempts exhausted. Last error: $LAST_ERROR"
+>&2 echo ""
+>&2 echo "  The OAuth server may still be reconciling after IDP changes."
+>&2 echo "  This is common during initial cluster setup or after adding"
+>&2 echo "  the htpasswd identity provider."
+>&2 echo ""
+>&2 echo "  To resolve:"
+>&2 echo "    1. Wait a few minutes for OAuth to finish reconciling"
+>&2 echo "    2. Re-run: terraform apply -var-file=<your>.tfvars"
+>&2 echo ""
+>&2 echo "  To verify manually:"
+>&2 echo "    curl -sk <api_url>/.well-known/oauth-authorization-server"
+>&2 echo ""
+>&2 echo "============================================="
+>&2 echo ""
 case "$LAST_ERROR" in
   "oauth_not_reachable")
-    output_json "" "false" "oauth server not reachable after $MAX_RETRIES attempts"
+    output_json "" "false" "oauth server not reachable after $MAX_RETRIES attempts (~5 min). OAuth may still be reconciling - re-run terraform apply to retry."
     ;;
   "auth_failed")
-    output_json "" "false" "authentication failed after $MAX_RETRIES attempts - check IDP is ready"
+    output_json "" "false" "authentication failed after $MAX_RETRIES attempts (~5 min). IDP may still be initializing - re-run terraform apply to retry."
     ;;
   *)
-    output_json "" "false" "authentication failed after $MAX_RETRIES attempts: $LAST_ERROR"
+    output_json "" "false" "authentication failed after $MAX_RETRIES attempts (~5 min): $LAST_ERROR. Re-run terraform apply to retry."
     ;;
 esac
 exit 0
