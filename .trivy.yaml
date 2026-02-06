@@ -1,0 +1,51 @@
+# Trivy Configuration for ROSA Classic GovCloud
+
+# Scan configuration
+scan:
+  # Scanners to use
+  scanners:
+    - vuln
+    - misconfig
+    - secret
+
+  # Severity levels to report
+  severity:
+    - CRITICAL
+    - HIGH
+    - MEDIUM
+
+# Misconfiguration settings
+misconfiguration:
+  # Terraform-specific settings
+  terraform:
+    # Use environment-specific tfvars (dev.tfvars or prod.tfvars)
+    # Run with: trivy config . --tf-vars environments/govcloud-classic/dev.tfvars
+    vars: []
+
+# Secret scanning
+secret:
+  # Config file for secret detection
+  config: ""
+
+# Output format
+format: table
+
+# Exit code on findings
+exit-code: 1
+
+# Ignore unfixed vulnerabilities
+ignore-unfixed: false
+
+# Skip directories
+skip-dirs:
+  - ".terraform"
+  - "examples/*/terraform.tfvars"
+
+# Skip files
+skip-files:
+  - "*.tfvars"
+  - "*.tfvars.example"
+
+# Ignored checks with justification
+# See: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/
+ignorefile: .trivyignore

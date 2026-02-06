@@ -1,0 +1,18 @@
+# ClusterRole to allow writing logs to LokiStack
+# The loki.grafana.com API group is used by the Loki gateway for authorization
+# Resources (application, infrastructure, audit) map to log tenants
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: logging-collector-logs-writer
+rules:
+- apiGroups:
+  - loki.grafana.com
+  resources:
+  - application
+  - infrastructure
+  - audit
+  resourceNames:
+  - logs
+  verbs:
+  - create

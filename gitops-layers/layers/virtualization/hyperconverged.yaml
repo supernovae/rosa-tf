@@ -1,0 +1,65 @@
+# HyperConverged CR for OpenShift Virtualization
+#
+# This configures the OpenShift Virtualization deployment.
+# The CR will only be created after the operator is fully installed.
+#
+# Note: This static file is used by ApplicationSet/Kustomize method.
+# For direct install method, Terraform uses hyperconverged.yaml.tftpl template.
+#
+# Node Placement (default configuration):
+# - nodeSelector: node-role.kubernetes.io/virtualization=""
+# - tolerations: virtualization=true:PreferNoSchedule
+#
+# PreferNoSchedule is used by default for simplicity: VMs can schedule on bare
+# metal nodes without needing explicit tolerations in each VM spec. Non-virt
+# workloads will still prefer other nodes. For strict isolation, change to
+# NoSchedule (requires tolerations on every VM).
+#
+# IMPORTANT: Requires bare metal machine pool. See examples/ocpvirtualization.tfvars.
+---
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # Infra component placement - virt-controller, virt-api, etc.
+  infra:
+    nodePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/virtualization: ""
+      tolerations:
+        - key: virtualization
+          operator: Equal
+          value: "true"
+          effect: PreferNoSchedule
+
+  # Workloads placement - where VMs will run
+  workloads:
+    nodePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/virtualization: ""
+      tolerations:
+        - key: virtualization
+          operator: Equal
+          value: "true"
+          effect: PreferNoSchedule
+
+  # Feature gates
+  featureGates:
+    deployTektonTaskResources: false
+    enableCommonBootImageImport: true
+    withHostPassthroughCPU: true
+
+  # Live migration configuration
+  liveMigrationConfig:
+    completionTimeoutPerGiB: 800
+    parallelMigrationsPerCluster: 5
+    parallelOutboundMigrationsPerNode: 2
+    progressTimeout: 150
+
+  # Resource requirements for virt components
+  resourceRequirements:
+    vmiCPUAllocationRatio: 10

@@ -1,0 +1,225 @@
+# LokiStack Configuration - Observability API (Logging 6.x)
+#
+# This template works with OpenShift 4.16+ using the loki.grafana.com/v1 API.
+# The Cluster Logging Operator 6.x manages this resource.
+#
+# Template variables (injected by Terraform):
+# - loki_size: LokiStack size (1x.extra-small, 1x.small, etc.)
+# - bucket_name: S3 bucket for log storage
+# - bucket_region: AWS region (e.g., us-east-1)
+# - role_arn: IAM role ARN for STS authentication
+# - retention_days: Log retention in days
+# - storage_class: StorageClass for Loki PVCs (e.g., gp3-csi)
+# - node_selector: Optional node selector for Loki components
+# - tolerations: Optional tolerations for Loki components
+---
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: logging-loki
+  namespace: openshift-logging
+spec:
+  # Size determines resource allocation
+  # 1x.extra-small: Development/small clusters (default)
+  # 1x.small: Production (requires 6+ m5.xlarge nodes)
+  # 1x.medium: Large production clusters
+  size: ${loki_size}
+  
+  # S3 storage configuration with STS authentication
+  storage:
+    schemas:
+      - version: v13
+        effectiveDate: "2024-10-15"
+    secret:
+      name: logging-loki-s3
+      type: s3
+  
+  # Storage class for Loki components
+  storageClassName: ${storage_class}
+  
+  # Tenant mode - openshift-logging uses single tenant
+  tenants:
+    mode: openshift-logging
+  
+  # Limits and retention configuration
+  # Note: 'days' field is required for each stream in Loki Operator 6.4+
+  limits:
+    global:
+      retention:
+        days: ${retention_days}
+        streams:
+          - selector: '{log_type="infrastructure"}'
+            priority: 1
+            days: ${retention_days}
+          - selector: '{log_type="application"}'
+            priority: 1
+            days: ${retention_days}
+          - selector: '{log_type="audit"}'
+            priority: 1
+            days: ${retention_days}
+%{ if length(node_selector) > 0 || length(tolerations) > 0 ~}
+  # Node placement for Loki components
+  # Places all Loki pods on dedicated monitoring nodes
+  template:
+    compactor:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    distributor:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    gateway:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    indexGateway:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    ingester:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    querier:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    queryFrontend:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+    ruler:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+%{ endif ~}
+---
+# Secret for S3 credentials using STS/IRSA
+# The role_arn is used by the Loki pods to assume the IAM role
+# 
+# IMPORTANT: For STS mode, only include bucketnames, region, and role_arn.
+# Do NOT include endpoint or access_key_* fields - their presence forces
+# static credential mode instead of STS token mode.
+# See: https://loki-operator.dev/docs/short_lived_tokens_authentication.md/
+apiVersion: v1
+kind: Secret
+metadata:
+  name: logging-loki-s3
+  namespace: openshift-logging
+stringData:
+  bucketnames: ${bucket_name}
+  region: ${bucket_region}
+  role_arn: ${role_arn}

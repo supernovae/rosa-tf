@@ -1,0 +1,64 @@
+# Checkov Configuration for ROSA Classic GovCloud
+
+# Compact output
+compact: true
+
+# Output format
+output: cli
+
+# Framework to scan
+framework:
+  - terraform
+
+# Directory to scan
+directory:
+  - .
+
+# Skip checks that conflict with ROSA requirements
+# Each skip includes justification for compliance auditing
+skip-check:
+  # ROSA manages its own security groups
+  - CKV_AWS_23   # Ensure every security group rule has a description
+  - CKV_AWS_260  # Ensure no security groups allow ingress from 0.0.0.0/0
+  - CKV_AWS_277  # Ensure no security groups allow ingress from ::/0
+
+  # ROSA Classic requires unrestricted egress to Red Hat services
+  # (quay.io, registry.redhat.io, sso.redhat.com, CDNs, etc.)
+  # These services use dynamic IPs and cannot be constrained by CIDR.
+  # Cluster runs in private subnets; all egress goes through NAT gateways.
+  # Reference: https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa_getting_started_iam/rosa-aws-prereqs.html
+  - CKV_AWS_382  # Ensure no security groups allow egress to 0.0.0.0/0
+  - CKV2_AWS_5   # Ensure that Security Groups are attached to resources
+
+  # ROSA requires specific IAM configurations
+  - CKV_AWS_61   # Ensure IAM policy does not allow assume role permission across all services
+  - CKV_AWS_62   # Ensure no IAM policies that allow full "*-*" administrative privileges
+  - CKV_AWS_63   # Ensure no IAM policies documents allow "*" as a statement's actions
+
+  # VPC configuration requirements
+  - CKV_AWS_130  # Ensure VPC subnets do not assign public IP by default
+
+  # EBS volumes are managed by ROSA - we now provide customer KMS keys
+  - CKV_AWS_189  # Ensure EBS Volume is encrypted by KMS using a customer managed Key
+
+  # CloudWatch logs - we now encrypt with infrastructure KMS key
+  - CKV_AWS_158  # Ensure that CloudWatch Log Group is encrypted
+
+  # KMS Key Policy False Positives
+  # KMS key policies are resource-based policies attached to a specific key.
+  # Within a key policy, resources="*" means "this key only" - NOT all KMS keys.
+  # This is AWS's recommended practice and required because you cannot reference
+  # a key's ARN during creation (circular dependency).
+  # Reference: https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html
+  - CKV_AWS_109  # KMS key policy: resources="*" refers to this key only
+  - CKV_AWS_111  # KMS key policy: resources="*" refers to this key only
+  - CKV_AWS_356  # KMS key policy: resources="*" refers to this key only
+
+# External checks
+external-checks-dir: []
+
+# Soft fail mode (warnings instead of errors)
+soft-fail: false
+
+# Summary position
+summary-position: bottom

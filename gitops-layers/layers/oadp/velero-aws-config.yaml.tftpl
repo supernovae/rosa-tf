@@ -1,0 +1,34 @@
+# Velero Cloud Credentials Secret for OADP
+#
+# This secret configures Velero to use IRSA (IAM Roles for Service Accounts)
+# for AWS authentication instead of static credentials.
+#
+# How it works:
+# 1. IAM role created by Terraform with OIDC trust for OADP service accounts
+# 2. This secret tells Velero which role to assume
+# 3. Velero pods get short-lived tokens via OIDC (auto-rotated)
+#
+# Security benefits:
+# - No long-lived AWS credentials stored
+# - Tokens auto-rotate (~1 hour lifetime)
+# - IAM role scoped to only OADP service accounts
+# - Cannot be used outside the cluster
+#
+# Template variables (injected by Terraform):
+# - role_arn: IAM role ARN created by oadp-resources module
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-credentials
+  namespace: openshift-adp
+  labels:
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: oadp
+type: Opaque
+stringData:
+  cloud: |
+    [default]
+    sts_regional_endpoints = regional
+    role_arn = ${role_arn}
+    web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token

@@ -1,0 +1,7 @@
+# OpenShift Virtualization Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-cnv
+  labels:
+    openshift.io/cluster-monitoring: "true"

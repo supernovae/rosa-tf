@@ -1,0 +1,61 @@
+# Cluster Monitoring Configuration
+#
+# This ConfigMap configures the built-in OpenShift Prometheus stack.
+# It is applied to the openshift-monitoring namespace.
+#
+# Key settings:
+# - Prometheus retention: ${prometheus_retention_hours}h (${prometheus_retention_days} days)
+# - Persistent storage: ${prometheus_storage_size} on ${storage_class_name}
+# - AlertManager with persistent storage
+#
+# Template variables (injected by Terraform):
+# - prometheus_retention_hours: ${prometheus_retention_hours}
+# - prometheus_retention_days: ${prometheus_retention_days}
+# - prometheus_storage_size: ${prometheus_storage_size}
+# - storage_class_name: ${storage_class_name}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    # Prometheus Configuration
+    prometheusK8s:
+      # Retention period for metrics
+      # Configured: ${prometheus_retention_hours}h (${prometheus_retention_days} days)
+      retention: ${prometheus_retention_hours}h
+      
+      # Persistent storage for Prometheus TSDB
+      # Prevents data loss on pod restart
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ${storage_class_name}
+          resources:
+            requests:
+              storage: ${prometheus_storage_size}
+      
+      # Resource limits (adjust based on cluster size)
+      # These are reasonable defaults for a medium cluster
+      resources:
+        requests:
+          cpu: 200m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+    
+    # AlertManager Configuration
+    alertmanagerMain:
+      # Persistent storage for AlertManager
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ${storage_class_name}
+          resources:
+            requests:
+              storage: 10Gi
+    
+    # Enable user workload monitoring
+    # This allows users to create ServiceMonitors in their namespaces
+    enableUserWorkload: true

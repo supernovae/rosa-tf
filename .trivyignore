@@ -1,0 +1,64 @@
+# Trivy Ignore File for ROSA Classic GovCloud
+# https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/
+#
+# This file documents security findings that are intentionally ignored
+# with justification for compliance and audit purposes.
+
+# ------------------------------------------------------------------------------
+# AVD-AWS-0104: An egress security group rule allows traffic to /0
+# Severity: CRITICAL
+# ------------------------------------------------------------------------------
+# JUSTIFICATION: ROSA Classic clusters require unrestricted egress to the
+# internet for accessing Red Hat managed services. These cannot be constrained
+# by IP addresses as they include CDNs and services with dynamic IPs:
+#
+# Required egress destinations include:
+# - quay.io - Container image registry
+# - registry.redhat.io - Red Hat container registry
+# - registry.connect.redhat.com - Partner container registry
+# - sso.redhat.com - Red Hat SSO authentication
+# - cloud.redhat.com / console.redhat.com - Hybrid Cloud Console
+# - api.openshift.com / api.openshiftusgov.com - OCM API
+# - mirror.openshift.com - OpenShift release mirrors
+# - storage.googleapis.com - Cloud storage for images
+# - Various AWS service endpoints
+#
+# For GovCloud specifically:
+# - console.openshiftusgov.com
+# - api.openshiftusgov.com
+# - sso.openshiftusgov.com
+#
+# Reference: https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa_getting_started_iam/rosa-aws-prereqs.html#osd-aws-privatelink-firewall-prerequisites_prerequisites
+#
+# RISK MITIGATION:
+# - Cluster runs in private subnets with no inbound internet access
+# - All egress goes through NAT gateways with logging capability
+# - PrivateLink is enabled for AWS service access
+# - Network policies can be applied at the Kubernetes level
+#
+AVD-AWS-0104
+
+# ------------------------------------------------------------------------------
+# AVD-AWS-0178: VPC does not have flow logging enabled
+# Severity: LOW
+# ------------------------------------------------------------------------------
+# JUSTIFICATION: VPC flow logs are optional in this module and can be enabled
+# by setting enable_vpc_flow_logs = true. When enabled, logs are encrypted
+# with the infrastructure KMS key and sent to CloudWatch.
+#
+# Flow logs are not enabled by default because:
+# - They incur additional CloudWatch and storage costs
+# - Not all deployments require network traffic logging
+# - Some organizations have centralized logging solutions
+#
+# When enabled:
+# - Logs capture ALL traffic (accept, reject)
+# - Retention is configurable (default 30 days)
+# - Encrypted with infrastructure KMS key
+# - Stored in CloudWatch log group: /aws/vpc/${cluster_name}-flow-logs
+#
+AVD-AWS-0178
+
+# ------------------------------------------------------------------------------
+# Add additional ignored checks below with proper justification
+# ------------------------------------------------------------------------------

@@ -1,0 +1,21 @@
+# OpenShift Web Terminal Operator Subscription
+# 
+# This operator provides a terminal interface directly in the OpenShift console.
+# Users can access a bash shell with pre-installed CLI tools (oc, kubectl, etc.)
+# without needing local terminal setup.
+#
+# Layer: Terminal (Layer 0)
+# Dependencies: None
+# Terraform Resources: None required
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: web-terminal
+  namespace: openshift-operators
+spec:
+  channel: fast
+  name: web-terminal
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

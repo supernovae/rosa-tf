@@ -1,0 +1,65 @@
+# DataProtectionApplication CR for OADP
+#
+# This configures Velero for ROSA GovCloud with:
+# - AWS S3 backup storage (bucket from Terraform)
+# - IAM role via STS/IRSA (role from Terraform)
+# - Restic for filesystem backups
+# - OpenShift and AWS plugins
+#
+# IMPORTANT: Update these values from your rosa-gitops-config ConfigMap:
+# - OADP_BUCKET_NAME: S3 bucket created by Terraform
+# - OADP_ROLE_ARN: IAM role ARN created by Terraform  
+# - AWS_REGION: Region where bucket is located
+#
+# TODO: In production, use Kustomize replacements or a Helm chart
+# to dynamically inject these values from the ConfigMap.
+---
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: dpa
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - openshift
+        - aws
+      resourceTimeout: 10m
+    restic:
+      enable: true
+      podConfig:
+        resourceAllocations:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 256Mi
+  backupLocations:
+    - velero:
+        provider: aws
+        default: true
+        objectStorage:
+          # UPDATE: Replace with value from rosa-gitops-config ConfigMap
+          # bucket: "{{ .Values.oadp_bucket_name }}"
+          bucket: "OADP_BUCKET_NAME_PLACEHOLDER"
+          prefix: backups
+        config:
+          # UPDATE: Replace with value from rosa-gitops-config ConfigMap
+          # region: "{{ .Values.oadp_region }}"
+          region: "us-gov-west-1"
+          profile: default
+        credential:
+          key: cloud
+          name: cloud-credentials
+  snapshotLocations:
+    - velero:
+        provider: aws
+        config:
+          # UPDATE: Replace with value from rosa-gitops-config ConfigMap
+          region: "us-gov-west-1"
+          profile: default
+  # Uncomment if using STS role assumption (recommended for ROSA)
+  # Note: This requires OADP 1.3+ for STS support
+  # backupImages: true

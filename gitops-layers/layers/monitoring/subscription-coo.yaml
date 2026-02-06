@@ -1,0 +1,20 @@
+# Cluster Observability Operator Subscription
+#
+# Required for the logging UI plugin that enables the Observe > Logs
+# page in the OpenShift Console. Without COO, the logging data stored
+# in Loki won't be visible in the console UI.
+#
+# Supported on OpenShift 4.12+
+# Channel: stable
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cluster-observability-operator
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: cluster-observability-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

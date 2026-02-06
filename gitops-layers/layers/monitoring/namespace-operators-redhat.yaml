@@ -1,0 +1,14 @@
+# Namespace for Red Hat Operators (Loki Operator)
+#
+# Red Hat recommends installing the Loki Operator in openshift-operators-redhat
+# to avoid conflicts with community operators in openshift-operators namespace.
+#
+# The openshift.io/cluster-monitoring label enables Prometheus to scrape
+# metrics from operators in this namespace.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-operators-redhat
+  labels:
+    openshift.io/cluster-monitoring: "true"

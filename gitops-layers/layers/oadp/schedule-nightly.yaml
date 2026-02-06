@@ -1,0 +1,65 @@
+# Nightly Backup Schedule for User Projects
+#
+# This schedule creates a backup of all user namespaces every night at 2:00 AM UTC.
+#
+# What's backed up:
+# - All namespaces EXCEPT system namespaces (openshift-*, kube-*, default)
+# - Persistent Volume data via CSI snapshots
+# - Kubernetes resources (Deployments, Services, ConfigMaps, Secrets, etc.)
+#
+# What's NOT backed up (managed by Red Hat/AWS):
+# - Control plane components
+# - OpenShift system operators
+# - etcd data (managed by Red Hat)
+# - Node configurations
+#
+# Retention: 7 daily backups (configurable)
+#
+# To modify:
+# - Schedule: Change spec.schedule (cron format, UTC)
+# - Retention: Change spec.template.ttl
+# - Namespaces: Modify includedNamespaces/excludedNamespaces
+#
+# See: https://docs.openshift.com/rosa/backup_and_restore/application_backup_and_restore/oadp-schedule-backup-and-restore.html
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: nightly-user-backup
+  namespace: openshift-adp
+  labels:
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: oadp
+spec:
+  # Run at 2:00 AM UTC every day
+  schedule: "0 2 * * *"
+  template:
+    # Retain backups for 7 days
+    ttl: 168h
+    # Include all namespaces by default, exclude system namespaces
+    includedNamespaces:
+      - "*"
+    excludedNamespaces:
+      # OpenShift system namespaces
+      - openshift
+      - openshift-*
+      # Kubernetes system namespaces
+      - kube-system
+      - kube-public
+      - kube-node-lease
+      # Default namespace (often unused)
+      - default
+      # OADP's own namespace (avoid circular backup)
+      - openshift-adp
+    # Include all resource types
+    includedResources:
+      - "*"
+    # Use CSI snapshots for PVs (recommended for ROSA)
+    snapshotMoveData: true
+    # Storage location (references DPA's default location)
+    storageLocation: rosa-dpa-1
+    # Volume snapshot location
+    volumeSnapshotLocations:
+      - rosa-dpa-1
+    # Hooks for application-consistent backups (optional)
+    # hooks: {}

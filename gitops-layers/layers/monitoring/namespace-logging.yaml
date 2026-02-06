@@ -1,0 +1,13 @@
+# Namespace for OpenShift Logging components
+# This namespace hosts Loki, Vector collectors, and related components
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-logging
+  labels:
+    openshift.io/cluster-monitoring: "true"
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: monitoring
+  annotations:
+    openshift.io/node-selector: ""

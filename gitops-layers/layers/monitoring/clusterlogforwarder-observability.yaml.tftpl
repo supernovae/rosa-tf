@@ -1,0 +1,75 @@
+# ClusterLogForwarder Configuration - Observability API
+#
+# Uses observability.openshift.io/v1 API (Cluster Logging Operator 6.x)
+# Minimum supported: OpenShift 4.16
+#
+# Prerequisites:
+# - ServiceAccount "logcollector" must exist (created separately)
+# - ClusterRoleBindings for log collection must exist
+#
+# This configuration:
+# - Deploys Vector collector DaemonSet
+# - Collects application, infrastructure, and audit logs
+# - Forwards all logs to the LokiStack
+#
+# Template variables (injected by Terraform):
+# - cluster_name: Name of the ROSA cluster
+---
+apiVersion: observability.openshift.io/v1
+kind: ClusterLogForwarder
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  # Service account for log collection (must exist)
+  serviceAccount:
+    name: logcollector
+  
+  # Collector configuration - deploys Vector DaemonSet
+  collector:
+    type: vector
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+  
+  # Output destinations
+  outputs:
+    - name: default-lokistack
+      type: lokiStack
+      lokiStack:
+        target:
+          name: logging-loki
+          namespace: openshift-logging
+        authentication:
+          token:
+            from: serviceAccount
+      tls:
+        ca:
+          # Trust the OpenShift service CA for internal TLS
+          configMapName: openshift-service-ca.crt
+          key: service-ca.crt
+  
+  # Pipelines - use built-in input types directly
+  # The observability API accepts inputRefs to built-in types:
+  # application, infrastructure, audit
+  pipelines:
+    - name: application-pipeline
+      inputRefs:
+        - application
+      outputRefs:
+        - default-lokistack
+    
+    - name: infrastructure-pipeline
+      inputRefs:
+        - infrastructure
+      outputRefs:
+        - default-lokistack
+    
+    - name: audit-pipeline
+      inputRefs:
+        - audit
+      outputRefs:
+        - default-lokistack

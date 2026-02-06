@@ -1,0 +1,208 @@
+# PrometheusRule for Monitoring Stack Health
+#
+# This defines alerting rules for the monitoring and logging stack itself.
+# Key alerts:
+# - Prometheus disk usage > 85% (30-day retention can cause disk pressure)
+# - Loki ingestion failures
+# - Vector collector health
+# - Log forwarding pipeline issues
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monitoring-stack-alerts
+  namespace: openshift-monitoring
+  labels:
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: monitoring
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    #--------------------------------------------------------------------------
+    # Prometheus Storage Alerts
+    #--------------------------------------------------------------------------
+    - name: prometheus-storage
+      rules:
+        # Alert when Prometheus disk usage exceeds 85%
+        # This is critical for 30-day retention as TSDB can grow significantly
+        - alert: PrometheusStorageNearFull
+          annotations:
+            summary: "Prometheus storage is {{ $value | humanizePercentage }} full"
+            description: |
+              Prometheus persistent volume is running low on space.
+              Current usage: {{ $value | humanizePercentage }}
+              
+              With 30-day retention, this can happen if:
+              - Cluster has many high-cardinality metrics
+              - Storage was undersized for the retention period
+              
+              Actions:
+              1. Increase PVC size in cluster-monitoring-config
+              2. Reduce retention period
+              3. Add metric relabeling to drop high-cardinality series
+            runbook_url: "https://docs.openshift.com/rosa/observability/monitoring/configuring-the-monitoring-stack.html"
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{namespace="openshift-monitoring", persistentvolumeclaim=~"prometheus-k8s-db-.*"}
+              /
+              kubelet_volume_stats_capacity_bytes{namespace="openshift-monitoring", persistentvolumeclaim=~"prometheus-k8s-db-.*"}
+            ) > 0.85
+          for: 15m
+          labels:
+            severity: warning
+            namespace: openshift-monitoring
+        
+        # Critical alert at 95%
+        - alert: PrometheusStorageCritical
+          annotations:
+            summary: "Prometheus storage is critically full at {{ $value | humanizePercentage }}"
+            description: |
+              Prometheus is about to run out of disk space!
+              Current usage: {{ $value | humanizePercentage }}
+              
+              Immediate action required to prevent data loss.
+            runbook_url: "https://docs.openshift.com/rosa/observability/monitoring/configuring-the-monitoring-stack.html"
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{namespace="openshift-monitoring", persistentvolumeclaim=~"prometheus-k8s-db-.*"}
+              /
+              kubelet_volume_stats_capacity_bytes{namespace="openshift-monitoring", persistentvolumeclaim=~"prometheus-k8s-db-.*"}
+            ) > 0.95
+          for: 5m
+          labels:
+            severity: critical
+            namespace: openshift-monitoring
+    
+    #--------------------------------------------------------------------------
+    # Loki Health Alerts
+    #--------------------------------------------------------------------------
+    - name: loki-health
+      rules:
+        # Alert when Loki ingestion is failing
+        - alert: LokiIngestionFailures
+          annotations:
+            summary: "Loki is experiencing ingestion failures"
+            description: |
+              Loki distributor is rejecting log entries.
+              This could indicate:
+              - Rate limiting
+              - S3 connectivity issues
+              - IAM role assumption failures
+              
+              Check Loki distributor logs:
+              oc logs -n openshift-logging -l app.kubernetes.io/component=distributor
+          expr: |
+            sum(rate(loki_distributor_ingester_append_failures_total{namespace="openshift-logging"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+            namespace: openshift-logging
+        
+        # Alert when Loki compactor is not running retention
+        - alert: LokiCompactorNotRunning
+          annotations:
+            summary: "Loki compactor is not processing retention"
+            description: |
+              The Loki compactor is responsible for enforcing retention policies.
+              If it's not running, old logs won't be deleted and S3 costs will increase.
+              
+              Check compactor status:
+              oc get pods -n openshift-logging -l app.kubernetes.io/component=compactor
+          expr: |
+            absent(loki_boltdb_shipper_compactor_running{namespace="openshift-logging"}) == 1
+            or
+            loki_boltdb_shipper_compactor_running{namespace="openshift-logging"} == 0
+          for: 30m
+          labels:
+            severity: warning
+            namespace: openshift-logging
+        
+        # Alert when Loki S3 operations are failing
+        - alert: LokiS3OperationFailures
+          annotations:
+            summary: "Loki S3 operations are failing"
+            description: |
+              Loki is experiencing S3 operation failures.
+              This could indicate:
+              - IAM role/STS issues
+              - S3 bucket permissions
+              - Network connectivity to S3
+              
+              Verify IAM role assumption:
+              oc logs -n openshift-logging -l app.kubernetes.io/component=ingester | grep -i "sts\|assume"
+          expr: |
+            sum(rate(loki_boltdb_shipper_request_duration_seconds_count{status="500", namespace="openshift-logging"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+            namespace: openshift-logging
+    
+    #--------------------------------------------------------------------------
+    # Vector Collector Health Alerts
+    #--------------------------------------------------------------------------
+    - name: vector-collector-health
+      rules:
+        # Alert when Vector is dropping events
+        - alert: VectorDroppingEvents
+          annotations:
+            summary: "Vector log collector is dropping events"
+            description: |
+              The Vector log collector is dropping log events.
+              This indicates backpressure from the Loki output.
+              
+              Possible causes:
+              - Loki ingestion rate limits
+              - Network issues to Loki
+              - Insufficient Vector resources
+              
+              Check Vector logs:
+              oc logs -n openshift-logging -l app.kubernetes.io/component=collector --tail=100
+          expr: |
+            sum(rate(vector_buffer_discarded_events_total{namespace="openshift-logging"}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            namespace: openshift-logging
+        
+        # Alert when Vector pods are not ready
+        - alert: VectorCollectorNotReady
+          annotations:
+            summary: "Vector collector pods are not ready"
+            description: |
+              Some Vector collector pods are not in Ready state.
+              This means logs from some nodes are not being collected.
+              
+              Check collector DaemonSet:
+              oc get ds -n openshift-logging collector
+              oc get pods -n openshift-logging -l app.kubernetes.io/component=collector
+          expr: |
+            kube_daemonset_status_number_ready{namespace="openshift-logging", daemonset="collector"}
+            <
+            kube_daemonset_status_desired_number_scheduled{namespace="openshift-logging", daemonset="collector"}
+          for: 10m
+          labels:
+            severity: warning
+            namespace: openshift-logging
+    
+    #--------------------------------------------------------------------------
+    # AlertManager Storage Alerts
+    #--------------------------------------------------------------------------
+    - name: alertmanager-storage
+      rules:
+        - alert: AlertManagerStorageNearFull
+          annotations:
+            summary: "AlertManager storage is {{ $value | humanizePercentage }} full"
+            description: |
+              AlertManager persistent volume is running low on space.
+              This can cause alert silences and notification history to be lost.
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{namespace="openshift-monitoring", persistentvolumeclaim=~"alertmanager-main-db-.*"}
+              /
+              kubelet_volume_stats_capacity_bytes{namespace="openshift-monitoring", persistentvolumeclaim=~"alertmanager-main-db-.*"}
+            ) > 0.85
+          for: 15m
+          labels:
+            severity: warning
+            namespace: openshift-monitoring

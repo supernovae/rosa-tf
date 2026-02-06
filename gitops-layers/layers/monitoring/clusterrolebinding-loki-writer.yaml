@@ -1,0 +1,15 @@
+# ClusterRoleBinding to grant logcollector permission to write to LokiStack
+# This binds the logging-collector-logs-writer ClusterRole to the logcollector
+# service account in the openshift-logging namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: logging-collector-logs-writer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: logging-collector-logs-writer
+subjects:
+- kind: ServiceAccount
+  name: logcollector
+  namespace: openshift-logging

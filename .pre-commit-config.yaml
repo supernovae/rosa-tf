@@ -1,0 +1,89 @@
+# Pre-commit hooks for security and quality checks
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  #----------------------------------------------------------------------------
+  # Shell Script Security
+  #----------------------------------------------------------------------------
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        name: shellcheck - Shell script analysis
+        args: ["-x", "-e", "SC1091"]  # -x: follow sources, SC1091: ignore missing sourced files
+
+  - repo: https://github.com/openstack/bashate
+    rev: 2.1.1
+    hooks:
+      - id: bashate
+        name: bashate - Shell style checker
+        args: ["-i", "E006"]  # Ignore line length
+
+  #----------------------------------------------------------------------------
+  # Terraform Security & Quality
+  #----------------------------------------------------------------------------
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.86.0
+    hooks:
+      - id: terraform_fmt
+        name: terraform fmt - Format Terraform files
+      - id: terraform_validate
+        name: terraform validate - Validate Terraform syntax
+      - id: terraform_tflint
+        name: tflint - Terraform linter
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+      - id: terraform_trivy
+        name: trivy - Security scanner
+        args:
+          - --args=--severity=HIGH,CRITICAL
+          - --args=--skip-dirs=.terraform
+
+  #----------------------------------------------------------------------------
+  # Secrets Detection
+  #----------------------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets - Prevent secrets in commits
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: ".*\\.tfvars$"  # tfvars may have example tokens
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.1
+    hooks:
+      - id: gitleaks
+        name: gitleaks - Git secrets scanner
+
+  #----------------------------------------------------------------------------
+  # YAML & JSON Validation
+  #----------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+        name: check-yaml - Validate YAML syntax
+        args: [--allow-multiple-documents]
+      - id: check-json
+        name: check-json - Validate JSON syntax
+      - id: end-of-file-fixer
+        name: end-of-file-fixer - Ensure files end with newline
+      - id: trailing-whitespace
+        name: trailing-whitespace - Remove trailing whitespace
+      - id: check-merge-conflict
+        name: check-merge-conflict - Check for merge conflict markers
+      - id: check-added-large-files
+        name: check-added-large-files - Prevent large file commits
+        args: [--maxkb=1000]
+
+  #----------------------------------------------------------------------------
+  # Markdown
+  #----------------------------------------------------------------------------
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        name: markdownlint - Markdown linter
+        args: [--config, .markdownlint.json, --fix]

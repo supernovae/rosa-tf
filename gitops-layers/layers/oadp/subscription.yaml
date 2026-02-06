@@ -1,0 +1,28 @@
+# OpenShift API for Data Protection (OADP) Operator Subscription
+#
+# This operator provides backup and restore capabilities using Velero.
+# 
+# Layer: OADP (Layer 1)
+# Dependencies:
+#   - Terraform: S3 bucket (modules/oadp-resources)
+#   - Terraform: IAM role with OIDC trust (modules/oadp-resources)
+#
+# Configuration values come from rosa-gitops-config ConfigMap:
+#   - oadp_bucket_name
+#   - oadp_role_arn
+#   - oadp_region
+#
+# Channel: Using 'stable' for automatic version selection based on
+# OpenShift version compatibility (avoids version-specific channel issues)
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: redhat-oadp-operator
+  namespace: openshift-adp
+spec:
+  channel: stable
+  name: redhat-oadp-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

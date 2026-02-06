@@ -1,0 +1,82 @@
+# HyperConverged CR for OpenShift Virtualization
+#
+# This configures the OpenShift Virtualization deployment.
+# The CR will only be created after the operator is fully installed.
+#
+# Node Placement:
+# - Uses nodeSelector to target nodes with virtualization label
+# - Uses tolerations to allow scheduling on tainted nodes
+#
+# Template variables (injected by Terraform):
+# - node_selector: Map of labels for node selection
+# - tolerations: List of tolerations for tainted nodes
+#
+# IMPORTANT: Requires bare metal nodes. Define them in machine_pools with
+# matching labels/taints. See examples/ocpvirtualization.tfvars.
+---
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # Infra component placement - virt-controller, virt-api, etc.
+  infra:
+    nodePlacement:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+
+  # Workloads placement - where VMs will run
+  workloads:
+    nodePlacement:
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for key, value in node_selector ~}
+        ${key}: "${value}"
+%{ endfor ~}
+%{ endif ~}
+%{ if length(tolerations) > 0 ~}
+      tolerations:
+%{ for t in tolerations ~}
+        - key: "${t.key}"
+          operator: "${t.operator}"
+%{ if t.value != "" ~}
+          value: "${t.value}"
+%{ endif ~}
+          effect: "${t.effect}"
+%{ endfor ~}
+%{ endif ~}
+
+  # Feature gates
+  featureGates:
+    deployTektonTaskResources: false
+    enableCommonBootImageImport: true
+    withHostPassthroughCPU: true
+
+  # Live migration configuration
+  liveMigrationConfig:
+    completionTimeoutPerGiB: 800
+    parallelMigrationsPerCluster: 5
+    parallelOutboundMigrationsPerNode: 2
+    progressTimeout: 150
+
+  # Resource requirements for virt components
+  resourceRequirements:
+    vmiCPUAllocationRatio: 10

@@ -1,0 +1,28 @@
+# Loki Operator Subscription
+#
+# Installs the Loki Operator from OperatorHub.
+#
+# IMPORTANT: Per Red Hat documentation, the Loki Operator must be installed
+# in openshift-operators-redhat namespace (not openshift-logging) to:
+# - Avoid conflicts with community operators
+# - Ensure ServiceMonitor TLS certificates work correctly
+# - Follow supported installation pattern
+#
+# The Loki Operator watches LokiStack CRs in all namespaces, so the
+# LokiStack CR is still created in openshift-logging namespace.
+#
+# Channel selection based on OpenShift version:
+# - stable-6.2: OpenShift 4.16, 4.17, 4.18 (GovCloud)
+# - stable-6.4: OpenShift 4.19+ (Commercial HCP)
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: loki-operator
+  namespace: openshift-operators-redhat
+spec:
+  channel: ${operator_channel}
+  installPlanApproval: Automatic
+  name: loki-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

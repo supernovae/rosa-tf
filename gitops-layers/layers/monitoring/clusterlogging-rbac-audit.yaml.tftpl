@@ -1,0 +1,16 @@
+# ClusterRoleBinding for collecting audit logs
+# Grants the logcollector service account permission to collect audit logs
+# This is REQUIRED for audit log forwarding to work
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: logcollector-collect-audit-logs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: collect-audit-logs
+subjects:
+  - kind: ServiceAccount
+    name: logcollector
+    namespace: openshift-logging

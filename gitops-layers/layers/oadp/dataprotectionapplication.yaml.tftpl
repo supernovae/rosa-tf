@@ -1,0 +1,47 @@
+# DataProtectionApplication CR for OADP
+#
+# This configures Velero for ROSA with:
+# - AWS S3 backup storage
+# - IAM role via STS/IRSA
+# - Kopia for filesystem backups
+# - OpenShift and AWS plugins
+#
+# Template variables (injected by Terraform):
+# - bucket_name: S3 bucket created by Terraform
+# - region: AWS region
+# - role_arn: IAM role ARN for OADP
+---
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: rosa-dpa
+  namespace: openshift-adp
+  labels:
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: oadp
+spec:
+  backupLocations:
+    - velero:
+        config:
+          enableSharedConfig: 'true'
+          profile: default
+          region: ${region}
+        credential:
+          key: cloud
+          name: cloud-credentials
+        default: true
+        objectStorage:
+          bucket: ${bucket_name}
+          prefix: velero
+        provider: aws
+  configuration:
+    nodeAgent:
+      enable: true
+      uploaderType: kopia
+    velero:
+      defaultPlugins:
+        - openshift
+        - aws
+        - csi
+      defaultSnapshotMoveData: true
+      resourceTimeout: 10m

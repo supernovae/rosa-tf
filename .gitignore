@@ -1,0 +1,73 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform variable files that may contain secrets
+*.auto.tfvars
+*.auto.tfvars.json
+terraform.tfvars
+!terraform.tfvars.example
+
+# Sensitive files
+*.pem
+*.key
+*.crt
+*.ovpn
+*credentials*
+*secret*
+.env
+.env.*
+!.env.example
+
+# VPN client configuration output directory
+output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Cursor IDE - ignore personal config, keep project rules
+.cursor/*
+!.cursor/rules/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.log
+
+# Pre-commit
+.pre-commit-config.yaml.bak
+
+# Test outputs
+test-results/
+coverage/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Node (if using any JS tooling)
+node_modules/
+
+# Python (if using any Python tooling)
+__pycache__/
+*.py[cod]
+venv/
+.venv/

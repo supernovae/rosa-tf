@@ -1,0 +1,11 @@
+# Patch to enable monitoring on the default OpenShift GitOps ArgoCD instance
+# This enables Prometheus to scrape ArgoCD component metrics
+# which powers the GitOps Overview/Components/gRPC dashboards
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: openshift-gitops
+  namespace: openshift-gitops
+spec:
+  monitoring:
+    enabled: true

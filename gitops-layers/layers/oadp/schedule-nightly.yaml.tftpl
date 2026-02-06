@@ -1,0 +1,123 @@
+# Nightly Backup Schedule for User Projects
+#
+# This schedule creates a backup of all user namespaces every night at 2:00 AM UTC.
+#
+# What's backed up:
+# - All namespaces EXCEPT system namespaces (openshift-*, kube-*, default)
+# - Persistent Volume data via CSI snapshots
+# - Kubernetes resources (Deployments, Services, ConfigMaps, Secrets, etc.)
+#
+# What's NOT backed up (managed by Red Hat/AWS):
+# - Control plane components
+# - OpenShift system operators
+# - etcd data (managed by Red Hat)
+# - Node configurations
+#
+# Retention: ${backup_retention_days} days
+#
+# See: https://docs.openshift.com/rosa/backup_and_restore/application_backup_and_restore/oadp-schedule-backup-and-restore.html
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: nightly-user-backup
+  namespace: openshift-adp
+  labels:
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: oadp
+    rosa.cluster.name: ${cluster_name}
+spec:
+  # Run at 2:00 AM UTC every day
+  schedule: "0 2 * * *"
+  template:
+    # Retain backups for configured retention period
+    ttl: ${backup_retention_days * 24}h
+    # Include all namespaces by default, exclude system namespaces
+    includedNamespaces:
+      - "*"
+    excludedNamespaces:
+      # OpenShift system namespaces
+      - openshift
+      - openshift-apiserver
+      - openshift-apiserver-operator
+      - openshift-authentication
+      - openshift-authentication-operator
+      - openshift-cloud-controller-manager
+      - openshift-cloud-controller-manager-operator
+      - openshift-cloud-credential-operator
+      - openshift-cloud-network-config-controller
+      - openshift-cluster-csi-drivers
+      - openshift-cluster-machine-approver
+      - openshift-cluster-node-tuning-operator
+      - openshift-cluster-samples-operator
+      - openshift-cluster-storage-operator
+      - openshift-cluster-version
+      - openshift-config
+      - openshift-config-managed
+      - openshift-config-operator
+      - openshift-console
+      - openshift-console-operator
+      - openshift-console-user-settings
+      - openshift-controller-manager
+      - openshift-controller-manager-operator
+      - openshift-dns
+      - openshift-dns-operator
+      - openshift-etcd
+      - openshift-etcd-operator
+      - openshift-host-network
+      - openshift-image-registry
+      - openshift-infra
+      - openshift-ingress
+      - openshift-ingress-canary
+      - openshift-ingress-operator
+      - openshift-insights
+      - openshift-kni-infra
+      - openshift-kube-apiserver
+      - openshift-kube-apiserver-operator
+      - openshift-kube-controller-manager
+      - openshift-kube-controller-manager-operator
+      - openshift-kube-scheduler
+      - openshift-kube-scheduler-operator
+      - openshift-kube-storage-version-migrator
+      - openshift-kube-storage-version-migrator-operator
+      - openshift-machine-api
+      - openshift-machine-config-operator
+      - openshift-marketplace
+      - openshift-monitoring
+      - openshift-multus
+      - openshift-network-diagnostics
+      - openshift-network-node-identity
+      - openshift-network-operator
+      - openshift-node
+      - openshift-nutanix-infra
+      - openshift-oauth-apiserver
+      - openshift-openstack-infra
+      - openshift-operator-lifecycle-manager
+      - openshift-operators
+      - openshift-ovirt-infra
+      - openshift-route-controller-manager
+      - openshift-sdn
+      - openshift-service-ca
+      - openshift-service-ca-operator
+      - openshift-user-workload-monitoring
+      - openshift-vsphere-infra
+      # Kubernetes system namespaces
+      - kube-system
+      - kube-public
+      - kube-node-lease
+      # Default namespace (often unused)
+      - default
+      # OADP's own namespace (avoid circular backup)
+      - openshift-adp
+      # GitOps namespace
+      - openshift-gitops
+    # Include all resource types
+    includedResources:
+      - "*"
+    # Use CSI snapshots for PVs (recommended for ROSA)
+    snapshotMoveData: true
+    # Storage location (references DPA's default location)
+    storageLocation: rosa-dpa-1
+    # Volume snapshot location
+    volumeSnapshotLocations:
+      - rosa-dpa-1

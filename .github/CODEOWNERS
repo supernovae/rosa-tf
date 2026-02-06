@@ -1,0 +1,7 @@
+# Default owners for everything in the repo
+* @supernovae
+
+# Security-sensitive files require additional review
+modules/iam-roles/ @supernovae
+modules/kms/ @supernovae
+.github/workflows/ @supernovae

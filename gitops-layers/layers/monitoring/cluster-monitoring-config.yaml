@@ -1,0 +1,60 @@
+# Cluster Monitoring Configuration
+#
+# This ConfigMap configures the built-in OpenShift Prometheus stack.
+# It is applied to the openshift-monitoring namespace.
+#
+# Key settings:
+# - Prometheus retention: 30 days (720h) - configurable via template
+# - Persistent storage: 100Gi on gp3-csi
+# - AlertManager with persistent storage
+#
+# Template variables (injected by Terraform):
+# - prometheus_retention_hours: Retention period in hours (default: 720)
+# - prometheus_storage_size: PVC size (default: 100Gi)
+# - storage_class_name: StorageClass to use (default: gp3-csi)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    # Prometheus Configuration
+    prometheusK8s:
+      # Retention period for metrics
+      # Default: 720h (30 days)
+      retention: 720h
+      
+      # Persistent storage for Prometheus TSDB
+      # Prevents data loss on pod restart
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3-csi
+          resources:
+            requests:
+              storage: 100Gi
+      
+      # Resource limits (adjust based on cluster size)
+      # These are reasonable defaults for a medium cluster
+      resources:
+        requests:
+          cpu: 200m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+    
+    # AlertManager Configuration
+    alertmanagerMain:
+      # Persistent storage for AlertManager
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3-csi
+          resources:
+            requests:
+              storage: 10Gi
+    
+    # Enable user workload monitoring
+    # This allows users to create ServiceMonitors in their namespaces
+    enableUserWorkload: true

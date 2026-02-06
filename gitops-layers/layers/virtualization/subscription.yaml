@@ -1,0 +1,23 @@
+# OpenShift Virtualization Operator Subscription
+#
+# Installs the OpenShift Virtualization (KubeVirt) Operator from OperatorHub.
+#
+# Note: This static file is used by ApplicationSet/Kustomize method.
+# For direct install method, Terraform uses subscription.yaml.tftpl template.
+#
+# Channel: stable auto-selects appropriate version for OCP release
+#
+# IMPORTANT: Requires bare metal instances (.metal instance types)
+# for hardware virtualization support.
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  channel: stable
+  name: kubevirt-hyperconverged
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

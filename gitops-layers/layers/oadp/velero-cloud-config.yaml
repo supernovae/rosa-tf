@@ -1,0 +1,23 @@
+# Velero Cloud Configuration Secret
+# 
+# NOTE: This file is named velero-cloud-config.yaml to avoid gitignore
+# patterns that block files with "secret" or "credentials" in the name.
+# The Secret is still named "cloud-credentials" as expected by OADP.
+#
+# This secret tells Velero to use IRSA (IAM Roles for Service Accounts)
+# instead of static AWS credentials.
+#
+# The IAM role ARN is configured in the DataProtectionApplication CR.
+# This minimal credentials file enables STS authentication.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-credentials
+  namespace: openshift-adp
+type: Opaque
+stringData:
+  cloud: |
+    [default]
+    # Using IRSA - role ARN configured in DataProtectionApplication
+    # No static credentials needed

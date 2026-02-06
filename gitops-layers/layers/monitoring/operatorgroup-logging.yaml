@@ -1,0 +1,13 @@
+# OperatorGroup for OpenShift Logging namespace
+# Required for operator subscription to work
+#
+# NOTE: Loki Operator 6.0+ requires AllNamespaces install mode.
+# An empty spec (no targetNamespaces) enables AllNamespaces mode,
+# allowing the operator to watch resources across the cluster.
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-logging
+  namespace: openshift-logging
+spec: {}

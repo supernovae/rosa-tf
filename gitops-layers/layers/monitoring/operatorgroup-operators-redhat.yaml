@@ -1,0 +1,12 @@
+# OperatorGroup for openshift-operators-redhat namespace
+#
+# Required for Loki Operator subscription.
+# Empty spec enables AllNamespaces install mode, allowing the Loki Operator
+# to watch LokiStack resources in any namespace (including openshift-logging).
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-operators-redhat
+  namespace: openshift-operators-redhat
+spec: {}

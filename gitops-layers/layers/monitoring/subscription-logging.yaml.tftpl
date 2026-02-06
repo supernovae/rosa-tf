@@ -1,0 +1,25 @@
+# Cluster Logging Operator Subscription
+#
+# Installs the OpenShift Cluster Logging Operator from OperatorHub.
+# Version 6.x uses Vector as the log collector (not Fluentd).
+#
+# Channel selection based on OpenShift version:
+# - stable-6.2: OpenShift 4.16, 4.17, 4.18 (GovCloud)
+# - stable-6.4: OpenShift 4.19+ (Commercial HCP)
+#
+# The Cluster Logging Operator manages:
+# - ClusterLogForwarder custom resource
+# - Vector collector DaemonSet
+# - Log forwarding pipelines
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cluster-logging
+  namespace: openshift-logging
+spec:
+  channel: ${operator_channel}
+  installPlanApproval: Automatic
+  name: cluster-logging
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

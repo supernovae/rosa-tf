@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: layer-monitoring
+  annotations:
+    rosa-gitops-layer: monitoring
+    rosa-gitops-description: "OpenShift Monitoring and Logging with Loki"
+
+resources:
+  # Namespaces
+  - namespace-logging.yaml
+  
+  # Operator Subscriptions
+  - operatorgroup-logging.yaml
+  - subscription-loki.yaml
+  - subscription-logging.yaml
+  - subscription-coo.yaml  # Cluster Observability Operator for logging UI
+  
+  # Prometheus Configuration (cluster-monitoring-config)
+  - cluster-monitoring-config.yaml
+  
+  # Prometheus Alerting Rules
+  - prometheus-rules.yaml
+  
+  # Console UI Plugin (enables Observe > Logs)
+  - uiplugin-logging.yaml
+
+# Note: LokiStack and ClusterLogForwarder are deployed via Terraform
+# templating due to API version differences between 4.16 and 4.17+
+
+commonLabels:
+  app.kubernetes.io/part-of: rosa-gitops-layers
+  app.kubernetes.io/component: monitoring
+  rosa-gitops-layer: monitoring

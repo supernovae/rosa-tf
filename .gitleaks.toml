@@ -1,0 +1,55 @@
+# Gitleaks Configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "ROSA Terraform Gitleaks Config"
+
+[extend]
+# Use the default gitleaks config as base
+useDefault = true
+
+#------------------------------------------------------------------------------
+# Custom Rules
+#------------------------------------------------------------------------------
+
+[[rules]]
+id = "openshift-token"
+description = "OpenShift OAuth Token"
+regex = '''sha256~[A-Za-z0-9_-]{43}'''
+tags = ["token", "openshift"]
+
+[[rules]]
+id = "aws-account-id"
+description = "AWS Account ID (12 digits)"
+regex = '''\b[0-9]{12}\b'''
+tags = ["aws", "account"]
+# Only flag if it looks like it's being used as a secret
+allowlist = { regexTarget = "match", regexes = [
+  '''account.*=.*[0-9]{12}''',
+  '''arn:aws(-[a-z]+)?:''',
+]}
+
+#------------------------------------------------------------------------------
+# Allowlist - Files and Patterns to Ignore
+#------------------------------------------------------------------------------
+
+[allowlist]
+description = "Global allowlist"
+
+# Files to ignore
+paths = [
+  '''.gitleaks.toml''',
+  '''.pre-commit-config.yaml''',
+  '''\.md$''',
+  '''go\.sum$''',
+  '''package-lock\.json$''',
+]
+
+# Patterns that are safe (example tokens, placeholders)
+regexes = [
+  '''<your-.*>''',
+  '''YOUR_.*_HERE''',
+  '''PLACEHOLDER''',
+  '''example\.com''',
+  '''xxx+''',
+  '''sha256~[xX]+''',
+]

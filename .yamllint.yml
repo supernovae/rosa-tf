@@ -1,0 +1,35 @@
+# YAML Lint Configuration
+
+extends: default
+
+rules:
+  # Line length - allow longer lines for readability
+  line-length:
+    max: 200
+    level: warning
+
+  # Allow multiple documents in one file (for Kubernetes manifests)
+  document-start: disable
+
+  # Truthy values - allow various boolean representations
+  truthy:
+    allowed-values: ["true", "false", "yes", "no", "on", "off"]
+    check-keys: false
+
+  # Comments - don't require space after #
+  comments:
+    require-starting-space: false
+    min-spaces-from-content: 1
+
+  # Indentation
+  indentation:
+    spaces: 2
+    indent-sequences: whatever
+
+  # Empty lines
+  empty-lines:
+    max: 2
+
+  # Brackets
+  brackets:
+    max-spaces-inside: 1

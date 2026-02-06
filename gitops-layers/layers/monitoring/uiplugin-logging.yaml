@@ -1,0 +1,33 @@
+# UIPlugin for Logging - Enables Observe > Logs in OpenShift Console
+#
+# This UIPlugin integrates with the LokiStack to provide log viewing
+# capabilities in the OpenShift Console's Observe section.
+#
+# Features enabled:
+# - Observe > Logs page with filtering, queries, time ranges
+# - Log expansion for detailed information
+# - Integration with alerts (log-based alerts from Loki ruler)
+#
+# Prerequisites:
+# - Cluster Observability Operator must be installed
+# - LokiStack named "logging-loki" must exist in openshift-logging
+#
+# Schema options:
+# - viaq: Default Vector/Fluentd format (works on all OCP versions)
+# - otel: OpenTelemetry format (OCP 4.15+ only)
+# - select: User chooses in UI (OCP 4.15+ only)
+#
+# Using 'viaq' for maximum compatibility across OCP versions.
+---
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: logging
+spec:
+  type: Logging
+  logging:
+    lokiStack:
+      name: logging-loki
+      namespace: openshift-logging
+    logsLimit: 50
+    timeout: 30s

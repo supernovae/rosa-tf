@@ -1,0 +1,34 @@
+# ServiceMonitor for Vector collector metrics
+# This allows Prometheus to scrape Vector's internal metrics
+# for monitoring the health of the logging pipeline
+#
+# Metrics exported include:
+# - vector_component_events_in_total
+# - vector_component_events_out_total
+# - vector_buffer_events
+# - vector_component_errors_total
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: collector
+  namespace: openshift-logging
+  labels:
+    app.kubernetes.io/component: collector
+    app.kubernetes.io/part-of: cluster-logging
+spec:
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scheme: https
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tlsConfig:
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        serverName: collector.openshift-logging.svc
+        insecureSkipVerify: false
+  namespaceSelector:
+    matchNames:
+      - openshift-logging
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: collector

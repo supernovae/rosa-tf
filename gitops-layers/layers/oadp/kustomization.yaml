@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: layer-oadp
+  annotations:
+    rosa-gitops-layer: oadp
+    rosa-gitops-description: "OpenShift API for Data Protection - backup and restore using Velero"
+
+resources:
+  - namespace.yaml
+  - operatorgroup.yaml
+  - subscription.yaml
+  - velero-cloud-config.yaml
+  - dataprotectionapplication.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: rosa-gitops-layers
+  app.kubernetes.io/component: oadp
+  rosa-gitops-layer: oadp

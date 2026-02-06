@@ -1,0 +1,8 @@
+# Web Terminal Namespace
+# The operator installs into openshift-operators but we ensure the namespace exists
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-operators
+  labels:
+    openshift.io/cluster-monitoring: "true"
