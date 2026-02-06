@@ -44,6 +44,11 @@ skip-check:
   # CloudWatch logs - we now encrypt with infrastructure KMS key
   - CKV_AWS_158  # Ensure that CloudWatch Log Group is encrypted
 
+  # CloudFormation stacks are Terraform-managed wrappers used solely for
+  # DeletionPolicy: Retain on S3 buckets. SNS event notifications add no
+  # value - Terraform controls all stack lifecycle events.
+  - CKV_AWS_124  # CloudFormation SNS notifications (not applicable for Terraform-managed stacks)
+
   # KMS Key Policy False Positives
   # KMS key policies are resource-based policies attached to a specific key.
   # Within a key policy, resources="*" means "this key only" - NOT all KMS keys.
