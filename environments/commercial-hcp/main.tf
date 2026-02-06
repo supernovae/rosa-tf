@@ -743,8 +743,6 @@ module "gitops" {
   gitops_repo_path     = coalesce(var.gitops_repo_path, "gitops-layers/layers")
   gitops_repo_revision = coalesce(var.gitops_repo_revision, "main")
 
-  layers_install_method = var.layers_install_method
-
   enable_layer_terminal       = var.enable_layer_terminal
   enable_layer_oadp           = var.enable_layer_oadp
   enable_layer_virtualization = var.enable_layer_virtualization

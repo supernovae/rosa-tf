@@ -348,32 +348,16 @@ variable "openshift_version" {
 }
 
 #------------------------------------------------------------------------------
-# Installation Method
+# Installation Method (internal - do not expose to users)
+#
+# Core layers are always installed via "direct" API calls from Terraform.
+# An ArgoCD ApplicationSet is automatically created when gitops_repo_url
+# is provided for additional custom resources.
 #------------------------------------------------------------------------------
 
 variable "layers_install_method" {
   type        = string
-  description = <<-EOT
-    How to install resources:
-    
-    "direct" (default, recommended):
-      - Core layers (monitoring, OADP, etc.) are applied by Terraform
-      - Works in air-gapped environments
-      - No external Git access required from cluster
-      - Environment-specific values (S3 buckets, IAM roles) are injected
-    
-    "applicationset":
-      - Creates an ArgoCD ApplicationSet pointing to gitops_repo_url
-      - Use for ADDITIONAL static resources (projects, quotas, RBAC, apps)
-      - Requires cluster egress to Git
-      - Core layers are still applied by Terraform (direct method)
-    
-    Architecture:
-      Terraform (direct)  → Operators, S3 buckets, IAM roles, LokiStack, DPA
-      ArgoCD (appset)     → Your static resources from gitops_repo_url
-    
-    To skip layers entirely, set all enable_layer_* = false.
-  EOT
+  description = "Internal: layer installation method. Always 'direct' - do not override."
   default     = "direct"
 
   validation {

@@ -47,7 +47,7 @@ The `gitops_repo_url` is for **your additional static resources** that ArgoCD sy
 | What You Want | Configuration |
 |---------------|---------------|
 | **Enable layers (default)** | `install_gitops = true` + enable desired `enable_layer_*` flags |
-| **Add your own resources** | Above + `layers_install_method = "applicationset"` + `gitops_repo_url = "..."` |
+| **Add your own resources** | Above + `gitops_repo_url = "https://github.com/your-org/your-manifests.git"` |
 | **GitOps only, no layers** | `install_gitops = true` + all `enable_layer_* = false` |
 
 ```hcl
@@ -56,9 +56,8 @@ install_gitops          = true
 enable_layer_monitoring = true
 enable_layer_oadp       = true
 
-# Optional: Add YOUR static resources via ArgoCD
-layers_install_method = "applicationset"
-gitops_repo_url       = "https://github.com/your-org/your-manifests.git"
+# Optional: Add YOUR static resources via ArgoCD ApplicationSet
+# gitops_repo_url = "https://github.com/your-org/your-manifests.git"
 ```
 
 ## Local Prerequisites
@@ -116,23 +115,28 @@ enable_layer_terminal = true  # Default: true
 # Enable OADP (requires additional Terraform resources)
 enable_layer_oadp = true
 
-# Enable Virtualization (requires bare metal nodes)
+# Enable Virtualization (requires bare metal machine pool)
 enable_layer_virtualization = true
-virt_node_count = 3
-virt_machine_type = "m5.metal"
+# See examples/ocpvirtualization.tfvars for machine pool config
 ```
 
-### Custom Layers Repository
+### Additional GitOps Configuration
 
-To use your own customized layers instead of the reference implementations:
+To deploy your own custom resources (projects, quotas, RBAC, apps) alongside the
+built-in layers, provide a `gitops_repo_url`. An ArgoCD ApplicationSet will be
+created automatically to sync from your repo:
 
 ```hcl
 # terraform.tfvars
-install_gitops     = true
-gitops_repo_url      = "https://github.com/your-org/your-rosa-layers.git"
-gitops_repo_path     = "gitops-layers/layers"
-gitops_repo_revision = "main"
+install_gitops       = true
+gitops_repo_url      = "https://github.com/your-org/my-cluster-config.git"
+gitops_repo_path     = "."        # path within repo (default: gitops-layers/layers)
+gitops_repo_revision = "main"     # branch, tag, or commit
 ```
+
+> **Note:** This does NOT replace the built-in layers. Core layers (monitoring,
+> OADP, virtualization) are always managed by Terraform because they depend on
+> infrastructure it creates (S3 buckets, IAM roles, etc.).
 
 ## Customizing Without Layers
 
@@ -151,11 +155,13 @@ enable_layer_terminal = false
 enable_layer_oadp     = false
 ```
 
-## Using ApplicationSet Method (For Your Additional Resources)
+## ArgoCD ApplicationSet (Custom Resources)
 
-The ApplicationSet method deploys **your own static resources** via ArgoCD - things like projects, quotas, RBAC, and application deployments.
+When you provide a `gitops_repo_url`, an ArgoCD ApplicationSet is created to sync
+your custom Kubernetes manifests. This is independent of the built-in layers.
 
-> **Note:** Core layers (monitoring, OADP, virtualization) are always applied by Terraform regardless of this setting, because they require environment-specific values.
+> **Note:** Core layers (monitoring, OADP, virtualization) are always applied by
+> Terraform regardless, because they require environment-specific values.
 
 ### Setup Your GitOps Repository
 
@@ -176,11 +182,10 @@ your-gitops-repo/
 ### Configure Terraform
 
 ```hcl
-install_gitops         = true
-layers_install_method  = "applicationset"
-gitops_repo_url        = "https://github.com/your-org/your-gitops-repo.git"
-gitops_repo_path       = "."  # or subdirectory
-gitops_repo_revision   = "main"
+install_gitops       = true
+gitops_repo_url      = "https://github.com/your-org/your-gitops-repo.git"
+gitops_repo_path     = "."     # or subdirectory
+gitops_repo_revision = "main"
 ```
 
 ArgoCD will sync your manifests automatically when changes are pushed to Git.

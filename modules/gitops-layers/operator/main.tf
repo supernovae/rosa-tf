@@ -60,6 +60,10 @@ locals {
     gitops         = "latest" # OpenShift GitOps operator
   }
 
+  # Whether the user has provided a custom GitOps repo for additional resources.
+  # When true, an ArgoCD ApplicationSet is created to sync from that repo.
+  has_custom_gitops_repo = var.gitops_repo_url != "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
+
   # ConfigMap data
   configmap_data = merge(
     {
@@ -302,7 +306,7 @@ data:
 #------------------------------------------------------------------------------
 
 resource "null_resource" "create_applicationset" {
-  count = var.layers_install_method == "applicationset" ? 1 : 0
+  count = local.has_custom_gitops_repo ? 1 : 0
 
   # Re-runs when GitOps repo configuration changes
   triggers = {
@@ -375,9 +379,8 @@ spec:
 #==============================================================================
 # DIRECT LAYER INSTALLATION (DRY)
 #
-# When layers_install_method = "direct", layers are installed via direct API
-# calls instead of ApplicationSet. This works in air-gapped environments
-# without requiring external Git access.
+# Core layers are always installed via direct API calls from Terraform.
+# This works in air-gapped environments without requiring external Git access.
 #
 # IMPORTANT: These resources read YAML from gitops-layers/layers/ directory.
 # This is the SINGLE SOURCE OF TRUTH - both direct and applicationset modes
