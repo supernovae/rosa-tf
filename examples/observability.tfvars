@@ -5,7 +5,8 @@
 # COPY this file to your environment and customize cluster_name, region, etc.
 #
 # What's different from dev.tfvars:
-#   - Dedicated monitoring machine pool with taints
+#   - Dedicated monitoring machine pool on Graviton (ARM) for cost efficiency
+#   - PreferNoSchedule taint biases observability workloads to dedicated nodes
 #   - monitoring_node_selector and monitoring_tolerations configured
 #   - Loki and Prometheus optimized for dedicated nodes
 #
@@ -82,22 +83,30 @@ admin_username    = "cluster-admin"
 #------------------------------------------------------------------------------
 # Machine Pools
 #
-# This is the key difference - a dedicated monitoring pool with taints
-# so only monitoring workloads run here.
+# Dedicated monitoring pool using AWS Graviton (ARM) instances for cost
+# efficiency. Graviton provides ~20-40% better price-performance vs x86
+# for workloads like Loki, Prometheus, and Vector that benefit from high
+# memory bandwidth and throughput.
+#
+# c7g.4xlarge: 16 vCPU, 32 GiB RAM (Graviton3, ARM64)
+# ~30% cheaper than equivalent c5.4xlarge (x86)
+#
+# PreferNoSchedule allows monitoring pods to land here preferentially
+# while not blocking scheduling if nodes are still initializing.
 #------------------------------------------------------------------------------
 
 machine_pools = [
   {
     name          = "monitoring"
-    instance_type = "m5.4xlarge" # Good balance for Loki components
-    replicas      = 3            # HA for Loki ingester/compactor
+    instance_type = "c7g.4xlarge" # Graviton3 ARM - best price-performance for observability
+    replicas      = 4             # 4 nodes for HA across Loki, Prometheus, Vector
     labels = {
       "node-role.kubernetes.io/monitoring" = ""
     }
     taints = [{
       key           = "workload"
       value         = "monitoring"
-      schedule_type = "NoSchedule"
+      schedule_type = "PreferNoSchedule"
     }]
   }
 ]
@@ -141,7 +150,7 @@ monitoring_tolerations = [
     key      = "workload"
     operator = "Equal"
     value    = "monitoring"
-    effect   = "NoSchedule"
+    effect   = "PreferNoSchedule"
   }
 ]
 

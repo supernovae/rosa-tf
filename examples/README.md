@@ -28,24 +28,25 @@ install_gitops  = false  # Disabled until operators mirrored
 
 ### `observability.tfvars`
 
-Dedicated monitoring nodes for the observability stack (Prometheus + Loki).
+Dedicated monitoring nodes on Graviton (ARM) for cost-efficient observability (Prometheus + Loki).
+Uses `c7g.4xlarge` instances (~30% cheaper than equivalent x86) with `PreferNoSchedule` taints.
 
 **Key configuration:**
 ```hcl
-# Dedicated monitoring machine pool with taints
+# Dedicated Graviton monitoring pool with PreferNoSchedule taint
 machine_pools = [
   {
     name          = "monitoring"
-    instance_type = "m5.4xlarge"
-    replicas      = 3
+    instance_type = "c7g.4xlarge"  # Graviton3 ARM - best price-performance
+    replicas      = 4
     labels        = { "node-role.kubernetes.io/monitoring" = "" }
-    taints        = [{ key = "workload", value = "monitoring", schedule_type = "NoSchedule" }]
+    taints        = [{ key = "workload", value = "monitoring", schedule_type = "PreferNoSchedule" }]
   }
 ]
 
 # LokiStack uses these to land on dedicated nodes
 monitoring_node_selector = { "node-role.kubernetes.io/monitoring" = "" }
-monitoring_tolerations   = [{ key = "workload", value = "monitoring", effect = "NoSchedule", operator = "Equal" }]
+monitoring_tolerations   = [{ key = "workload", value = "monitoring", effect = "PreferNoSchedule", operator = "Equal" }]
 ```
 
 ### `ocpvirtualization.tfvars`
