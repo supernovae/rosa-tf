@@ -6,11 +6,8 @@
 # - stable-6.2: OpenShift 4.16, 4.17, 4.18 (GovCloud)
 # - stable-6.4: OpenShift 4.19+ (Commercial HCP)
 #
-# When using layers_install_method = "direct" (default), Terraform
-# automatically selects the correct channel based on openshift_version.
-#
-# When using layers_install_method = "applicationset", you may need to
-# manually edit this file in your forked repo to match your OCP version.
+# Terraform automatically selects the correct channel based on
+# openshift_version when deploying this operator.
 #
 # The Loki Operator manages:
 # - LokiStack custom resource

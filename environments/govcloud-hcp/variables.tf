@@ -668,7 +668,13 @@ variable "install_gitops" {
 
 variable "gitops_repo_url" {
   type        = string
-  description = "Git repository URL for GitOps manifests (layers, custom apps)."
+  description = <<-EOT
+    Git repository URL for ADDITIONAL custom resources to deploy via ArgoCD.
+    This does NOT replace the built-in layers (monitoring, OADP, etc.) which
+    are always managed by Terraform. Use this for your own static manifests
+    (projects, quotas, RBAC, apps). When provided, an ArgoCD ApplicationSet
+    is created to sync from this repo.
+  EOT
   default     = null
 }
 
@@ -684,28 +690,7 @@ variable "gitops_repo_revision" {
   default     = null
 }
 
-variable "layers_install_method" {
-  type        = string
-  description = <<-EOT
-    How to install GitOps layers:
-    
-    "direct" (default):
-      - Applies layers from local manifests via API calls
-      - Works in air-gapped environments
-      - No external Git access required from cluster
-    
-    "applicationset":
-      - ArgoCD ApplicationSet pulls from your Git repo
-      - Requires cluster egress to Git + forked repo
-      - GitOps-native with automatic sync
-  EOT
-  default     = "direct"
 
-  validation {
-    condition     = contains(["direct", "applicationset"], var.layers_install_method)
-    error_message = "layers_install_method must be: direct or applicationset"
-  }
-}
 
 variable "gitops_oauth_url" {
   type        = string

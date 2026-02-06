@@ -47,8 +47,8 @@ output "layers_repo" {
 }
 
 output "applicationset_deployed" {
-  description = "Whether the layers ApplicationSet was deployed."
-  value       = var.layers_install_method == "applicationset"
+  description = "Whether a custom GitOps ApplicationSet was deployed."
+  value       = local.has_custom_gitops_repo
 }
 
 output "install_instructions" {

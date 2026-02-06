@@ -559,16 +559,15 @@ module "gitops" {
 | `virt_node_selector` | map(string) | `{ "node-role.kubernetes.io/virtualization" = "" }` | Node selector for HyperConverged CR |
 | `virt_tolerations` | list(object) | `[{ key = "virtualization", ... }]` | Tolerations for HyperConverged CR |
 
-### Installation Method
+### Additional GitOps Configuration
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `layers_install_method` | string | `"direct"` | `"direct"` (recommended) or `"applicationset"` |
-| `gitops_repo_url` | string | (default repo) | Git repo URL for YOUR additional static resources |
+| `gitops_repo_url` | string | (default repo) | Git repo URL for your additional custom resources (projects, quotas, RBAC). When provided, an ArgoCD ApplicationSet is created. |
 | `gitops_repo_revision` | string | `"main"` | Git branch/tag/commit |
 | `gitops_repo_path` | string | `"layers"` | Path within repo to manifests |
 
-**Note:** Core layers (monitoring, OADP, virtualization) are always installed via Terraform's direct method because they require environment-specific values. The `gitops_repo_url` is for your **additional** static resources that ArgoCD will sync.
+**Note:** Core layers (monitoring, OADP, virtualization) are always installed via Terraform because they require environment-specific values (S3 buckets, IAM roles). The `gitops_repo_url` is for your **additional** static resources that ArgoCD will sync.
 
 ### Advanced
 

@@ -273,10 +273,10 @@ monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
 # to prevent accidental data loss. After destroying the cluster, manually delete
 # buckets via: aws s3 rb s3://BUCKET_NAME --force
 
-# Installation method (default: "direct" - applies from local checkout)
-# Set to "applicationset" to have ArgoCD pull from your forked Git repo
-# layers_install_method = "applicationset"
-# gitops_repo_url       = "https://github.com/your-org/rosa-tf.git"
+# Additional GitOps configuration (optional)
+# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
+# via ArgoCD ApplicationSet alongside the built-in layers.
+# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
 
 # Override OAuth URL if auto-detection fails
 # gitops_oauth_url = "https://oauth-openshift.apps.<cluster>.<domain>"

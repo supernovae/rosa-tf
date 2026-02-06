@@ -181,7 +181,10 @@ gitops-layers/layers/newlayer/
 
 ### Step 5: Add Operator Module Logic
 
-Update `modules/gitops-layers/operator/main.tf` to deploy your layer:
+Update `modules/gitops-layers/operator/main.tf` to deploy your layer.
+
+> **Note:** The `layers_install_method` check is an internal guard (always "direct"). Keep
+> it in your count conditions for consistency with existing code.
 
 ```hcl
 # Add locals for templates
