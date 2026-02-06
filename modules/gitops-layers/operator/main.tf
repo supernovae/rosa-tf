@@ -64,6 +64,15 @@ locals {
   # When true, an ArgoCD ApplicationSet is created to sync from that repo.
   has_custom_gitops_repo = var.gitops_repo_url != "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
 
+  # Build the ApplicationSet generator list dynamically based on enabled layers.
+  # Only enabled layers get ArgoCD Applications - disabled layers are excluded
+  # to prevent ArgoCDSyncAlert firing for layers that don't exist on the cluster.
+  appset_layer_elements = join("\n", compact([
+    var.enable_layer_terminal ? "      - layer: terminal\n        enabled_key: layer_terminal_enabled\n        namespace: openshift-operators" : "",
+    var.enable_layer_oadp ? "      - layer: oadp\n        enabled_key: layer_oadp_enabled\n        namespace: openshift-adp" : "",
+    var.enable_layer_virtualization ? "      - layer: virtualization\n        enabled_key: layer_virtualization_enabled\n        namespace: openshift-cnv" : "",
+  ]))
+
   # ConfigMap data
   configmap_data = merge(
     {
@@ -306,14 +315,18 @@ data:
 #------------------------------------------------------------------------------
 
 resource "null_resource" "create_applicationset" {
-  count = local.has_custom_gitops_repo ? 1 : 0
+  # Only create when: (a) custom gitops repo is provided, AND (b) at least one layer is enabled
+  count = local.has_custom_gitops_repo && local.appset_layer_elements != "" ? 1 : 0
 
-  # Re-runs when GitOps repo configuration changes
+  # Re-runs when GitOps repo config OR enabled layers change
   triggers = {
     layers_config = sha256(jsonencode({
-      repo_url = var.gitops_repo_url
-      revision = var.gitops_repo_revision
-      path     = var.gitops_repo_path
+      repo_url         = var.gitops_repo_url
+      revision         = var.gitops_repo_revision
+      path             = var.gitops_repo_path
+      enabled_terminal = var.enable_layer_terminal
+      enabled_oadp     = var.enable_layer_oadp
+      enabled_virt     = var.enable_layer_virtualization
     }))
   }
 
@@ -332,15 +345,7 @@ spec:
   generators:
   - list:
       elements:
-      - layer: terminal
-        enabled_key: layer_terminal_enabled
-        namespace: openshift-operators
-      - layer: oadp
-        enabled_key: layer_oadp_enabled
-        namespace: openshift-adp
-      - layer: virtualization
-        enabled_key: layer_virtualization_enabled
-        namespace: openshift-cnv
+${local.appset_layer_elements}
   template:
     metadata:
       name: layer-{{layer}}
