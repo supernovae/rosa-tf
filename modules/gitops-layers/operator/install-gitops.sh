@@ -18,9 +18,6 @@ API_URL="$1"
 TOKEN="$2"
 ACTION="$3"
 
-# Standard headers
-HEADERS="-H 'Authorization: Bearer $TOKEN' -H 'Content-Type: application/yaml' -H 'Accept: application/yaml'"
-
 # Function to make API call and report result
 api_call() {
   local method="$1"
