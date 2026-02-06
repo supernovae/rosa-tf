@@ -195,27 +195,36 @@ resource "null_resource" "bucket_destroy_notice" {
   provisioner "local-exec" {
     when    = destroy
     command = <<-EOT
-      echo ""
-      echo "============================================="
-      echo "  S3 BUCKET RETAINED: ${self.triggers.bucket_name}"
-      echo "============================================="
-      echo ""
-      echo "  The Loki log storage bucket was NOT deleted."
-      echo "  It has been retained for data safety."
-      echo ""
-      echo "  To delete when you no longer need the logs:"
-      echo ""
-      echo "    # Empty the bucket first (including versions)"
-      echo "    aws s3api delete-objects --bucket ${self.triggers.bucket_name} \\"
-      echo "      --delete \"$(aws s3api list-object-versions \\"
-      echo "        --bucket ${self.triggers.bucket_name} \\"
-      echo "        --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \\"
-      echo "        --output json)\" --region ${self.triggers.aws_region}"
-      echo ""
-      echo "    # Then delete the bucket"
-      echo "    aws s3 rb s3://${self.triggers.bucket_name} --region ${self.triggers.aws_region}"
-      echo ""
-      echo "============================================="
+      BUCKET="${self.triggers.bucket_name}"
+      REGION="${self.triggers.aws_region}"
+      cat <<'NOTICE'
+
+=============================================
+  S3 BUCKET RETAINED
+=============================================
+
+  The Loki log storage bucket was NOT deleted.
+  It has been retained for data safety.
+
+  To delete when you no longer need the logs:
+
+    # Step 1: List and delete all object versions
+    aws s3api list-object-versions \
+      --bucket <BUCKET_NAME> \
+      --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+      --output json --region <REGION> \
+      | aws s3api delete-objects \
+        --bucket <BUCKET_NAME> \
+        --delete file:///dev/stdin \
+        --region <REGION>
+
+    # Step 2: Delete the empty bucket
+    aws s3 rb s3://<BUCKET_NAME> --region <REGION>
+
+=============================================
+NOTICE
+      echo "  Bucket: $BUCKET"
+      echo "  Region: $REGION"
       echo ""
     EOT
   }
