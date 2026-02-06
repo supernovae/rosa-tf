@@ -8,12 +8,12 @@
 
 output "loki_bucket_name" {
   description = "Name of the S3 bucket for Loki log storage."
-  value       = aws_s3_bucket.loki.id
+  value       = local.bucket_name
 }
 
 output "loki_bucket_arn" {
   description = "ARN of the S3 bucket for Loki log storage."
-  value       = aws_s3_bucket.loki.arn
+  value       = local.bucket_arn
 }
 
 output "loki_bucket_region" {
@@ -73,7 +73,7 @@ output "log_retention_hours" {
 output "gitops_config" {
   description = "Configuration values to pass to GitOps layer."
   value = {
-    bucket_name       = aws_s3_bucket.loki.id
+    bucket_name       = local.bucket_name
     bucket_region     = var.aws_region
     role_arn          = aws_iam_role.loki.arn
     s3_endpoint       = local.s3_endpoint

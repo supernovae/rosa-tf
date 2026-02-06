@@ -1,13 +1,19 @@
 #------------------------------------------------------------------------------
-# OADP Resources Module for ROSA Classic GovCloud
+# OADP Resources Module for ROSA
 #
 # This module creates the AWS resources required for OpenShift API for Data
 # Protection (OADP), which provides backup and restore capabilities using Velero.
 #
 # Resources created:
-# - S3 bucket for backup storage (with versioning and encryption)
+# - S3 bucket for backup storage (via CloudFormation with DeletionPolicy: Retain)
 # - IAM role with OIDC trust for the OADP service account
 # - IAM policy with S3 and EC2 permissions for Velero
+#
+# S3 LIFECYCLE:
+# The S3 bucket is created via CloudFormation with DeletionPolicy: Retain.
+# On terraform destroy, the CloudFormation stack is deleted but the bucket
+# is retained (not deleted). This avoids BucketNotEmpty errors and preserves
+# backup data. Users must manually delete the bucket when ready.
 #
 # The OADP operator and configuration are deployed via GitOps using the
 # rosa-gitops-config ConfigMap for values.
@@ -29,113 +35,173 @@ data "aws_region" "current" {}
 
 locals {
   # S3 bucket naming - must be DNS compliant (3-63 chars, lowercase, no consecutive hyphens)
-  # Pattern: {cluster_name}-{account_id}-oadp-backups
-  # Account ID = 12 chars, suffix = 12 chars, hyphens = 2 → max cluster_name = 37 chars
+  # Pattern: {cluster_name}-{random_8hex}-oadp-backups
+  # Random ID provides global uniqueness without leaking AWS account ID
   bucket_suffix       = "oadp-backups"
-  bucket_max_name_len = 63 - 12 - length(local.bucket_suffix) - 2 # 37 chars for cluster name
+  bucket_max_name_len = 63 - 8 - length(local.bucket_suffix) - 2 # 8 chars for random hex
   bucket_cluster_name = substr(lower(replace(var.cluster_name, "_", "-")), 0, local.bucket_max_name_len)
-  bucket_name         = "${local.bucket_cluster_name}-${data.aws_caller_identity.current.account_id}-${local.bucket_suffix}"
+  bucket_name         = "${local.bucket_cluster_name}-${random_id.bucket_suffix.hex}-${local.bucket_suffix}"
+
+  # Bucket ARN is constructed from the name since CloudFormation outputs
+  # the bucket name and we derive the ARN from it
+  bucket_arn = "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}"
 }
 
 #------------------------------------------------------------------------------
-# S3 Bucket for OADP Backups
+# Random ID for Bucket Naming
+# Provides global uniqueness without exposing AWS account ID
 #------------------------------------------------------------------------------
 
-resource "aws_s3_bucket" "oadp" {
-  # DNS-compliant bucket name with account ID for global uniqueness
-  bucket = local.bucket_name
+resource "random_id" "bucket_suffix" {
+  byte_length = 4 # 8 hex characters
 
-  # force_destroy = false means non-empty buckets fail with "BucketNotEmpty"
-  # This protects data while allowing terraform destroy to proceed after cleanup
-  force_destroy = false
+  keepers = {
+    cluster_name = var.cluster_name
+  }
+}
+
+#------------------------------------------------------------------------------
+# S3 Bucket for OADP Backups (via CloudFormation with DeletionPolicy: Retain)
+#
+# Using CloudFormation ensures the bucket is RETAINED when terraform destroy
+# runs. This avoids BucketNotEmpty errors and preserves backup data.
+#------------------------------------------------------------------------------
+
+resource "aws_cloudformation_stack" "oadp_bucket" {
+  name = "${var.cluster_name}-oadp-bucket"
+
+  template_body = jsonencode({
+    AWSTemplateFormatVersion = "2010-09-09"
+    Description              = "S3 bucket for OADP backup storage (${var.cluster_name}). DeletionPolicy: Retain ensures bucket survives stack deletion."
+
+    Resources = {
+      OADPBucket = {
+        Type                = "AWS::S3::Bucket"
+        DeletionPolicy      = "Retain"
+        UpdateReplacePolicy = "Retain"
+        Properties = merge(
+          {
+            BucketName = local.bucket_name
+            VersioningConfiguration = {
+              Status = "Enabled"
+            }
+            BucketEncryption = {
+              ServerSideEncryptionConfiguration = [
+                {
+                  ServerSideEncryptionByDefault = var.kms_key_arn != null ? {
+                    SSEAlgorithm   = "aws:kms"
+                    KMSMasterKeyID = var.kms_key_arn
+                    } : {
+                    SSEAlgorithm = "AES256"
+                  }
+                  BucketKeyEnabled = var.kms_key_arn != null
+                }
+              ]
+            }
+            PublicAccessBlockConfiguration = {
+              BlockPublicAcls       = true
+              BlockPublicPolicy     = true
+              IgnorePublicAcls      = true
+              RestrictPublicBuckets = true
+            }
+            Tags = concat(
+              [
+                { Key = "Name", Value = local.bucket_name },
+                { Key = "rosa-gitops-layer", Value = "oadp" },
+                { Key = "velero.io/backup-bucket", Value = "true" }
+              ],
+              [for k, v in var.tags : { Key = k, Value = v }]
+            )
+          },
+          var.backup_retention_days > 0 ? {
+            LifecycleConfiguration = {
+              Rules = [
+                {
+                  Id     = "abort-incomplete-uploads"
+                  Status = "Enabled"
+                  AbortIncompleteMultipartUpload = {
+                    DaysAfterInitiation = 7
+                  }
+                },
+                {
+                  Id               = "backup-retention"
+                  Status           = "Enabled"
+                  Prefix           = "backups/"
+                  ExpirationInDays = var.backup_retention_days
+                  NoncurrentVersionExpiration = {
+                    NoncurrentDays = var.backup_retention_days
+                  }
+                },
+                {
+                  Id               = "restic-retention"
+                  Status           = "Enabled"
+                  Prefix           = "restic/"
+                  ExpirationInDays = var.backup_retention_days
+                  NoncurrentVersionExpiration = {
+                    NoncurrentDays = var.backup_retention_days
+                  }
+                }
+              ]
+            }
+          } : {}
+        )
+      }
+    }
+
+    Outputs = {
+      BucketName = {
+        Value = { Ref = "OADPBucket" }
+      }
+      BucketArn = {
+        Value = { "Fn::GetAtt" = ["OADPBucket", "Arn"] }
+      }
+    }
+  })
 
   tags = merge(
     var.tags,
     {
-      Name                      = local.bucket_name
-      "rosa-gitops-layer"       = "oadp"
-      "velero.io/backup-bucket" = "true"
+      "rosa-gitops-layer" = "oadp"
     }
   )
 }
 
-resource "aws_s3_bucket_versioning" "oadp" {
-  bucket = aws_s3_bucket.oadp.id
+#------------------------------------------------------------------------------
+# Destroy-time notice: remind user to clean up the retained bucket
+#------------------------------------------------------------------------------
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "oadp" {
-  bucket = aws_s3_bucket.oadp.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = var.kms_key_arn != null ? "aws:kms" : "AES256"
-      kms_master_key_id = var.kms_key_arn
-    }
-    bucket_key_enabled = var.kms_key_arn != null
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "oadp" {
-  bucket = aws_s3_bucket.oadp.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "oadp" {
-  count  = var.backup_retention_days > 0 ? 1 : 0
-  bucket = aws_s3_bucket.oadp.id
-
-  # Abort incomplete multipart uploads after 7 days (CKV_AWS_300)
-  rule {
-    id     = "abort-incomplete-uploads"
-    status = "Enabled"
-
-    filter {}
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
+resource "null_resource" "bucket_destroy_notice" {
+  triggers = {
+    bucket_name = local.bucket_name
+    aws_region  = data.aws_region.current.id
   }
 
-  rule {
-    id     = "backup-retention"
-    status = "Enabled"
-
-    filter {
-      prefix = "backups/"
-    }
-
-    expiration {
-      days = var.backup_retention_days
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = var.backup_retention_days
-    }
-  }
-
-  rule {
-    id     = "restic-retention"
-    status = "Enabled"
-
-    filter {
-      prefix = "restic/"
-    }
-
-    expiration {
-      days = var.backup_retention_days
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = var.backup_retention_days
-    }
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      echo ""
+      echo "============================================="
+      echo "  S3 BUCKET RETAINED: ${self.triggers.bucket_name}"
+      echo "============================================="
+      echo ""
+      echo "  The OADP backup bucket was NOT deleted."
+      echo "  It has been retained for data safety."
+      echo ""
+      echo "  To delete when you no longer need the backups:"
+      echo ""
+      echo "    # Empty the bucket first (including versions)"
+      echo "    aws s3api delete-objects --bucket ${self.triggers.bucket_name} \\"
+      echo "      --delete \"$(aws s3api list-object-versions \\"
+      echo "        --bucket ${self.triggers.bucket_name} \\"
+      echo "        --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \\"
+      echo "        --output json)\" --region ${self.triggers.aws_region}"
+      echo ""
+      echo "    # Then delete the bucket"
+      echo "    aws s3 rb s3://${self.triggers.bucket_name} --region ${self.triggers.aws_region}"
+      echo ""
+      echo "============================================="
+      echo ""
+    EOT
   }
 }
 
@@ -195,7 +261,7 @@ data "aws_iam_policy_document" "oadp" {
       "s3:ListBucket",
       "s3:ListBucketMultipartUploads"
     ]
-    resources = [aws_s3_bucket.oadp.arn]
+    resources = [local.bucket_arn]
   }
 
   statement {
@@ -208,7 +274,7 @@ data "aws_iam_policy_document" "oadp" {
       "s3:ListMultipartUploadParts",
       "s3:PutObject"
     ]
-    resources = ["${aws_s3_bucket.oadp.arn}/*"]
+    resources = ["${local.bucket_arn}/*"]
   }
 
   # EC2 permissions for volume snapshots

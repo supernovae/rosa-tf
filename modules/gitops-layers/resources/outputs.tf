@@ -92,16 +92,15 @@ output "layer_config" {
 
 output "s3_buckets_requiring_manual_cleanup" {
   description = <<-EOT
-    S3 buckets created by GitOps layers that require manual cleanup.
+    S3 buckets created by GitOps layers that are retained on destroy.
     
-    IMPORTANT: These buckets are NOT deleted by terraform destroy to prevent
-    accidental data loss. After destroying the cluster, manually delete these
-    buckets if you no longer need the data:
+    These buckets use CloudFormation DeletionPolicy: Retain, so they
+    survive terraform destroy to protect log and backup data. During
+    destroy, Terraform prints cleanup commands for each bucket.
     
-    To delete (AWS CLI):
-      aws s3 rb s3://BUCKET_NAME --force
-    
-    Or via AWS Console: Empty bucket contents first, then delete bucket.
+    To delete manually when you no longer need the data:
+      1. Empty the bucket (including version markers)
+      2. Delete the bucket: aws s3 rb s3://BUCKET_NAME
   EOT
   value = compact([
     var.enable_layer_oadp ? module.oadp[0].bucket_name : "",
