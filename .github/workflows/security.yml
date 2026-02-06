@@ -73,7 +73,7 @@ jobs:
           soft_fail: true
           output_format: sarif
           output_file_path: checkov-results.sarif
-          skip_check: CKV_AWS_144,CKV_AWS_145  # Skip cross-region replication checks
+          skip_check: CKV_AWS_144,CKV_AWS_145,CKV_AWS_124  # Skip cross-region replication + CFn SNS (Terraform-managed stacks)
 
       - name: Upload Checkov results
         uses: github/codeql-action/upload-sarif@v4

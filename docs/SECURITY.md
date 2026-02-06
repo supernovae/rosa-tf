@@ -61,6 +61,7 @@ This project uses multiple security scanning tools to ensure:
 |----------|-------------|---------------|
 | `CKV_AWS_144` | Ensure S3 bucket has cross-region replication enabled | **Not applicable for ROSA.** ROSA clusters are single-region deployments. Cross-region replication would conflict with data residency requirements for GovCloud/FedRAMP workloads. Backup/DR is handled by OADP with customer-configured backup locations. |
 | `CKV_AWS_145` | Ensure S3 bucket is encrypted with KMS CMK | **Handled differently.** We use `cluster_kms_mode` and `infra_kms_mode` variables to allow users to choose between provider-managed (AWS managed keys) and customer-managed KMS keys. For GovCloud, customer-managed keys are enforced by default. |
+| `CKV_AWS_124` | Ensure CloudFormation stacks send event notifications to SNS | **Not applicable.** CloudFormation stacks are Terraform-managed wrappers used solely for `DeletionPolicy: Retain` on S3 buckets (Loki logs, OADP backups). Terraform controls all stack lifecycle events. SNS notifications add no operational value for these ephemeral infrastructure stacks. |
 
 ### Checkov Expected Failures (Documented)
 
