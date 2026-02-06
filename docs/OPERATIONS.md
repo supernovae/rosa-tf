@@ -386,50 +386,7 @@ Follow this guide to completely destroy a cluster and clean up all resources.
 cd environments/<environment>  # e.g., commercial-hcp, govcloud-classic
 ```
 
-#### Step 2: Check for S3 Buckets (if monitoring or OADP enabled)
-
-If you enabled `enable_layer_monitoring` or `enable_layer_oadp`, you have S3 buckets 
-that need attention before destroy:
-
-```bash
-# See which buckets exist
-terraform output s3_buckets_requiring_manual_cleanup
-```
-
-**Choose one option:**
-
-| Option | When to Use | Command |
-|--------|-------------|---------|
-| **Delete data** | You don't need logs/backups | See "Empty Buckets" below |
-| **Keep data** | You want to preserve logs/backups | See "Remove from State" below |
-| **Skip** | Buckets are already empty | Proceed to Step 3 |
-
-**Empty Buckets (deletes all data):**
-```bash
-# For each bucket (replace BUCKET with actual name)
-BUCKET="your-cluster-123456789012-loki-logs"
-
-# Delete all objects
-aws s3 rm s3://${BUCKET} --recursive
-
-# Delete version markers (required for versioned buckets)
-aws s3api list-object-versions --bucket ${BUCKET} --output json | \
-  jq -r '.Versions[]? | "\(.Key) \(.VersionId)"' | \
-  while read key version; do
-    aws s3api delete-object --bucket ${BUCKET} --key "$key" --version-id "$version"
-  done
-```
-
-**Remove from State (keeps buckets in AWS):**
-```bash
-# Remove Loki bucket from Terraform (if monitoring enabled)
-terraform state rm 'module.gitops_resources[0].module.monitoring[0].aws_s3_bucket.loki'
-
-# Remove OADP bucket from Terraform (if OADP enabled)
-terraform state rm 'module.gitops_resources[0].module.oadp[0].aws_s3_bucket.oadp'
-```
-
-#### Step 3: Run Destroy
+#### Step 2: Run Destroy
 
 ```bash
 # Standard destroy - disables GitOps to avoid cluster connectivity issues
@@ -446,12 +403,38 @@ terraform destroy \
 > destroyed when the cluster is deleted. Disabling GitOps skips cluster API authentication, 
 > which avoids connectivity issues (especially for private clusters or when VPN is down).
 
+#### Step 3: Clean Up Retained S3 Buckets
+
+If you had monitoring or OADP enabled, S3 buckets are **retained** (not deleted) during
+destroy to protect your log and backup data. During destroy, Terraform prints the bucket
+names and cleanup commands.
+
+When you are ready to delete the data:
+
+```bash
+# For each retained bucket (replace BUCKET_NAME with the name from destroy output)
+BUCKET="dev-hcp-a3f7b2c1-loki-logs"
+
+# Delete all objects and version markers
+aws s3api delete-objects --bucket ${BUCKET} \
+  --delete "$(aws s3api list-object-versions \
+    --bucket ${BUCKET} \
+    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+    --output json)"
+
+# Then delete the empty bucket
+aws s3 rb s3://${BUCKET}
+```
+
+> **Note:** You can keep the buckets as long as needed for compliance or auditing.
+> S3 lifecycle rules will continue to expire old data per the retention settings.
+
 #### Step 4: Verify Cleanup
 
 After destroy completes:
 
 ```bash
-# Check for any remaining S3 buckets (if you chose "Remove from State")
+# Check for retained S3 buckets
 aws s3 ls | grep your-cluster-name
 
 # Verify no orphaned resources
@@ -462,14 +445,11 @@ aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*your-cluster-name*"
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `BucketNotEmpty` | S3 bucket has data | Empty bucket or remove from state (Step 2) |
 | `Token is empty` | GitOps trying to auth | Add `-var="install_gitops=false"` |
 | `connection refused` | Cluster API unreachable | Add `-var="install_gitops=false"` |
 | VPC deletion fails | Resources still attached | Wait 5 min, retry; check for orphaned ENIs |
 
-#### Quick One-Liner (for empty/new clusters)
-
-If your cluster has no data in S3 buckets (new cluster, never used monitoring/OADP):
+#### Quick One-Liner
 
 ```bash
 terraform destroy -var-file="dev.tfvars" -var="install_gitops=false" \

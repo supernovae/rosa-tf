@@ -4,16 +4,18 @@
 # This module creates the AWS resources required for OpenShift monitoring
 # and logging with Loki. It provides:
 #
-# - S3 bucket for Loki log storage (with versioning and encryption)
+# - S3 bucket for Loki log storage (via CloudFormation with DeletionPolicy: Retain)
 # - IAM role with OIDC trust for the Loki service account
 # - IAM policy with S3 permissions for Loki
 #
+# S3 LIFECYCLE:
+# The S3 bucket is created via CloudFormation with DeletionPolicy: Retain.
+# On terraform destroy, the CloudFormation stack is deleted but the bucket
+# is retained (not deleted). This avoids BucketNotEmpty errors and preserves
+# log data for compliance. Users must manually delete the bucket when ready.
+#
 # The monitoring operators and configuration are deployed via GitOps using
 # the rosa-gitops-config ConfigMap for values.
-#
-# Supports both:
-# - GovCloud (4.16): logging.openshift.io/v1 API
-# - Commercial (4.17+): observability.openshift.io/v1 API
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -32,18 +34,18 @@ data "aws_region" "current" {}
 
 locals {
   # S3 bucket naming - must be DNS compliant (3-63 chars, lowercase, no consecutive hyphens)
-  # Pattern: {cluster_name}-{account_id}-loki-logs
-  # Account ID = 12 chars, suffix = 10 chars, hyphens = 2 → max cluster_name = 39 chars
+  # Pattern: {cluster_name}-{random_8hex}-loki-logs
+  # Random ID provides global uniqueness without leaking AWS account ID
   bucket_suffix         = "loki-logs"
-  bucket_max_name_len   = 63 - 12 - length(local.bucket_suffix) - 2 # 39 chars for cluster name
+  bucket_max_name_len   = 63 - 8 - length(local.bucket_suffix) - 2 # 8 chars for random hex
   bucket_cluster_name   = substr(lower(replace(var.cluster_name, "_", "-")), 0, local.bucket_max_name_len)
-  bucket_name_generated = "${local.bucket_cluster_name}-${data.aws_caller_identity.current.account_id}-${local.bucket_suffix}"
+  bucket_name_generated = "${local.bucket_cluster_name}-${random_id.bucket_suffix.hex}-${local.bucket_suffix}"
   bucket_name           = var.s3_bucket_name != "" ? var.s3_bucket_name : local.bucket_name_generated
 
   # S3 endpoint URL varies by partition
   # GovCloud: s3.us-gov-west-1.amazonaws.com
   # Commercial: s3.us-east-1.amazonaws.com
-  s3_endpoint = var.is_govcloud ? "s3.${var.aws_region}.amazonaws.com" : "s3.${var.aws_region}.amazonaws.com"
+  s3_endpoint = "s3.${var.aws_region}.amazonaws.com"
 
   # Logging namespace - consistent across all supported versions
   # Minimum supported: OpenShift 4.16 with Logging Operator 6.x
@@ -59,107 +61,163 @@ locals {
     "system:serviceaccount:${local.loki_namespace}:logging-loki",
     "system:serviceaccount:${local.loki_namespace}:logging-loki-ruler"
   ]
+
+  # Bucket ARN is constructed from the name since CloudFormation outputs
+  # the bucket name and we derive the ARN from it
+  bucket_arn = "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}"
 }
 
 #------------------------------------------------------------------------------
-# S3 Bucket for Loki Logs
+# Random ID for Bucket Naming
+# Provides global uniqueness without exposing AWS account ID
 #------------------------------------------------------------------------------
 
-resource "aws_s3_bucket" "loki" {
-  bucket = local.bucket_name
+resource "random_id" "bucket_suffix" {
+  byte_length = 4 # 8 hex characters
 
-  # force_destroy = false means non-empty buckets fail with "BucketNotEmpty"
-  # This protects data while allowing terraform destroy to proceed after cleanup
-  force_destroy = false
+  keepers = {
+    cluster_name = var.cluster_name
+  }
+}
+
+#------------------------------------------------------------------------------
+# S3 Bucket for Loki Logs (via CloudFormation with DeletionPolicy: Retain)
+#
+# Using CloudFormation ensures the bucket is RETAINED when terraform destroy
+# runs. This avoids BucketNotEmpty errors and preserves log data.
+#------------------------------------------------------------------------------
+
+resource "aws_cloudformation_stack" "loki_bucket" {
+  name = "${var.cluster_name}-loki-bucket"
+
+  template_body = jsonencode({
+    AWSTemplateFormatVersion = "2010-09-09"
+    Description              = "S3 bucket for Loki log storage (${var.cluster_name}). DeletionPolicy: Retain ensures bucket survives stack deletion."
+
+    Resources = {
+      LokiBucket = {
+        Type                = "AWS::S3::Bucket"
+        DeletionPolicy      = "Retain"
+        UpdateReplacePolicy = "Retain"
+        Properties = {
+          BucketName = local.bucket_name
+          VersioningConfiguration = {
+            Status = "Enabled"
+          }
+          BucketEncryption = {
+            ServerSideEncryptionConfiguration = [
+              {
+                ServerSideEncryptionByDefault = var.kms_key_arn != null ? {
+                  SSEAlgorithm   = "aws:kms"
+                  KMSMasterKeyID = var.kms_key_arn
+                  } : {
+                  SSEAlgorithm = "AES256"
+                }
+                BucketKeyEnabled = var.kms_key_arn != null
+              }
+            ]
+          }
+          PublicAccessBlockConfiguration = {
+            BlockPublicAcls       = true
+            BlockPublicPolicy     = true
+            IgnorePublicAcls      = true
+            RestrictPublicBuckets = true
+          }
+          LifecycleConfiguration = {
+            Rules = [
+              {
+                Id     = "abort-incomplete-uploads"
+                Status = "Enabled"
+                AbortIncompleteMultipartUpload = {
+                  DaysAfterInitiation = 7
+                }
+              },
+              {
+                Id               = "log-retention"
+                Status           = "Enabled"
+                Prefix           = "chunks/"
+                ExpirationInDays = var.log_retention_days
+                NoncurrentVersionExpiration = {
+                  NoncurrentDays = var.log_retention_days
+                }
+              },
+              {
+                Id               = "index-retention"
+                Status           = "Enabled"
+                Prefix           = "index/"
+                ExpirationInDays = var.log_retention_days
+                NoncurrentVersionExpiration = {
+                  NoncurrentDays = var.log_retention_days
+                }
+              }
+            ]
+          }
+          Tags = concat(
+            [
+              { Key = "Name", Value = local.bucket_name },
+              { Key = "rosa-gitops-layer", Value = "monitoring" },
+              { Key = "loki.grafana.com", Value = "storage" }
+            ],
+            [for k, v in var.tags : { Key = k, Value = v }]
+          )
+        }
+      }
+    }
+
+    Outputs = {
+      BucketName = {
+        Value = { Ref = "LokiBucket" }
+      }
+      BucketArn = {
+        Value = { "Fn::GetAtt" = ["LokiBucket", "Arn"] }
+      }
+    }
+  })
 
   tags = merge(
     var.tags,
     {
-      Name                = local.bucket_name
       "rosa-gitops-layer" = "monitoring"
-      "loki.grafana.com"  = "storage"
     }
   )
 }
 
-resource "aws_s3_bucket_versioning" "loki" {
-  bucket = aws_s3_bucket.loki.id
+#------------------------------------------------------------------------------
+# Destroy-time notice: remind user to clean up the retained bucket
+#------------------------------------------------------------------------------
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "loki" {
-  bucket = aws_s3_bucket.loki.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = var.kms_key_arn != null ? "aws:kms" : "AES256"
-      kms_master_key_id = var.kms_key_arn
-    }
-    bucket_key_enabled = var.kms_key_arn != null
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "loki" {
-  bucket = aws_s3_bucket.loki.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "loki" {
-  bucket = aws_s3_bucket.loki.id
-
-  # Abort incomplete multipart uploads after 7 days
-  rule {
-    id     = "abort-incomplete-uploads"
-    status = "Enabled"
-
-    filter {}
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
+resource "null_resource" "bucket_destroy_notice" {
+  triggers = {
+    bucket_name = local.bucket_name
+    aws_region  = var.aws_region
   }
 
-  # Expire log chunks after retention period
-  rule {
-    id     = "log-retention"
-    status = "Enabled"
-
-    filter {
-      prefix = "chunks/"
-    }
-
-    expiration {
-      days = var.log_retention_days
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = var.log_retention_days
-    }
-  }
-
-  # Expire index files after retention period
-  rule {
-    id     = "index-retention"
-    status = "Enabled"
-
-    filter {
-      prefix = "index/"
-    }
-
-    expiration {
-      days = var.log_retention_days
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = var.log_retention_days
-    }
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      echo ""
+      echo "============================================="
+      echo "  S3 BUCKET RETAINED: ${self.triggers.bucket_name}"
+      echo "============================================="
+      echo ""
+      echo "  The Loki log storage bucket was NOT deleted."
+      echo "  It has been retained for data safety."
+      echo ""
+      echo "  To delete when you no longer need the logs:"
+      echo ""
+      echo "    # Empty the bucket first (including versions)"
+      echo "    aws s3api delete-objects --bucket ${self.triggers.bucket_name} \\"
+      echo "      --delete \"$(aws s3api list-object-versions \\"
+      echo "        --bucket ${self.triggers.bucket_name} \\"
+      echo "        --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \\"
+      echo "        --output json)\" --region ${self.triggers.aws_region}"
+      echo ""
+      echo "    # Then delete the bucket"
+      echo "    aws s3 rb s3://${self.triggers.bucket_name} --region ${self.triggers.aws_region}"
+      echo ""
+      echo "============================================="
+      echo ""
+    EOT
   }
 }
 
@@ -216,7 +274,7 @@ data "aws_iam_policy_document" "loki" {
       "s3:ListBucket",
       "s3:ListBucketMultipartUploads"
     ]
-    resources = [aws_s3_bucket.loki.arn]
+    resources = [local.bucket_arn]
   }
 
   # S3 object-level permissions
@@ -230,7 +288,7 @@ data "aws_iam_policy_document" "loki" {
       "s3:ListMultipartUploadParts",
       "s3:PutObject"
     ]
-    resources = ["${aws_s3_bucket.loki.arn}/*"]
+    resources = ["${local.bucket_arn}/*"]
   }
 
   # KMS permissions (if using KMS encryption)

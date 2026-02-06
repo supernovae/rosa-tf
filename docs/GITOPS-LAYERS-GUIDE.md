@@ -99,23 +99,26 @@ mkdir modules/gitops-layers/newlayer
 
 **modules/gitops-layers/newlayer/main.tf:**
 ```hcl
-# Data sources for account info
-data "aws_caller_identity" "current" {}
-
-# S3 bucket naming - must be DNS compliant (3-63 chars)
-# Pattern: {cluster_name}-{account_id}-{suffix}
-# Account ID = 12 chars, so max cluster_name = 63 - 12 - suffix_len - 2
-locals {
-  bucket_suffix       = "newlayer-data"  # Your suffix here
-  bucket_max_name_len = 63 - 12 - length(local.bucket_suffix) - 2
-  bucket_cluster_name = substr(lower(replace(var.cluster_name, "_", "-")), 0, local.bucket_max_name_len)
-  bucket_name         = "${local.bucket_cluster_name}-${data.aws_caller_identity.current.account_id}-${local.bucket_suffix}"
+# Random ID for globally unique bucket naming (avoids leaking account ID)
+resource "random_id" "bucket_suffix" {
+  byte_length = 4  # 8 hex characters
+  keepers     = { cluster_name = var.cluster_name }
 }
 
-# Create required AWS resources
-resource "aws_s3_bucket" "newlayer" {
-  bucket = local.bucket_name
-  # ...
+# S3 bucket naming - must be DNS compliant (3-63 chars)
+# Pattern: {cluster_name}-{random_8hex}-{suffix}
+locals {
+  bucket_suffix       = "newlayer-data"  # Your suffix here
+  bucket_max_name_len = 63 - 8 - length(local.bucket_suffix) - 2
+  bucket_cluster_name = substr(lower(replace(var.cluster_name, "_", "-")), 0, local.bucket_max_name_len)
+  bucket_name         = "${local.bucket_cluster_name}-${random_id.bucket_suffix.hex}-${local.bucket_suffix}"
+}
+
+# Create S3 bucket via CloudFormation with DeletionPolicy: Retain
+# This ensures terraform destroy completes cleanly without BucketNotEmpty errors
+resource "aws_cloudformation_stack" "newlayer_bucket" {
+  name          = "${var.cluster_name}-newlayer-bucket"
+  template_body = jsonencode({ /* see monitoring/main.tf for full example */ })
 }
 
 resource "aws_iam_role" "newlayer" {

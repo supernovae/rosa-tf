@@ -81,20 +81,26 @@ S3 bucket names must be:
 ### Default Naming Pattern
 
 ```
-{cluster_name}-{account_id}-loki-logs
+{cluster_name}-{random_8hex}-loki-logs
 ```
 
 The module automatically:
-- Includes your AWS account ID for global uniqueness
-- Truncates cluster name to 39 characters max (ensures total ≤ 63 chars)
+- Generates a random 8-character hex suffix for global uniqueness
+- Truncates cluster name to fit within the 63-character S3 limit
 - Converts to lowercase and replaces underscores with hyphens
 
-**Example**: For cluster `my-rosa-production-cluster` in account `123456789012`:
+**Example**: For cluster `my-rosa-prod`:
 ```
-my-rosa-production-cluster-123456789012-loki-logs
+my-rosa-prod-a3f7b2c1-loki-logs
 ```
 
-### Why Include Account ID?
+### S3 Bucket Lifecycle
+
+The S3 bucket is created via CloudFormation with `DeletionPolicy: Retain`. On
+`terraform destroy`, the bucket is **retained** (not deleted) to protect log data.
+During destroy, Terraform prints cleanup commands for the retained bucket.
+
+### Why Use a Random Suffix?
 
 Without the account ID, generic names like `rosa-dev-loki-logs` will fail if:
 - Another AWS account (anywhere in the world) already owns that bucket name

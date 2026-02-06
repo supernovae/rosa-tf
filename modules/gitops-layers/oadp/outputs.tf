@@ -4,12 +4,12 @@
 
 output "bucket_name" {
   description = "Name of the S3 bucket for OADP backups."
-  value       = aws_s3_bucket.oadp.id
+  value       = local.bucket_name
 }
 
 output "bucket_arn" {
   description = "ARN of the S3 bucket for OADP backups."
-  value       = aws_s3_bucket.oadp.arn
+  value       = local.bucket_arn
 }
 
 output "bucket_region" {
@@ -31,8 +31,8 @@ output "role_name" {
 output "gitops_config" {
   description = "Configuration values to add to the GitOps ConfigMap bridge."
   value = {
-    oadp_bucket_name = aws_s3_bucket.oadp.id
-    oadp_bucket_arn  = aws_s3_bucket.oadp.arn
+    oadp_bucket_name = local.bucket_name
+    oadp_bucket_arn  = local.bucket_arn
     oadp_role_arn    = aws_iam_role.oadp.arn
     oadp_region      = data.aws_region.current.id
   }

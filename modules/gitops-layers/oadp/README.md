@@ -52,20 +52,24 @@ S3 bucket names must be:
 ### Default Naming Pattern
 
 ```
-{cluster_name}-{account_id}-oadp-backups
+{cluster_name}-{random_8hex}-oadp-backups
 ```
 
 The module automatically:
-- Includes your AWS account ID for global uniqueness
-- Truncates cluster name to 37 characters max (ensures total ≤ 63 chars)
+- Generates a random 8-character hex suffix for global uniqueness
+- Truncates cluster name to fit within the 63-character S3 limit
 - Converts to lowercase and replaces underscores with hyphens
 
-**Example**: For cluster `rosa-prod` in account `123456789012`:
+**Example**: For cluster `prod-hcp`:
 ```
-rosa-prod-123456789012-oadp-backups
+prod-hcp-a3f7b2c1-oadp-backups
 ```
 
-This prevents errors when another account already owns a generic name.
+### S3 Bucket Lifecycle
+
+The S3 bucket is created via CloudFormation with `DeletionPolicy: Retain`. On
+`terraform destroy`, the bucket is **retained** (not deleted) to protect backup data.
+During destroy, Terraform prints cleanup commands for the retained bucket.
 
 ## Inputs
 

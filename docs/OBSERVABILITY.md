@@ -122,43 +122,34 @@ When destroying a cluster with the monitoring layer enabled, the Loki S3 bucket
 may fail to delete because it contains log data. This is expected behavior to 
 protect your data.
 
-**After `terraform destroy` completes (with bucket error), clean up manually:**
+**S3 buckets are retained on `terraform destroy`** -- they are not deleted, to protect your
+log data. During destroy, Terraform prints the bucket name and cleanup commands. When you
+are ready to delete:
 
 ```bash
-# Set your cluster name and get AWS account ID
-CLUSTER_NAME="my-cluster"
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-BUCKET="${CLUSTER_NAME}-${AWS_ACCOUNT_ID}-loki-logs"
+# Use the bucket name from the destroy output
+BUCKET="dev-hcp-a3f7b2c1-loki-logs"
 
-# Delete all objects (including versions due to versioning)
-aws s3 rm s3://${BUCKET} --recursive
+# Delete all objects and version markers
+aws s3api delete-objects --bucket ${BUCKET} \
+  --delete "$(aws s3api list-object-versions \
+    --bucket ${BUCKET} \
+    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+    --output json)"
 
-# Delete all version markers (required for versioned buckets)
-aws s3api list-object-versions --bucket ${BUCKET} --query 'Versions[*].[Key,VersionId]' --output text | \
-  while read key version; do
-    aws s3api delete-object --bucket ${BUCKET} --key "$key" --version-id "$version"
-  done
-
-# Delete any delete markers
-aws s3api list-object-versions --bucket ${BUCKET} --query 'DeleteMarkers[*].[Key,VersionId]' --output text | \
-  while read key version; do
-    aws s3api delete-object --bucket ${BUCKET} --key "$key" --version-id "$version"
-  done
-
-# Finally delete the empty bucket
+# Then delete the empty bucket
 aws s3 rb s3://${BUCKET}
 ```
 
-**Note:** S3 buckets are intentionally NOT deleted on `terraform destroy` to prevent accidental
-data loss. This is by design - the bucket names are shown in the `s3_buckets_requiring_manual_cleanup`
-output after terraform apply. Manual cleanup is required after cluster destruction.
+**Note:** You can keep the bucket as long as needed. S3 lifecycle rules continue to
+expire old data per the configured retention period.
 
 ## S3 Storage for Loki
 
 Loki stores logs in S3 using STS/IRSA authentication (no static credentials).
 
 The module automatically:
-1. Creates an S3 bucket: `{cluster_name}-{account_id}-loki-logs`
+1. Creates an S3 bucket: `{cluster_name}-{random_8hex}-loki-logs`
 2. Creates an IAM role with OIDC trust policy
 3. Configures the Loki secret for STS authentication
 
@@ -168,9 +159,9 @@ For STS/IRSA authentication, the secret must contain only:
 
 ```yaml
 stringData:
-  bucketnames: my-cluster-loki-logs
+  bucketnames: dev-hcp-a3f7b2c1-loki-logs
   region: us-east-1
-  role_arn: arn:aws:iam::123456789:role/my-cluster-loki
+  role_arn: arn:aws:iam::123456789:role/dev-hcp-loki
 ```
 
 **Important:** Do NOT include `endpoint` or `access_key_*` fields - their presence forces static credential mode instead of STS.
