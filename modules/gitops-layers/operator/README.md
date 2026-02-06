@@ -681,14 +681,15 @@ HTTP 409 (Conflict) is treated as success - the resource already exists, which i
 The cluster-auth module includes automatic retry logic to handle temporary OAuth unavailability. This is common during initial cluster creation when the OAuth server restarts after IDP configuration.
 
 **Default behavior:**
-- 6 retry attempts with exponential backoff (10s → 20s → 30s...)
-- ~2 minute maximum wait before failing
+- 10 retry attempts with exponential backoff (10s → 20s → 30s cap)
+- ~5 minute maximum wait before timing out
 - Permanent errors (invalid credentials, access forbidden) fail immediately
+- On timeout, a clear message suggests re-running `terraform apply`
 
 **Customization via environment variables:**
 
 ```bash
-export OAUTH_MAX_RETRIES=10      # Default: 6
+export OAUTH_MAX_RETRIES=15      # Default: 10
 export OAUTH_INITIAL_WAIT=5      # Default: 10 seconds  
 export OAUTH_MAX_WAIT=60         # Default: 30 seconds
 ```
@@ -699,6 +700,8 @@ OAuth token retrieval attempt 1 failed (oauth_not_reachable), retrying in 10s...
 ```
 
 This is normal during cluster creation - the OAuth server is restarting after htpasswd IDP was added. The retry logic handles this automatically.
+
+**If the timeout is reached**, you will see a clear message advising you to wait and re-run `terraform apply`. The OAuth reconciliation may complete outside the timeout window, and a subsequent apply will succeed.
 
 ### htpasswd IDP Missing
 
