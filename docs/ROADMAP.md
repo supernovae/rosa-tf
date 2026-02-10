@@ -26,6 +26,7 @@ This document tracks the status of features in this module.
 | Backup/Restore (OADP) | ✅ Stable | GitOps layer with S3 backend, configurable retention |
 | Monitoring/Logging | ✅ Stable | Prometheus + Loki with S3 backend, 30-day retention |
 | GitOps Layers Framework | ✅ Stable | Composable Day 2 operations via ArgoCD |
+| Cert-Manager | ✅ Stable | Let's Encrypt DNS01 with Route53 IRSA, auto-renewal |
 | Custom Ingress | 🚧 WIP | Secondary ingress controller - not fully tested |
 
 ## Known Issues
@@ -177,7 +178,7 @@ Features under consideration for future releases:
 ### Infrastructure
 - [x] Cluster autoscaler configuration - See `cluster_autoscaler_enabled` in cluster modules
 - [ ] External Secrets Operator integration
-- [ ] Cert-Manager with Let's Encrypt
+- [x] Cert-Manager with Let's Encrypt (DNS01 via Route53 IRSA)
 - [ ] Multi-cluster federation examples
 - [ ] Unify default worker pool into `machine_pools` variable once HCP supports 0-worker pools (~4.22 timeframe)
 

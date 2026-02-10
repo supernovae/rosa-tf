@@ -49,6 +49,30 @@ output "monitoring_role_arn" {
 }
 
 #------------------------------------------------------------------------------
+# Cert-Manager Outputs
+#------------------------------------------------------------------------------
+
+output "certmanager_role_arn" {
+  description = "IAM role ARN for cert-manager."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].certmanager_role_arn : ""
+}
+
+output "certmanager_hosted_zone_id" {
+  description = "Route53 hosted zone ID for DNS01 challenges."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].hosted_zone_id : ""
+}
+
+output "certmanager_hosted_zone_domain" {
+  description = "Domain of the Route53 hosted zone."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].hosted_zone_domain : ""
+}
+
+output "certmanager_hosted_zone_nameservers" {
+  description = "Nameservers for the hosted zone (only populated when zone is created)."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].hosted_zone_nameservers : []
+}
+
+#------------------------------------------------------------------------------
 # Summary Output (for debugging)
 #------------------------------------------------------------------------------
 
@@ -59,6 +83,7 @@ output "enabled_layers" {
     var.enable_layer_oadp ? "oadp" : "",
     var.enable_layer_virtualization ? "virtualization" : "",
     var.enable_layer_monitoring ? "monitoring" : "",
+    var.enable_layer_certmanager ? "certmanager" : "",
   ])
 }
 
@@ -80,6 +105,12 @@ output "layer_config" {
     monitoring_bucket_name    = var.enable_layer_monitoring ? module.monitoring[0].loki_bucket_name : ""
     monitoring_role_arn       = var.enable_layer_monitoring ? module.monitoring[0].loki_role_arn : ""
     monitoring_retention_days = var.monitoring_retention_days
+
+    # Cert-Manager config
+    enable_certmanager             = var.enable_layer_certmanager
+    certmanager_role_arn           = var.enable_layer_certmanager ? module.certmanager[0].certmanager_role_arn : ""
+    certmanager_hosted_zone_id     = var.enable_layer_certmanager ? module.certmanager[0].hosted_zone_id : ""
+    certmanager_hosted_zone_domain = var.enable_layer_certmanager ? module.certmanager[0].hosted_zone_domain : ""
   }
 }
 

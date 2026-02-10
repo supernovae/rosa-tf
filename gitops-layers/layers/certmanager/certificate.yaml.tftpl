@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ${cert_name}
+  namespace: ${cert_namespace}
+spec:
+  secretName: ${cert_secret_name}
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  dnsNames:
+%{ for domain in cert_domains ~}
+    - "${domain}"
+%{ endfor ~}
+  duration: 2160h    # 90 days
+  renewBefore: 720h  # 30 days before expiry

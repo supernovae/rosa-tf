@@ -671,6 +671,7 @@ module "gitops_resources" {
   enable_layer_oadp           = var.enable_layer_oadp
   enable_layer_virtualization = var.enable_layer_virtualization
   enable_layer_monitoring     = var.enable_layer_monitoring
+  enable_layer_certmanager    = var.enable_layer_certmanager
 
   # Layer-specific config
   oadp_backup_retention_days = var.oadp_backup_retention_days
@@ -681,6 +682,11 @@ module "gitops_resources" {
   monitoring_storage_class           = var.monitoring_storage_class
   is_govcloud                        = local.is_govcloud
   openshift_version                  = var.openshift_version
+
+  # Cert-Manager config (for AWS resource creation)
+  certmanager_hosted_zone_id     = var.certmanager_hosted_zone_id
+  certmanager_hosted_zone_domain = var.certmanager_hosted_zone_domain
+  certmanager_create_hosted_zone = var.certmanager_create_hosted_zone
 
   tags = local.common_tags
 }
@@ -746,6 +752,7 @@ module "gitops" {
   enable_layer_oadp           = var.enable_layer_oadp
   enable_layer_virtualization = var.enable_layer_virtualization
   enable_layer_monitoring     = var.enable_layer_monitoring
+  enable_layer_certmanager    = var.enable_layer_certmanager
 
   # Layer resources from consolidated module
   oadp_bucket_name           = length(module.gitops_resources) > 0 ? module.gitops_resources[0].oadp_bucket_name : ""
@@ -764,6 +771,14 @@ module "gitops" {
   monitoring_prometheus_storage_size = var.monitoring_prometheus_storage_size
   monitoring_node_selector           = var.monitoring_node_selector
   monitoring_tolerations             = var.monitoring_tolerations
+
+  # Cert-Manager resources from consolidated module
+  certmanager_role_arn                  = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_role_arn : ""
+  certmanager_hosted_zone_id            = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_id : ""
+  certmanager_hosted_zone_domain        = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_domain : ""
+  certmanager_acme_email                = var.certmanager_acme_email
+  certmanager_certificate_domains       = var.certmanager_certificate_domains
+  certmanager_enable_routes_integration = var.certmanager_enable_routes_integration
 
   # OpenShift version for operator channel selection
   openshift_version = var.openshift_version
