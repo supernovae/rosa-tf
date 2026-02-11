@@ -57,32 +57,37 @@ output "cluster_admin_password" {
 
 output "vpc_id" {
   description = "VPC ID."
-  value       = module.vpc.vpc_id
+  value       = local.effective_vpc_id
 }
 
 output "private_subnet_ids" {
   description = "Private subnet IDs."
-  value       = module.vpc.private_subnet_ids
+  value       = local.effective_private_subnet_ids
 }
 
 output "public_subnet_ids" {
   description = "Public subnet IDs."
-  value       = module.vpc.public_subnet_ids
+  value       = local.effective_public_subnet_ids
 }
 
 output "availability_zones" {
   description = "Availability zones used."
-  value       = local.availability_zones
+  value       = local.effective_availability_zones
+}
+
+output "byo_vpc" {
+  description = "Whether the cluster is using an existing (BYO) VPC."
+  value       = local.is_byo_vpc
 }
 
 output "egress_type" {
-  description = "The egress type configured for this VPC (nat, tgw, proxy, or none)."
-  value       = module.vpc.egress_type
+  description = "The egress type configured for this VPC (nat, tgw, proxy, none, or byo-vpc)."
+  value       = local.is_byo_vpc ? "byo-vpc" : module.vpc[0].egress_type
 }
 
 output "nat_gateway_ips" {
-  description = "Elastic IP addresses of NAT gateways (empty if egress_type != 'nat')."
-  value       = module.vpc.nat_gateway_ips
+  description = "Elastic IP addresses of NAT gateways (empty if egress_type != 'nat' or BYO-VPC)."
+  value       = local.is_byo_vpc ? [] : module.vpc[0].nat_gateway_ips
 }
 
 output "zero_egress" {
@@ -232,7 +237,7 @@ output "cluster_summary" {
     environment       = var.environment
     private           = var.private_cluster
     zero_egress       = var.zero_egress
-    multi_az          = var.multi_az
+    multi_az          = local.effective_multi_az
     worker_nodes      = var.worker_node_count
     openshift_version = var.openshift_version
     api_url           = module.rosa_cluster.api_url
