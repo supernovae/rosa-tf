@@ -94,12 +94,14 @@ resource "aws_subnet" "public" {
   assign_ipv6_address_on_creation = false
 
   # Note: kubernetes.io/role/elb tag enables AWS load balancer controller to discover this subnet
-  # Note: kubernetes.io/cluster/<cluster-id> tag is managed by ROSA installer, not Terraform
+  # Note: kubernetes.io/cluster/unmanaged tells the ROSA installer to exclude these subnets
+  #        from cluster selection -- they exist only for NAT gateway infrastructure
   tags = merge(
     var.tags,
     {
-      Name                     = "${var.cluster_name}-public-${var.availability_zones[count.index]}"
-      "kubernetes.io/role/elb" = "1"
+      Name                              = "${var.cluster_name}-public-${var.availability_zones[count.index]}"
+      "kubernetes.io/role/elb"          = "1"
+      "kubernetes.io/cluster/unmanaged" = ""
     }
   )
 }
