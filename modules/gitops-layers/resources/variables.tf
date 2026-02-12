@@ -159,6 +159,12 @@ variable "certmanager_create_hosted_zone" {
   default     = false
 }
 
+variable "certmanager_enable_dnssec" {
+  type        = bool
+  description = "Enable DNSSEC signing on the cert-manager Route53 hosted zone."
+  default     = true
+}
+
 variable "openshift_version" {
   type        = string
   description = "OpenShift version for API compatibility."

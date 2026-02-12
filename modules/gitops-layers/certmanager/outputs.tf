@@ -39,6 +39,30 @@ output "hosted_zone_nameservers" {
 }
 
 #------------------------------------------------------------------------------
+# DNSSEC
+#------------------------------------------------------------------------------
+
+output "dnssec_enabled" {
+  description = "Whether DNSSEC signing is enabled on the hosted zone."
+  value       = var.create_hosted_zone && var.enable_dnssec
+}
+
+output "dnssec_ds_record" {
+  description = <<-EOT
+    DS record value to add to the parent zone (domain registrar) to complete
+    the DNSSEC chain of trust. Only populated when DNSSEC is enabled.
+    
+    Add this as a DS record at your domain registrar for the hosted zone domain.
+  EOT
+  value       = var.create_hosted_zone && var.enable_dnssec ? aws_route53_key_signing_key.certmanager[0].ds_record : ""
+}
+
+output "dnssec_kms_key_arn" {
+  description = "ARN of the KMS key used for DNSSEC Key Signing Key."
+  value       = var.create_hosted_zone && var.enable_dnssec ? aws_kms_key.dnssec[0].arn : ""
+}
+
+#------------------------------------------------------------------------------
 # Summary for GitOps ConfigMap
 #------------------------------------------------------------------------------
 

@@ -21,7 +21,7 @@ This project uses multiple security scanning tools to ensure:
 - Shell scripts are safe from injection vulnerabilities
 - IAM policies follow least-privilege principles
 
-**Current Status:** 320 Checkov checks pass, 22 expected failures (documented below).
+**Current Status:** 347 Checkov checks pass, 22 expected failures, 4 skipped (documented below).
 
 ---
 
@@ -75,6 +75,12 @@ These checks fail by design due to ROSA/OpenShift requirements:
 | `CKV_AWS_382` | Security groups allow egress to 0.0.0.0:0 on all ports | Jumphost, VPN, ECR endpoints | **Required for functionality.** Jumphost needs outbound access to cluster API, package repos, and AWS services. VPN security group manages client traffic. ECR endpoints need to respond to requests. Ingress is restricted. |
 | `CKV_AWS_136` | ECR repositories not encrypted with KMS | ECR repository | **User configurable.** ECR encryption is configurable via `kms_key_arn` variable. Defaults to AES-256 (AWS-managed) for simplicity. Users can enable KMS encryption by providing a key ARN. |
 | `CKV_AWS_51` | ECR image tags are mutable | ECR repository | **User configurable.** Tag mutability is configurable via `image_tag_mutability` variable. Defaults to MUTABLE for development convenience. Users should set to IMMUTABLE for production. |
+
+### Skipped Checks (Inline)
+
+| Check ID | Description | Resource | Justification |
+|----------|-------------|----------|---------------|
+| `CKV_AWS_7` | KMS key rotation not enabled | DNSSEC KMS key (`aws_kms_key.dnssec`) | **Not applicable.** DNSSEC requires an asymmetric `ECC_NIST_P256` key which does not support automatic rotation. Route53 handles Zone Signing Key (ZSK) rotation automatically. |
 
 ### tfsec Known Issues
 

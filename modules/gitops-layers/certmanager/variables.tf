@@ -74,6 +74,27 @@ variable "create_hosted_zone" {
   default     = false
 }
 
+variable "enable_dnssec" {
+  type        = bool
+  description = <<-EOT
+    Enable DNSSEC signing on the Route53 hosted zone.
+    Only applies when create_hosted_zone = true.
+
+    DNSSEC protects against DNS spoofing and cache poisoning by
+    cryptographically signing DNS records. A customer-managed KMS key
+    (ECC_NIST_P256) is created for the Key Signing Key (KSK).
+
+    After enabling, you must add a DS record to the parent zone
+    (your domain registrar) to complete the chain of trust.
+    The DS record value is available in the outputs.
+
+    For Commercial: KMS key is created in the deployment region
+    (Route53 handles the us-east-1 requirement internally).
+    For GovCloud: KMS key is created in the deployment region.
+  EOT
+  default     = true
+}
+
 #------------------------------------------------------------------------------
 # IAM Configuration
 #------------------------------------------------------------------------------

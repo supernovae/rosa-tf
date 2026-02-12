@@ -64,6 +64,111 @@ resource "aws_route53_zone" "certmanager" {
 }
 
 #------------------------------------------------------------------------------
+# DNSSEC Signing (enabled by default when creating a hosted zone)
+#
+# Enables DNSSEC signing on the Route53 hosted zone to protect against
+# DNS spoofing and cache poisoning. Uses a customer-managed KMS key for
+# the Key Signing Key (KSK). Route53 manages Zone Signing Keys (ZSKs)
+# automatically.
+#
+# NOTE: After enabling, you must add a DS record to the parent zone
+# (your domain registrar) to complete the chain of trust. The DS record
+# value is available in the outputs.
+#
+# For GovCloud, the KMS key must be in the same region as Route53.
+# For Commercial, Route53 DNSSEC requires the KMS key in us-east-1.
+#------------------------------------------------------------------------------
+
+resource "aws_kms_key" "dnssec" {
+  #checkov:skip=CKV_AWS_7:DNSSEC requires asymmetric ECC_NIST_P256 key which does not support automatic rotation. Route53 handles ZSK rotation automatically.
+  count = var.create_hosted_zone && var.enable_dnssec ? 1 : 0
+
+  # Route53 DNSSEC requires an asymmetric ECC_NIST_P256 key
+  customer_master_key_spec = "ECC_NIST_P256"
+  key_usage                = "SIGN_VERIFY"
+  deletion_window_in_days  = 7
+  description              = "DNSSEC KSK for ${var.hosted_zone_domain} (${var.cluster_name})"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccount"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowRoute53DNSSEC"
+        Effect = "Allow"
+        Principal = {
+          Service = "dnssec-route53.amazonaws.com"
+        }
+        Action = [
+          "kms:DescribeKey",
+          "kms:GetPublicKey",
+          "kms:Sign"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      },
+      {
+        Sid    = "AllowRoute53CreateGrant"
+        Effect = "Allow"
+        Principal = {
+          Service = "dnssec-route53.amazonaws.com"
+        }
+        Action   = "kms:CreateGrant"
+        Resource = "*"
+        Condition = {
+          Bool = {
+            "kms:GrantIsForAWSResource" = "true"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Name                = "${var.cluster_name}-dnssec-ksk"
+      "rosa-gitops-layer" = "certmanager"
+    }
+  )
+}
+
+resource "aws_kms_alias" "dnssec" {
+  count = var.create_hosted_zone && var.enable_dnssec ? 1 : 0
+
+  name          = "alias/${var.cluster_name}-dnssec-ksk"
+  target_key_id = aws_kms_key.dnssec[0].key_id
+}
+
+resource "aws_route53_key_signing_key" "certmanager" {
+  count = var.create_hosted_zone && var.enable_dnssec ? 1 : 0
+
+  hosted_zone_id             = aws_route53_zone.certmanager[0].zone_id
+  key_management_service_arn = aws_kms_key.dnssec[0].arn
+  name                       = "${var.cluster_name}-ksk"
+}
+
+resource "aws_route53_hosted_zone_dnssec" "certmanager" {
+  count = var.create_hosted_zone && var.enable_dnssec ? 1 : 0
+
+  hosted_zone_id = aws_route53_key_signing_key.certmanager[0].hosted_zone_id
+
+  depends_on = [aws_route53_key_signing_key.certmanager]
+}
+
+#------------------------------------------------------------------------------
 # Look up existing Route53 Hosted Zone (when not creating)
 #------------------------------------------------------------------------------
 

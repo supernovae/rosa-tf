@@ -724,6 +724,7 @@ module "gitops_resources" {
   certmanager_hosted_zone_id     = var.certmanager_hosted_zone_id
   certmanager_hosted_zone_domain = var.certmanager_hosted_zone_domain
   certmanager_create_hosted_zone = var.certmanager_create_hosted_zone
+  certmanager_enable_dnssec      = var.certmanager_enable_dnssec
 
   tags = local.common_tags
 }

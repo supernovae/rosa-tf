@@ -89,6 +89,7 @@ module "certmanager" {
   hosted_zone_id     = var.certmanager_hosted_zone_id
   hosted_zone_domain = var.certmanager_hosted_zone_domain
   create_hosted_zone = var.certmanager_create_hosted_zone
+  enable_dnssec      = var.certmanager_enable_dnssec
   is_govcloud        = var.is_govcloud
 
   tags = var.tags

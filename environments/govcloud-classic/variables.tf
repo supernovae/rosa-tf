@@ -855,6 +855,19 @@ variable "certmanager_create_hosted_zone" {
   default     = false
 }
 
+variable "certmanager_enable_dnssec" {
+  type        = bool
+  description = <<-EOT
+    Enable DNSSEC signing on the cert-manager Route53 hosted zone.
+    Only applies when certmanager_create_hosted_zone = true.
+    
+    DNSSEC protects against DNS spoofing and cache poisoning.
+    After enabling, add the DS record from outputs to your domain registrar
+    to complete the chain of trust.
+  EOT
+  default     = true
+}
+
 variable "certmanager_acme_email" {
   type        = string
   description = <<-EOT

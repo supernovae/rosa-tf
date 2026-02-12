@@ -72,6 +72,16 @@ output "certmanager_hosted_zone_nameservers" {
   value       = var.enable_layer_certmanager ? module.certmanager[0].hosted_zone_nameservers : []
 }
 
+output "certmanager_dnssec_enabled" {
+  description = "Whether DNSSEC signing is enabled on the cert-manager hosted zone."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].dnssec_enabled : false
+}
+
+output "certmanager_dnssec_ds_record" {
+  description = "DS record to add to parent zone for DNSSEC chain of trust."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].dnssec_ds_record : ""
+}
+
 #------------------------------------------------------------------------------
 # Summary Output (for debugging)
 #------------------------------------------------------------------------------

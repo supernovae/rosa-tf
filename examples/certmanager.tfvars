@@ -86,9 +86,9 @@ zero_egress = false
 # ECR / OIDC / IAM
 #------------------------------------------------------------------------------
 
-create_ecr         = false
-create_oidc_config = true
-managed_oidc       = true
+create_ecr          = false
+create_oidc_config  = true
+managed_oidc        = true
 account_role_prefix = "ManagedOpenShift"
 
 #------------------------------------------------------------------------------
@@ -125,11 +125,11 @@ create_client_vpn = false
 install_gitops = true
 
 # Layer enablement
-enable_layer_terminal       = true  # Web terminal (lightweight, no infra)
+enable_layer_terminal       = true # Web terminal (lightweight, no infra)
 enable_layer_oadp           = false
 enable_layer_virtualization = false
 enable_layer_monitoring     = false
-enable_layer_certmanager    = true  # <-- Cert-Manager with Let's Encrypt
+enable_layer_certmanager    = true # <-- Cert-Manager with Let's Encrypt
 
 #------------------------------------------------------------------------------
 # Cert-Manager Configuration
@@ -152,6 +152,11 @@ enable_layer_certmanager    = true  # <-- Cert-Manager with Let's Encrypt
 # shown in terraform output after the first apply.
 certmanager_create_hosted_zone = true
 certmanager_hosted_zone_domain = "apps.example.com"
+
+# DNSSEC signing (default: true) - protects against DNS spoofing
+# After first apply, add the DS record from outputs to your domain registrar
+# to complete the chain of trust. Set to false to disable.
+certmanager_enable_dnssec = true
 
 # Let's Encrypt registration email (receives expiry warnings)
 certmanager_acme_email = "platform-team@example.com"
