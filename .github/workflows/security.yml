@@ -34,8 +34,7 @@ jobs:
 
   #----------------------------------------------------------------------------
   # Terraform Security Scanning
-  # Note: tfsec is deprecated in favor of Trivy. Trivy + Checkov provide
-  # comprehensive Terraform security coverage.
+  # Trivy (tfsec successor) + Checkov provide comprehensive coverage.
   #----------------------------------------------------------------------------
   trivy:
     name: Trivy Security Scan

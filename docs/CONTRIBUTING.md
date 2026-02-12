@@ -195,9 +195,8 @@ All PRs automatically run the following checks via GitHub Actions:
 | `terraform fmt` | Code formatting validation |
 | `terraform validate` | Syntax and configuration validation |
 | `tflint` | Terraform best practices linting |
-| `tfsec` | Security misconfiguration scanning |
 | `checkov` | Policy-as-code security scanning |
-| `trivy` | Vulnerability and misconfiguration scanning |
+| `trivy` | Vulnerability and misconfiguration scanning (tfsec successor) |
 
 **All checks must pass before merge.** If a check fails, review the CI output and fix the issues locally before pushing updates.
 

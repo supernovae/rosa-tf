@@ -54,12 +54,7 @@ security-shell: ## Run shell script security checks
 	@find . -name "*.sh" -type f | xargs shellcheck -x -e SC1091 || true
 	@echo ""
 
-security-terraform: ## Run Terraform security scans (tfsec, checkov, trivy)
-	@echo "============================================="
-	@echo "Running tfsec..."
-	@echo "============================================="
-	tfsec . --soft-fail || true
-	@echo ""
+security-terraform: ## Run Terraform security scans (checkov, trivy)
 	@echo "============================================="
 	@echo "Running checkov..."
 	@echo "============================================="
@@ -128,9 +123,6 @@ install-tools: ## Install required development tools
 	@echo ""
 	@echo "Installing tflint..."
 	curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash || brew install tflint
-	@echo ""
-	@echo "Installing tfsec..."
-	go install github.com/aquasecurity/tfsec/cmd/tfsec@latest || brew install tfsec
 	@echo ""
 	@echo "Installing checkov..."
 	pip install checkov

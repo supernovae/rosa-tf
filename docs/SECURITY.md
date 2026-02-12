@@ -32,8 +32,7 @@ This project uses multiple security scanning tools to ensure:
 | Tool | Purpose | Configuration |
 |------|---------|---------------|
 | **Checkov** | Policy-as-code for Terraform | `.checkov.yml` |
-| **tfsec** | Static analysis for Terraform | Default config |
-| **Trivy** | Vulnerability scanner | HIGH/CRITICAL severity |
+| **Trivy** | Vulnerability and misconfiguration scanner (tfsec successor) | HIGH/CRITICAL severity |
 | **TFLint** | Terraform linter | `.tflint.hcl` |
 
 ### Shell Script Security
@@ -82,12 +81,6 @@ These checks fail by design due to ROSA/OpenShift requirements:
 |----------|-------------|----------|---------------|
 | `CKV_AWS_7` | KMS key rotation not enabled | DNSSEC KMS key (`aws_kms_key.dnssec`) | **Not applicable.** DNSSEC requires an asymmetric `ECC_NIST_P256` key which does not support automatic rotation. Route53 handles Zone Signing Key (ZSK) rotation automatically. |
 
-### tfsec Known Issues
-
-| Issue | Description | Justification |
-|-------|-------------|---------------|
-| `check` block unsupported | tfsec errors on Terraform 1.5+ `check` blocks | **Tool limitation.** tfsec doesn't support Terraform 1.5+ native check blocks. We use `--soft-fail` to prevent blocking. Consider migrating to Trivy which has better Terraform support. |
-
 ### ShellCheck Skipped Checks
 
 | Check ID | Description | Justification |
@@ -117,7 +110,7 @@ make security
 
 # Run specific checks
 make security-shell      # ShellCheck only
-make security-terraform  # Checkov, tfsec, trivy
+make security-terraform  # Checkov, Trivy
 make security-secrets    # Gitleaks, pattern matching
 
 # Run pre-commit hooks (includes security)
@@ -135,9 +128,6 @@ find . -name "*.sh" -type f | xargs shellcheck -x -e SC1091
 
 # Gitleaks
 gitleaks detect --source . --config .gitleaks.toml
-
-# tfsec
-tfsec . --soft-fail
 
 # Trivy
 trivy config . --severity HIGH,CRITICAL
@@ -187,7 +177,6 @@ GitHub Actions runs security checks on all PRs and pushes to `main`.
 | Job | Tools | Scope |
 |-----|-------|-------|
 | `shellcheck` | ShellCheck | All `*.sh` files |
-| `tfsec` | tfsec | All Terraform |
 | `trivy` | Trivy | Config scanning |
 | `checkov` | Checkov | All Terraform |
 | `gitleaks` | Gitleaks | Git history |
@@ -198,7 +187,6 @@ GitHub Actions runs security checks on all PRs and pushes to `main`.
 ### SARIF Integration
 
 Security findings are uploaded to GitHub Security tab via SARIF format:
-- tfsec results
 - Trivy results
 - Checkov results
 
@@ -326,5 +314,4 @@ IRSA ensures backup credentials can only be used by authorized OADP pods running
 - [Checkov Documentation](https://www.checkov.io/5.Policy%20Index/aws.html)
 - [ShellCheck Wiki](https://www.shellcheck.net/wiki/)
 - [Gitleaks Configuration](https://github.com/gitleaks/gitleaks#configuration)
-- [tfsec Checks](https://aquasecurity.github.io/tfsec/latest/checks/aws/)
 - [Trivy Misconfiguration](https://aquasecurity.github.io/trivy/latest/docs/scanner/misconfiguration/)
