@@ -30,15 +30,15 @@
 # Cluster Identification - CUSTOMIZE THESE
 #------------------------------------------------------------------------------
 
-cluster_name = "my-cluster-2"    # <-- CHANGE THIS (must be unique per VPC)
+cluster_name = "my-cluster-2" # <-- CHANGE THIS (must be unique per VPC)
 environment  = "dev"
-aws_region   = "us-east-1"       # <-- Must match the existing VPC's region
+aws_region   = "us-east-1" # <-- Must match the existing VPC's region
 
 #------------------------------------------------------------------------------
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10"    # <-- CHANGE to your desired version
+openshift_version = "4.20.10" # <-- CHANGE to your desired version
 channel_group     = "stable"
 
 #------------------------------------------------------------------------------
@@ -50,10 +50,10 @@ channel_group     = "stable"
 #   - 3 subnets = multi-AZ cluster (production HA)
 #------------------------------------------------------------------------------
 
-existing_vpc_id = "vpc-0123456789abcdef0"  # <-- CHANGE: from `terraform output vpc_id`
+existing_vpc_id = "vpc-0123456789abcdef0" # <-- CHANGE: from `terraform output vpc_id`
 
 # Multi-AZ example (3 subnets = HA):
-existing_private_subnet_ids = [             # <-- CHANGE: from `terraform output private_subnet_ids`
+existing_private_subnet_ids = [ # <-- CHANGE: from `terraform output private_subnet_ids`
   "subnet-0aaaaaaaaaaaa0001",
   "subnet-0aaaaaaaaaaaa0002",
   "subnet-0aaaaaaaaaaaa0003",
@@ -83,17 +83,17 @@ existing_private_subnet_ids = [             # <-- CHANGE: from `terraform output
 #------------------------------------------------------------------------------
 
 # vpc_cidr is NOT used in BYO-VPC mode (VPC already exists)
-pod_cidr     = "10.132.0.0/14"   # <-- Non-overlapping with first cluster
-service_cidr = "172.31.0.0/16"   # <-- Non-overlapping with first cluster
+pod_cidr     = "10.132.0.0/14" # <-- Non-overlapping with first cluster
+service_cidr = "172.31.0.0/16" # <-- Non-overlapping with first cluster
 host_prefix  = 23
 
 #------------------------------------------------------------------------------
 # Cluster Configuration
 #------------------------------------------------------------------------------
 
-private_cluster      = true      # Typically matches first cluster's config
+private_cluster      = true # Typically matches first cluster's config
 compute_machine_type = "m5.xlarge"
-worker_node_count    = 2         # Smaller for dev/test second cluster
+worker_node_count    = 2 # Smaller for dev/test second cluster
 
 #------------------------------------------------------------------------------
 # Encryption Configuration
@@ -132,8 +132,8 @@ admin_username    = "cluster-admin"
 # Access Configuration
 #------------------------------------------------------------------------------
 
-create_jumphost   = false    # First cluster's jumphost can access both clusters
-create_client_vpn = false    # First cluster's VPN covers the shared VPC
+create_jumphost   = false # First cluster's jumphost can access both clusters
+create_client_vpn = false # First cluster's VPN covers the shared VPC
 
 #------------------------------------------------------------------------------
 # GitOps Configuration

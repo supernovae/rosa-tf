@@ -64,7 +64,7 @@ fips = false # Set to true for FedRAMP/HIPAA/PCI
 # KMS encryption (separate keys for cluster and infrastructure)
 cluster_kms_mode        = "create" # Customer-managed KMS for ROSA
 infra_kms_mode          = "create" # Customer-managed KMS for infrastructure
-etcd_encryption         = false     # Encrypt etcd with cluster KMS
+etcd_encryption         = false    # Encrypt etcd with cluster KMS
 kms_key_deletion_window = 30
 
 #------------------------------------------------------------------------------
