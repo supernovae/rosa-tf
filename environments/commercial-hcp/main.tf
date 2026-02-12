@@ -33,10 +33,22 @@ provider "aws" {
   }
 }
 
+# RHCS Provider for Commercial AWS
+#
+# Uses service account authentication (client_id + client_secret).
+# The offline OCM token is deprecated for commercial cloud.
+#
+# Create a service account at:
+#   https://console.redhat.com/iam/service-accounts
+#
+# Set credentials via environment variables:
+#   export TF_VAR_rhcs_client_id="your-client-id"
+#   export TF_VAR_rhcs_client_secret="your-client-secret"
+#
 provider "rhcs" {
-  # Commercial endpoints
-  token = var.ocm_token
-  url   = "https://api.openshift.com"
+  url           = "https://api.openshift.com"
+  client_id     = var.rhcs_client_id
+  client_secret = var.rhcs_client_secret
 }
 
 #------------------------------------------------------------------------------

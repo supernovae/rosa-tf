@@ -53,15 +53,25 @@ rosa login --use-auth-code
 rosa login --govcloud --token="<your_token_from_console.openshiftusgov.com_here>"
 ```
 
-**4. Get OCM Token and Set Environment Variable**
+**4. Set RHCS Authentication**
 
-| Environment | Token URL |
-|-------------|-----------|
-| Commercial | https://console.redhat.com/openshift/token/show |
-| GovCloud | https://console.openshiftusgov.com/openshift/token |
+**Commercial AWS** -- uses service account (client ID + client secret):
+
+1. Create a service account at [console.redhat.com/iam/service-accounts](https://console.redhat.com/iam/service-accounts)
+2. Assign **OpenShift Cluster Manager** permissions at [console.redhat.com/iam/user-access/users](https://console.redhat.com/iam/user-access/users)
+3. Save the client secret immediately -- it is only shown once
 
 ```bash
-# Copy token from URL above, then:
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+```
+
+> **Note:** The offline OCM token is deprecated for commercial cloud. Service accounts are the recommended method for workstation and CI/CD use.
+
+**GovCloud** -- uses offline OCM token:
+
+```bash
+# Get token from: https://console.openshiftusgov.com/openshift/token
 export TF_VAR_ocm_token="your-offline-token-here"
 
 # Clear any conflicting environment variables
@@ -231,23 +241,41 @@ enable_layer_virtualization = false
 **Optional (recommended for GitOps):**
 - [jq](https://jqlang.github.io/jq/download/) - JSON processor for parsing API responses. Used by GitOps layers to retrieve OAuth tokens when running locally. The scripts have fallback parsing without jq, but jq improves reliability.
 
-## OCM Token Management
+## RHCS Authentication
 
-**Never store tokens in Terraform files or version control.**
+**Never store credentials in Terraform files or version control.**
 
-Tokens expire periodically. If you see authentication errors during `terraform plan` or `apply`:
+### Commercial AWS (Service Accounts)
+
+Commercial environments use RHCS service accounts for authentication. Service account credentials do not expire, making them ideal for CI/CD pipelines and automation.
+
+If you see authentication errors during `terraform plan` or `apply`:
+1. Verify your service account exists at [console.redhat.com/iam/service-accounts](https://console.redhat.com/iam/service-accounts)
+2. Verify it has **OpenShift Cluster Manager** permissions
+3. If the secret was lost, delete and recreate the service account
 
 ```bash
-# Refresh your token from the appropriate URL:
-# Commercial: https://console.redhat.com/openshift/token/show
-# GovCloud:   https://console.openshiftusgov.com/openshift/token
+# Set credentials
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
 
-# Then update the environment variable:
+# Re-login to ROSA CLI
+rosa login --use-auth-code
+```
+
+### GovCloud (Offline Token)
+
+GovCloud environments continue to use offline OCM tokens. Tokens expire periodically and must be refreshed.
+
+```bash
+# Refresh token from: https://console.openshiftusgov.com/openshift/token
 export TF_VAR_ocm_token="your-new-token"
 
-# Re-login to ROSA CLI as well:
-rosa login --use-auth-code  # Commercial
-rosa login --govcloud --token="<your_token_from_console.openshiftusgov.com_here>" # GovCloud
+# Clear conflicting variables
+unset RHCS_TOKEN RHCS_URL
+
+# Re-login to ROSA CLI
+rosa login --govcloud --token="<your_token_from_console.openshiftusgov.com_here>"
 ```
 
 ## Deployment

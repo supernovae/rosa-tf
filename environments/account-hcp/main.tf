@@ -41,9 +41,15 @@ provider "aws" {
 }
 
 provider "rhcs" {
-  token = var.ocm_token
   # Auto-detect GovCloud from AWS partition
   url = local.is_govcloud ? "https://api.openshiftusgov.com" : "https://api.openshift.com"
+
+  # Authentication:
+  #   Commercial: use client_id + client_secret (service account)
+  #   GovCloud:   use token (offline OCM token)
+  token         = var.ocm_token
+  client_id     = var.rhcs_client_id
+  client_secret = var.rhcs_client_secret
 }
 
 #------------------------------------------------------------------------------

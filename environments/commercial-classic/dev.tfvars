@@ -16,7 +16,9 @@
 #   terraform apply -var-file=dev.tfvars
 #
 # Prerequisites:
-#   export TF_VAR_ocm_token="your-token-from-console.redhat.com"
+#   export TF_VAR_rhcs_client_id="your-client-id"
+#   export TF_VAR_rhcs_client_secret="your-client-secret"
+#   See: https://console.redhat.com/iam/service-accounts
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------

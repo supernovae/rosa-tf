@@ -309,7 +309,11 @@ aws s3api put-bucket-logging \
 cd environments/<environment>
 
 # 2. Set credentials
-export TF_VAR_ocm_token="your-token"
+# Commercial:
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+# GovCloud:
+# export TF_VAR_ocm_token="your-offline-token"
 export AWS_REGION="us-east-1"  # or us-gov-west-1 for GovCloud
 
 # 3. Initialize and deploy
@@ -491,44 +495,66 @@ aws sts assume-role \
 
 ### OCM Tokens
 
-| Environment | Token URL | API Endpoint |
-|-------------|-----------|--------------|
-| Commercial | console.redhat.com/openshift/token | api.openshift.com |
-| GovCloud | console.openshiftusgov.com/openshift/token | api.openshiftusgov.com |
+| Environment | Authentication | API Endpoint |
+|-------------|---------------|--------------|
+| Commercial | Service account (client_id + client_secret) | api.openshift.com |
+| GovCloud | Offline OCM token | api.openshiftusgov.com |
+
+**Commercial AWS (Service Account):**
 
 ```bash
-# Set token
+# Set service account credentials
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+
+# Verify connectivity
+rosa login --use-auth-code
+rosa whoami
+```
+
+Service account credentials do not expire, making them ideal for CI/CD.
+Create at: https://console.redhat.com/iam/service-accounts
+
+**GovCloud (Offline Token):**
+
+```bash
+# Set offline token from: https://console.openshiftusgov.com/openshift/token
 export TF_VAR_ocm_token="your-offline-token"
 
 # Clear conflicting variables
 unset RHCS_TOKEN RHCS_URL
 
 # Verify connectivity
-rosa login --token="$TF_VAR_ocm_token"
+rosa login --govcloud --token="$TF_VAR_ocm_token"
 rosa whoami
 ```
 
-**Token Expiration:**
+**Token Expiration (GovCloud only):**
 - Offline tokens expire after 30 days of inactivity
 - Access tokens auto-refresh (~15 min lifetime)
 - Enterprise IDP can configure custom lifetimes
 
 **Switching Between Commercial and GovCloud:**
 
-When switching between environments (e.g., Commercial to GovCloud or vice versa), always log out first to ensure a clean session:
+When switching between environments, always log out first to ensure a clean session:
 
 ```bash
 # Log out of current environment
 rosa logout
 
-# Set new token for target environment
-export TF_VAR_ocm_token="your-govcloud-or-commercial-token"
+# Set credentials for target environment
+# Commercial:
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+# GovCloud:
+# export TF_VAR_ocm_token="your-govcloud-token"
 
 # Clear any cached environment variables
 unset RHCS_TOKEN RHCS_URL
 
 # Log in to new environment
-rosa login --token="$TF_VAR_ocm_token"
+rosa login --use-auth-code  # Commercial
+# rosa login --govcloud --token="$TF_VAR_ocm_token"  # GovCloud
 
 # Verify you're connected to the correct environment
 rosa whoami
@@ -882,7 +908,16 @@ Error: invalid_grant: Invalid refresh token
 ```
 
 **Fix:**
-1. Get new token from console
+
+*Commercial:*
+1. Verify service account at https://console.redhat.com/iam/service-accounts
+2. If secret was lost, delete and recreate the service account
+3. `export TF_VAR_rhcs_client_id="your-client-id"`
+4. `export TF_VAR_rhcs_client_secret="your-client-secret"`
+5. Retry
+
+*GovCloud:*
+1. Get new token from https://console.openshiftusgov.com/openshift/token
 2. `export TF_VAR_ocm_token="new-token"`
 3. `unset RHCS_TOKEN RHCS_URL`
 4. Retry

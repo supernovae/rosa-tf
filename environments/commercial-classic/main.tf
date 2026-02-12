@@ -17,16 +17,20 @@ provider "aws" {
 
 # RHCS Provider for Commercial AWS
 #
-# Commercial uses different endpoints than GovCloud:
-#   - url:       https://api.openshift.com (API gateway)
-#   - token_url: https://sso.redhat.com/... (SSO server)
+# Uses service account authentication (client_id + client_secret).
+# The offline OCM token is deprecated for commercial cloud.
 #
-# Token: Set via TF_VAR_ocm_token environment variable
-#   export TF_VAR_ocm_token="your-token-from-console.redhat.com"
+# Create a service account at:
+#   https://console.redhat.com/iam/service-accounts
+#
+# Set credentials via environment variables:
+#   export TF_VAR_rhcs_client_id="your-client-id"
+#   export TF_VAR_rhcs_client_secret="your-client-secret"
 #
 provider "rhcs" {
-  token = var.ocm_token
-  url   = "https://api.openshift.com"
+  url           = "https://api.openshift.com"
+  client_id     = var.rhcs_client_id
+  client_secret = var.rhcs_client_secret
 }
 
 # NOTE: GitOps module uses curl-based API calls instead of kubernetes provider

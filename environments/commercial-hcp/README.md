@@ -36,9 +36,38 @@ ROSA HCP provides a fully managed OpenShift control plane, hosted in Red Hat's A
 └───────────────────────────────────────────────────────────────┘
 ```
 
+## Authentication
+
+Commercial cloud uses **RHCS service account** authentication (client ID + client secret). The offline OCM token is deprecated for commercial environments.
+
+### Setup
+
+1. Go to [console.redhat.com/iam/service-accounts](https://console.redhat.com/iam/service-accounts)
+2. Click **Create service account**
+3. Give it a descriptive name (e.g., `rosa-terraform-automation`)
+4. **Save the client ID and client secret immediately** -- the secret is only shown once
+5. Go to [console.redhat.com/iam/user-access/users](https://console.redhat.com/iam/user-access/users)
+6. Find the service account and assign it **OpenShift Cluster Manager** permissions
+
+### Usage
+
+```bash
+# Set credentials (recommended: environment variables)
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+```
+
+This approach works for both **local workstation** use and **CI/CD pipelines** (GitHub Actions, Jenkins, etc.) since service accounts don't expire like offline tokens.
+
+> **GovCloud Note:** GovCloud environments continue to use the offline OCM token from `console.openshiftusgov.com`. Service account authentication is for commercial cloud only.
+
 ## Quick Start
 
 ```bash
+# Set RHCS credentials (see Authentication above)
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+
 # Initialize Terraform
 terraform init
 

@@ -7,7 +7,9 @@
 # Prerequisites:
 #   1. First cluster deployed (owns the VPC) or existing VPC
 #   2. Subnets created via helpers/byo-vpc-subnets or pre-existing
-#   3. OCM token: export TF_VAR_ocm_token="your-token"
+#   3. RHCS service account credentials:
+#        export TF_VAR_rhcs_client_id="your-client-id"
+#        export TF_VAR_rhcs_client_secret="your-client-secret"
 #
 # Usage:
 #   cd environments/commercial-classic
