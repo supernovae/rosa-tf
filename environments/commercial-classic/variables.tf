@@ -843,6 +843,125 @@ variable "monitoring_tolerations" {
   default     = []
 }
 
+#------------------------------------------------------------------------------
+# Cert-Manager Layer Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_certmanager" {
+  type        = bool
+  description = <<-EOT
+    Enable the Cert-Manager layer for automated certificate lifecycle management.
+    
+    Installs the OpenShift cert-manager operator and configures Let's Encrypt
+    with DNS01/Route53 challenge for automatic certificate provisioning.
+    
+    IMPORTANT: Requires outbound internet access for ACME challenges.
+    Cannot be used on zero-egress clusters.
+  EOT
+  default     = false
+}
+
+variable "certmanager_hosted_zone_id" {
+  type        = string
+  description = <<-EOT
+    Route53 hosted zone ID for DNS01 challenges.
+    Required when not creating a new hosted zone.
+  EOT
+  default     = ""
+}
+
+variable "certmanager_hosted_zone_domain" {
+  type        = string
+  description = <<-EOT
+    Domain for the Route53 hosted zone.
+    Required when creating a new hosted zone (certmanager_create_hosted_zone = true).
+    Example: "apps.example.com"
+  EOT
+  default     = ""
+}
+
+variable "certmanager_create_hosted_zone" {
+  type        = bool
+  description = <<-EOT
+    Whether to create a new Route53 hosted zone for cert-manager.
+    If false, provide certmanager_hosted_zone_id for an existing zone.
+  EOT
+  default     = false
+}
+
+variable "certmanager_enable_dnssec" {
+  type        = bool
+  description = <<-EOT
+    Enable DNSSEC signing on the cert-manager Route53 hosted zone.
+    Only applies when certmanager_create_hosted_zone = true.
+    
+    DNSSEC protects against DNS spoofing and cache poisoning.
+    After enabling, add the DS record from outputs to your domain registrar
+    to complete the chain of trust.
+  EOT
+  default     = true
+}
+
+variable "certmanager_enable_query_logging" {
+  type        = bool
+  description = <<-EOT
+    Enable DNS query logging for the cert-manager Route53 hosted zone.
+    Only applies when certmanager_create_hosted_zone = true.
+
+    IMPORTANT: For Commercial AWS, Route53 query logging requires the
+    CloudWatch log group in us-east-1. Set to false for other regions.
+    For GovCloud, works in any deployment region.
+  EOT
+  default     = true
+}
+
+variable "certmanager_acme_email" {
+  type        = string
+  description = <<-EOT
+    Email address for Let's Encrypt ACME registration.
+    Let's Encrypt sends certificate expiry notifications to this address.
+  EOT
+  default     = ""
+}
+
+variable "certmanager_certificate_domains" {
+  type = list(object({
+    name        = string
+    namespace   = string
+    secret_name = string
+    domains     = list(string)
+  }))
+  description = <<-EOT
+    List of Certificate resources to create via cert-manager.
+    Each entry requests a TLS certificate from Let's Encrypt.
+    
+    Example:
+      certmanager_certificate_domains = [
+        {
+          name        = "apps-wildcard"
+          namespace   = "openshift-ingress"
+          secret_name = "apps-wildcard-tls"
+          domains     = ["*.apps.example.com"]
+        }
+      ]
+  EOT
+  default     = []
+}
+
+variable "certmanager_enable_routes_integration" {
+  type        = bool
+  description = <<-EOT
+    Enable the cert-manager OpenShift Routes integration.
+    When enabled, annotate Routes for automatic TLS provisioning:
+      oc annotate route <name> cert-manager.io/issuer-kind=ClusterIssuer cert-manager.io/issuer-name=letsencrypt-production
+  EOT
+  default     = true
+}
+
+#------------------------------------------------------------------------------
+# Virtualization Layer Configuration
+#------------------------------------------------------------------------------
+
 variable "virt_node_selector" {
   type        = map(string)
   description = <<-EOT

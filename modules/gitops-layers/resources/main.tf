@@ -10,6 +10,7 @@
 #   - OADP: S3 bucket + IAM role for Velero
 #   - Virtualization: No infrastructure here - use machine_pools in tfvars
 #   - Monitoring: S3 bucket + IAM role for Loki
+#   - Cert-Manager: IAM role for Route53 + optional hosted zone
 #
 # Adding a new layer:
 #   1. Add enable_layer_* variable
@@ -70,6 +71,28 @@ module "monitoring" {
   log_retention_days = var.monitoring_retention_days
   is_govcloud        = var.is_govcloud
   openshift_version  = var.openshift_version
+
+  tags = var.tags
+}
+
+#------------------------------------------------------------------------------
+# Cert-Manager Resources (IAM + optional Route53 Hosted Zone)
+#------------------------------------------------------------------------------
+
+module "certmanager" {
+  source = "../certmanager"
+  count  = var.enable_layer_certmanager ? 1 : 0
+
+  cluster_name         = var.cluster_name
+  oidc_endpoint_url    = var.oidc_endpoint_url
+  aws_region           = var.aws_region
+  hosted_zone_id       = var.certmanager_hosted_zone_id
+  hosted_zone_domain   = var.certmanager_hosted_zone_domain
+  create_hosted_zone   = var.certmanager_create_hosted_zone
+  enable_dnssec        = var.certmanager_enable_dnssec
+  enable_query_logging = var.certmanager_enable_query_logging
+  kms_key_arn          = var.kms_key_arn
+  is_govcloud          = var.is_govcloud
 
   tags = var.tags
 }

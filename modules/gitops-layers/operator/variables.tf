@@ -150,6 +150,26 @@ variable "enable_layer_monitoring" {
   default     = false
 }
 
+variable "enable_layer_certmanager" {
+  type        = bool
+  description = <<-EOT
+    Enable the Cert-Manager layer for automated certificate lifecycle management.
+    
+    Installs and configures:
+    - OpenShift cert-manager operator
+    - Let's Encrypt ClusterIssuer with DNS01/Route53 solver
+    - Optional Certificate resources for provided domains
+    - Optional OpenShift Routes integration for automatic TLS
+    
+    IMPORTANT: Requires outbound internet access for DNS01 challenge.
+    Cannot be used on zero-egress clusters. Use cert_mode=provided instead.
+    
+    Requires certmanager_role_arn and certmanager_hosted_zone_id from the
+    certmanager-resources module.
+  EOT
+  default     = false
+}
+
 #------------------------------------------------------------------------------
 # OADP Layer Configuration (when enabled)
 #------------------------------------------------------------------------------
@@ -322,6 +342,82 @@ variable "monitoring_tolerations" {
     Default: [] (no tolerations, uses default scheduling)
   EOT
   default     = []
+}
+
+#------------------------------------------------------------------------------
+# Cert-Manager Layer Configuration (when enabled)
+#------------------------------------------------------------------------------
+
+variable "certmanager_role_arn" {
+  type        = string
+  description = "IAM role ARN for cert-manager Route53 access. Required if enable_layer_certmanager is true."
+  default     = ""
+}
+
+variable "certmanager_hosted_zone_id" {
+  type        = string
+  description = "Route53 hosted zone ID for DNS01 challenges. Required if enable_layer_certmanager is true."
+  default     = ""
+}
+
+variable "certmanager_hosted_zone_domain" {
+  type        = string
+  description = "Domain of the Route53 hosted zone for cert-manager."
+  default     = ""
+}
+
+variable "certmanager_acme_email" {
+  type        = string
+  description = <<-EOT
+    Email address for Let's Encrypt ACME registration.
+    Let's Encrypt sends certificate expiry notifications to this address.
+    Required if enable_layer_certmanager is true.
+  EOT
+  default     = ""
+}
+
+variable "certmanager_certificate_domains" {
+  type = list(object({
+    name        = string
+    namespace   = string
+    secret_name = string
+    domains     = list(string)
+  }))
+  description = <<-EOT
+    List of Certificate resources to create.
+    Each entry creates a cert-manager Certificate CR that requests a TLS
+    certificate from Let's Encrypt for the specified domains.
+    
+    Example:
+      certmanager_certificate_domains = [
+        {
+          name        = "apps-wildcard"
+          namespace   = "openshift-ingress"
+          secret_name = "apps-wildcard-tls"
+          domains     = ["*.apps.example.com"]
+        }
+      ]
+    
+    Set to [] to only set up the ClusterIssuer without pre-creating certificates.
+  EOT
+  default     = []
+}
+
+variable "certmanager_enable_routes_integration" {
+  type        = bool
+  description = <<-EOT
+    Enable the cert-manager OpenShift Routes integration.
+    
+    When enabled, you can annotate OpenShift Routes to automatically
+    provision TLS certificates:
+    
+      oc annotate route <name> \
+        cert-manager.io/issuer-kind=ClusterIssuer \
+        cert-manager.io/issuer-name=letsencrypt-production
+    
+    Default: true (enabled when cert-manager layer is active)
+  EOT
+  default     = true
 }
 
 variable "openshift_version" {

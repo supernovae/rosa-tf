@@ -93,6 +93,12 @@ variable "enable_layer_monitoring" {
   default     = false
 }
 
+variable "enable_layer_certmanager" {
+  type        = bool
+  description = "Enable Cert-Manager layer for automated certificate lifecycle."
+  default     = false
+}
+
 #------------------------------------------------------------------------------
 # OADP Configuration
 #------------------------------------------------------------------------------
@@ -129,6 +135,40 @@ variable "is_govcloud" {
   type        = bool
   description = "Whether this is a GovCloud deployment."
   default     = false
+}
+
+#------------------------------------------------------------------------------
+# Cert-Manager Configuration
+#------------------------------------------------------------------------------
+
+variable "certmanager_hosted_zone_id" {
+  type        = string
+  description = "Route53 hosted zone ID for DNS01 challenges. Required when not creating a new zone."
+  default     = ""
+}
+
+variable "certmanager_hosted_zone_domain" {
+  type        = string
+  description = "Domain for the Route53 hosted zone. Required when creating a new zone."
+  default     = ""
+}
+
+variable "certmanager_create_hosted_zone" {
+  type        = bool
+  description = "Whether to create a new Route53 hosted zone for cert-manager."
+  default     = false
+}
+
+variable "certmanager_enable_dnssec" {
+  type        = bool
+  description = "Enable DNSSEC signing on the cert-manager Route53 hosted zone."
+  default     = true
+}
+
+variable "certmanager_enable_query_logging" {
+  type        = bool
+  description = "Enable DNS query logging for the cert-manager Route53 hosted zone."
+  default     = true
 }
 
 variable "openshift_version" {

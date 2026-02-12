@@ -28,6 +28,7 @@ This document tracks the status of features in this module.
 | GitOps Layers Framework | ✅ Stable | Composable Day 2 operations via ArgoCD |
 | BYO-VPC (Multi-Cluster) | ✅ Stable | Deploy into existing VPC, AZ inference, CIDR planning. See [BYO-VPC.md](BYO-VPC.md) |
 | BYO-VPC Subnet Helper | ✅ Stable | Standalone helper to create subnets in existing VPC. See [helpers/byo-vpc-subnets/](../helpers/byo-vpc-subnets/) |
+| Cert-Manager | ✅ Stable | Let's Encrypt DNS01 with Route53 IRSA, auto-renewal |
 | Custom Ingress | 🚧 WIP | Secondary ingress controller - not fully tested |
 
 ## Known Issues
@@ -216,7 +217,7 @@ Features under consideration for future releases:
 ### Infrastructure
 - [x] Cluster autoscaler configuration - See `cluster_autoscaler_enabled` in cluster modules
 - [ ] External Secrets Operator integration
-- [ ] Cert-Manager with Let's Encrypt
+- [x] Cert-Manager with Let's Encrypt (DNS01 via Route53 IRSA)
 - [x] Multi-cluster in single VPC - BYO-VPC support with subnet helper. See [BYO-VPC.md](BYO-VPC.md)
 - [ ] Unify default worker pool into `machine_pools` variable once HCP supports 0-worker pools (~4.22 timeframe)
 

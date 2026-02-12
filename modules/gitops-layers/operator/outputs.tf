@@ -34,6 +34,7 @@ output "layers_enabled" {
     oadp           = var.enable_layer_oadp
     virtualization = var.enable_layer_virtualization
     monitoring     = var.enable_layer_monitoring
+    certmanager    = var.enable_layer_certmanager
   }
 }
 
@@ -71,6 +72,7 @@ output "install_instructions" {
     - OADP: ${var.enable_layer_oadp}
     - Virtualization: ${var.enable_layer_virtualization}
     - Monitoring: ${var.enable_layer_monitoring}
+    - Cert-Manager: ${var.enable_layer_certmanager}
     
     ConfigMap Bridge:
     The ConfigMap 'rosa-gitops-config' in namespace 'openshift-gitops' contains

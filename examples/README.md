@@ -70,6 +70,36 @@ virt_node_selector = { "node-role.kubernetes.io/virtualization" = "" }
 virt_tolerations   = [{ key = "virtualization", value = "true", effect = "NoSchedule", operator = "Equal" }]
 ```
 
+### `certmanager.tfvars`
+
+Automated TLS certificate management with Let's Encrypt DNS01 challenge via Route53.
+
+**Key configuration:**
+```hcl
+# Enable cert-manager layer
+enable_layer_certmanager       = true
+certmanager_create_hosted_zone = true
+certmanager_hosted_zone_domain = "apps.example.com"
+certmanager_acme_email         = "platform-team@example.com"
+
+# Pre-create wildcard certificate
+certmanager_certificate_domains = [
+  {
+    name        = "apps-wildcard"
+    namespace   = "openshift-ingress"
+    secret_name = "apps-wildcard-tls"
+    domains     = ["*.apps.example.com"]
+  }
+]
+```
+
+**After deployment:**
+1. If zone was created, delegate DNS from registrar to AWS nameservers (shown in output)
+2. ClusterIssuer `letsencrypt-production` is ready
+3. Annotate Routes for auto-TLS: `oc annotate route <name> cert-manager.io/issuer-kind=ClusterIssuer cert-manager.io/issuer-name=letsencrypt-production`
+
+**Note:** Cannot be used on zero-egress clusters (requires outbound HTTPS for ACME).
+
 ### `byovpc.tfvars`
 
 Deploy a second ROSA HCP cluster into an existing VPC (BYO-VPC). Uses non-overlapping CIDRs to avoid conflicts with the first cluster.
@@ -124,6 +154,9 @@ cp examples/observability.tfvars environments/commercial-hcp/my-cluster.tfvars
 
 # For virtualization
 cp examples/ocpvirtualization.tfvars environments/commercial-hcp/my-cluster.tfvars
+
+# For cert-manager
+cp examples/certmanager.tfvars environments/commercial-hcp/my-cluster.tfvars
 
 # For BYO-VPC (second cluster in existing VPC)
 cp examples/byovpc.tfvars environments/commercial-hcp/my-cluster-2.tfvars
