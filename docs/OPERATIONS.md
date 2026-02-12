@@ -493,7 +493,7 @@ aws sts assume-role \
   --duration-seconds 43200
 ```
 
-### OCM Tokens
+### RHCS Authentication
 
 | Environment | Authentication | API Endpoint |
 |-------------|---------------|--------------|

@@ -37,12 +37,12 @@ export AWS_PROFILE=govcloud
 ```bash
 # Commercial
 export AWS_REGION=us-east-1          # or us-west-2, etc.
-export TF_VAR_aws_region=$AWS_REGION
 
 # GovCloud
 export AWS_REGION=us-gov-west-1      # or us-gov-east-1
-export TF_VAR_aws_region=$AWS_REGION
 ```
+
+> **Note:** The `aws_region` is set in your `.tfvars` file, not via environment variable. The `AWS_REGION` export above is for the AWS CLI and ROSA CLI only.
 
 **3. ROSA Login**
 ```bash
