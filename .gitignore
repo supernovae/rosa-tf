@@ -19,6 +19,10 @@ terraform.rc
 terraform.tfvars
 !terraform.tfvars.example
 
+# Personal test tfvars (use byron-*.tfvars for local experimentation)
+byron-*.tfvars
+byron*.tfvars
+
 # Sensitive files
 *.pem
 *.key
