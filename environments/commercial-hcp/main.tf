@@ -519,75 +519,12 @@ resource "null_resource" "wait_for_cluster_destroy" {
   triggers = {
     cluster_name = var.cluster_name
     vpc_id       = local.effective_vpc_id
+    script_path  = "${path.module}/../../scripts/vpc-cleanup.sh"
   }
 
   provisioner "local-exec" {
     when    = destroy
-    command = <<-EOT
-      set -e
-      VPC_ID="${self.triggers.vpc_id}"
-      CLUSTER_NAME="${self.triggers.cluster_name}"
-      
-      echo "=== VPC Cleanup: Waiting for AWS to clean up cluster resources ==="
-      echo "VPC: $VPC_ID"
-      echo "Cluster: $CLUSTER_NAME"
-      
-      # Wait for initial AWS cleanup (load balancers, etc.)
-      echo "Waiting 2 minutes for initial AWS cleanup..."
-      sleep 120
-      
-      # Clean up orphaned ENIs (created by load balancers, Lambda, etc.)
-      echo "Checking for orphaned ENIs in VPC..."
-      for i in 1 2 3; do
-        ENIS=$(aws ec2 describe-network-interfaces \
-          --filters "Name=vpc-id,Values=$VPC_ID" "Name=status,Values=available" \
-          --query 'NetworkInterfaces[*].NetworkInterfaceId' --output text 2>/dev/null || echo "")
-        
-        if [ -n "$ENIS" ] && [ "$ENIS" != "None" ]; then
-          echo "Found orphaned ENIs: $ENIS"
-          for ENI in $ENIS; do
-            echo "Deleting ENI: $ENI"
-            aws ec2 delete-network-interface --network-interface-id "$ENI" 2>/dev/null || true
-          done
-          sleep 10
-        else
-          echo "No orphaned ENIs found."
-          break
-        fi
-      done
-      
-      # Clean up orphaned security groups (non-default, created by ROSA/ELB)
-      echo "Checking for orphaned security groups in VPC..."
-      for i in 1 2 3; do
-        # Get non-default security groups that might be orphaned
-        SGS=$(aws ec2 describe-security-groups \
-          --filters "Name=vpc-id,Values=$VPC_ID" \
-          --query "SecurityGroups[?GroupName!='default'].GroupId" --output text 2>/dev/null || echo "")
-        
-        if [ -n "$SGS" ] && [ "$SGS" != "None" ]; then
-          echo "Found security groups: $SGS"
-          for SG in $SGS; do
-            # Check if SG has any network interfaces using it
-            IN_USE=$(aws ec2 describe-network-interfaces \
-              --filters "Name=group-id,Values=$SG" \
-              --query 'NetworkInterfaces[0].NetworkInterfaceId' --output text 2>/dev/null || echo "None")
-            
-            if [ "$IN_USE" = "None" ] || [ -z "$IN_USE" ]; then
-              echo "Attempting to delete unused SG: $SG"
-              aws ec2 delete-security-group --group-id "$SG" 2>/dev/null || true
-            else
-              echo "SG $SG still in use by ENI: $IN_USE"
-            fi
-          done
-          sleep 10
-        else
-          echo "No non-default security groups found."
-          break
-        fi
-      done
-      
-      echo "=== VPC Cleanup complete. Proceeding with infrastructure deletion. ==="
-    EOT
+    command = "bash \"${self.triggers.script_path}\" \"${self.triggers.vpc_id}\" \"${self.triggers.cluster_name}\""
   }
 
   depends_on = [module.vpc]
