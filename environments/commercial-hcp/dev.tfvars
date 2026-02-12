@@ -263,7 +263,7 @@ enable_layer_terminal       = false # Web Terminal operator
 enable_layer_oadp           = false # Backup/restore (requires S3 bucket)
 enable_layer_virtualization = false # Requires bare metal nodes
 enable_layer_monitoring     = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
+enable_layer_certmanager    = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
 
 # Cert-Manager configuration (when enable_layer_certmanager = true)
 # certmanager_create_hosted_zone        = true
@@ -315,8 +315,7 @@ enable_timing = true # Show deployment duration in outputs
 #------------------------------------------------------------------------------
 
 tags = {
-  Environment  = "dev"
-  CostCenter   = "MOBB"
-  AutoShutdown = "true"
+  Environment = "dev"
+  CostCenter  = "development"
 }
 

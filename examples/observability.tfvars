@@ -167,5 +167,6 @@ enable_timing = true
 
 tags = {
   Environment = "dev"
-  Purpose     = "observability-example"
+  CostCenter  = "development"
+  Layers      = "monitoring"
 }

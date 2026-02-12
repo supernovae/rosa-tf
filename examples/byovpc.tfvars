@@ -158,5 +158,6 @@ enable_timing = true
 
 tags = {
   Environment = "dev"
-  Purpose     = "byo-vpc-second-cluster"
+  CostCenter  = "development"
+  Layers      = "terminal"
 }

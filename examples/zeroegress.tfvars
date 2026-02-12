@@ -154,8 +154,8 @@ enable_timing = true
 
 tags = {
   Environment = "dev"
-  Purpose     = "zeroegress-example"
-  NetworkMode = "air-gapped"
+  CostCenter  = "development"
+  NetworkMode = "zero-egress"
 }
 
 #------------------------------------------------------------------------------

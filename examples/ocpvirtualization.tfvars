@@ -158,5 +158,6 @@ enable_timing = true
 
 tags = {
   Environment = "dev"
-  Purpose     = "virtualization-example"
+  CostCenter  = "development"
+  Layers      = "virtualization"
 }

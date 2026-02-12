@@ -283,9 +283,8 @@ enable_timing = true # Show deployment duration in outputs
 #------------------------------------------------------------------------------
 
 tags = {
-  Environment  = "dev"
-  CostCenter   = "development"
-  Compliance   = "fedramp-high"
-  DataClass    = "cui"
-  AutoShutdown = "false"
+  Environment = "dev"
+  CostCenter  = "development"
+  Compliance  = "fedramp-high"
+  DataClass   = "cui"
 }
