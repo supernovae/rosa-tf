@@ -12,21 +12,42 @@ variable "cluster_name" {
   }
 }
 
-variable "ocm_token" {
+variable "rhcs_client_id" {
   type        = string
   description = <<-EOT
-    OpenShift Cluster Manager (OCM) offline token for Commercial AWS.
-    Get from: https://console.redhat.com/openshift/token
-    
+    RHCS service account client ID for Commercial AWS.
+
+    Create a service account at:
+      https://console.redhat.com/iam/service-accounts
+
+    The service account must have "OpenShift Cluster Manager" permissions.
+    See: https://console.redhat.com/iam/user-access/users
+
     Set via environment variable (recommended):
-      export TF_VAR_ocm_token="your-offline-token"
+      export TF_VAR_rhcs_client_id="your-client-id"
+
+    Note: The offline OCM token is deprecated for commercial cloud.
+    Service accounts are the recommended authentication method for
+    both CI/CD pipelines and local workstation use.
+  EOT
+  sensitive   = false
+}
+
+variable "rhcs_client_secret" {
+  type        = string
+  description = <<-EOT
+    RHCS service account client secret for Commercial AWS.
+
+    Generated when creating a service account at:
+      https://console.redhat.com/iam/service-accounts
+
+    IMPORTANT: Save the client secret when created -- it is only
+    shown once and cannot be retrieved later.
+
+    Set via environment variable (recommended):
+      export TF_VAR_rhcs_client_secret="your-client-secret"
   EOT
   sensitive   = true
-
-  validation {
-    condition     = length(var.ocm_token) > 100
-    error_message = "OCM token is required. Get it from https://console.redhat.com/openshift/token"
-  }
 }
 
 #------------------------------------------------------------------------------

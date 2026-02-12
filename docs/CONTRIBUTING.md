@@ -151,7 +151,11 @@ make test
 For testing with a real cluster:
 
 ```bash
-# Set your OCM token
+# Commercial: Set service account credentials
+export TF_VAR_rhcs_client_id="your-client-id"
+export TF_VAR_rhcs_client_secret="your-client-secret"
+
+# GovCloud: Set offline OCM token
 export TF_VAR_ocm_token="your-token"
 
 # Test minimal example

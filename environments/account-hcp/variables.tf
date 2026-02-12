@@ -27,16 +27,43 @@ variable "environment" {
 variable "ocm_token" {
   type        = string
   description = <<-EOT
-    Red Hat OpenShift Cluster Manager API token.
-    Required for RHCS provider to fetch role policies.
-    
-    Commercial: https://console.redhat.com/openshift/token
-    GovCloud:   https://console.openshiftusgov.com/openshift/token
-    
+    OCM offline token for GovCloud authentication.
+    Get from: https://console.openshiftusgov.com/openshift/token
+
     Set via environment variable:
-      export TF_VAR_ocm_token="your-token-here"
+      export TF_VAR_ocm_token="your-offline-token"
+
+    Note: For commercial cloud, use rhcs_client_id and rhcs_client_secret
+    instead (service account authentication).
   EOT
   sensitive   = true
+  default     = null
+}
+
+variable "rhcs_client_id" {
+  type        = string
+  description = <<-EOT
+    RHCS service account client ID for Commercial AWS authentication.
+    Create at: https://console.redhat.com/iam/service-accounts
+
+    Set via environment variable:
+      export TF_VAR_rhcs_client_id="your-client-id"
+  EOT
+  sensitive   = false
+  default     = null
+}
+
+variable "rhcs_client_secret" {
+  type        = string
+  description = <<-EOT
+    RHCS service account client secret for Commercial AWS authentication.
+    Generated when creating a service account.
+
+    Set via environment variable:
+      export TF_VAR_rhcs_client_secret="your-client-secret"
+  EOT
+  sensitive   = true
+  default     = null
 }
 
 variable "target_partition" {
