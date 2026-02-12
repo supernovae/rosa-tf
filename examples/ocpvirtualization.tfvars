@@ -122,6 +122,7 @@ enable_layer_terminal       = false
 enable_layer_oadp           = false
 enable_layer_virtualization = true # <-- This enables the virtualization layer
 enable_layer_monitoring     = false
+enable_layer_certmanager    = false
 
 #------------------------------------------------------------------------------
 # Virtualization Configuration

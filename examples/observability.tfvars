@@ -21,7 +21,7 @@
 # Cluster Identification - CUSTOMIZE THESE
 #------------------------------------------------------------------------------
 
-cluster_name = "my-observability-cluster" # <-- CHANGE THIS
+cluster_name = "my-obs-cluster" # <-- CHANGE THIS (max 15 chars)
 environment  = "dev"
 aws_region   = "us-east-1" # <-- CHANGE THIS
 
@@ -127,6 +127,7 @@ enable_layer_terminal       = false
 enable_layer_oadp           = false
 enable_layer_virtualization = false
 enable_layer_monitoring     = true # <-- This enables the monitoring layer
+enable_layer_certmanager    = false
 
 #------------------------------------------------------------------------------
 # Monitoring Configuration

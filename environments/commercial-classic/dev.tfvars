@@ -159,10 +159,11 @@ create_client_vpn = false # Not needed for public cluster
 # Install ArgoCD and optional operators/layers
 #------------------------------------------------------------------------------
 
-install_gitops          = true  # Set to true after cluster is ready (Stage 2)
-enable_layer_terminal   = true  # Web Terminal operator
-enable_layer_oadp       = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring = true  # Prometheus + Loki logging stack
+install_gitops           = false # Set to true after cluster is ready (Stage 2)
+enable_layer_terminal    = false # Web Terminal operator
+enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
+enable_layer_monitoring  = false # Prometheus + Loki logging stack
+enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
 # enable_layer_virtualization = false # Requires bare metal nodes
 
 # Monitoring configuration (when enable_layer_monitoring = true)

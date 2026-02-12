@@ -259,10 +259,11 @@ create_client_vpn = false
 #------------------------------------------------------------------------------
 
 install_gitops              = false # Set to true after cluster is ready (Stage 2)
-enable_layer_terminal       = true  # Web Terminal operator
-enable_layer_oadp           = true  # Backup/restore (requires S3 bucket)
+enable_layer_terminal       = false # Web Terminal operator
+enable_layer_oadp           = false # Backup/restore (requires S3 bucket)
 enable_layer_virtualization = false # Requires bare metal nodes
-enable_layer_monitoring     = true  # Prometheus + Loki logging stack
+enable_layer_monitoring     = false # Prometheus + Loki logging stack
+enable_layer_certmanager    = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
 
 # Monitoring configuration (when enable_layer_monitoring = true)
 monitoring_loki_size      = "1x.extra-small" # Dev: extra-small, Prod: 1x.small or larger
