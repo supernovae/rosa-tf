@@ -261,6 +261,25 @@ enable_layer_monitoring  = false # Prometheus + Loki logging stack
 enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
 # enable_layer_virtualization = false # Requires bare metal nodes
 
+# Cert-Manager configuration (when enable_layer_certmanager = true)
+# certmanager_create_hosted_zone        = true
+# certmanager_hosted_zone_domain        = "apps.example.com"
+# certmanager_acme_email                = "platform-team@example.com"
+# certmanager_enable_dnssec             = true
+# certmanager_enable_query_logging      = true
+# certmanager_enable_routes_integration = true
+# certmanager_certificate_domains = [
+#   {
+#     name        = "apps-wildcard"
+#     namespace   = "openshift-ingress"
+#     secret_name = "apps-wildcard-tls"
+#     domains     = ["*.apps.example.com"]
+#   }
+# ]
+# # Or use an existing hosted zone:
+# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
+# # certmanager_create_hosted_zone = false
+
 # Monitoring configuration (when enable_layer_monitoring = true)
 monitoring_retention_days = 30 # Prod: 30 days
 
