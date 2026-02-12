@@ -458,7 +458,7 @@ pre-commit run --all-files
 ### Security Scanning
 
 ```bash
-make security  # Runs tfsec, checkov, trivy
+make security  # Runs checkov, trivy, shellcheck, gitleaks
 ```
 
 ## Contributing
