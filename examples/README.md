@@ -16,7 +16,6 @@ zero_egress     = true   # Enables air-gapped mode (auto-sets egress_type="none"
 private_cluster = true   # Required for zero egress
 create_ecr      = true   # ECR for operator mirroring
 create_client_vpn = true # Required for cluster access
-ssm_enabled     = true   # Node debugging via SSM
 install_gitops  = false  # Disabled until operators mirrored
 ```
 
@@ -89,6 +88,28 @@ service_cidr = "172.31.0.0/16"
 **Topology inference:** 1 private subnet = single-AZ, 3 = multi-AZ (auto-detected).
 
 See `docs/BYO-VPC.md` for CIDR planning, anti-pattern warnings, and multi-cluster guidance.
+
+### `byovpc-classic-prod.tfvars`
+
+Deploy a second ROSA Classic cluster into an existing VPC for production (multi-AZ, `us-east-1`).
+
+**Key configuration:**
+```hcl
+# Point to an existing VPC and its subnets
+existing_vpc_id             = "vpc-CHANGEME"
+existing_private_subnet_ids = ["subnet-...", "subnet-...", "subnet-..."]
+
+# Non-overlapping CIDRs
+pod_cidr     = "10.132.0.0/14"
+service_cidr = "172.31.0.0/16"
+
+# Production settings
+private_cluster = true
+worker_node_count = 3
+etcd_encryption   = true
+```
+
+See `docs/BYO-VPC.md` for workspace requirements and destroy order.
 
 ## Usage
 

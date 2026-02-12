@@ -137,7 +137,7 @@ All GovCloud HCP clusters are **private only**. Access methods:
 aws ssm start-session --target $(terraform output -raw jumphost_instance_id) --region us-gov-west-1
 
 # From jump host, login to cluster
-oc login $(terraform output -raw api_url) \
+oc login $(terraform output -raw cluster_api_url) \
   -u cluster-admin \
   -p $(terraform output -raw cluster_admin_password)
 ```
