@@ -41,7 +41,7 @@ provider "rhcs" {
 
 # Validate GitOps configuration before any resources are created/destroyed
 # This uses a null_resource with precondition to FAIL (not warn) if config is invalid
-# Prevents accidental destruction of S3 buckets when install_gitops is toggled off
+# Layers depend on the GitOps operator (ArgoCD) which is installed by install_gitops
 resource "null_resource" "validate_gitops_config" {
   lifecycle {
     precondition {
@@ -66,8 +66,9 @@ resource "null_resource" "validate_gitops_config" {
           1. Set install_gitops = true to enable GitOps and layers
           2. Set all enable_layer_* variables to false
 
-        WARNING: Setting install_gitops = false with layers enabled would
-        attempt to destroy S3 buckets containing your logs and backups!
+        NOTE: S3 buckets (Loki logs, OADP backups) are created via CloudFormation
+        with DeletionPolicy: Retain and will NOT be deleted on destroy. You are
+        responsible for manually cleaning up retained buckets when no longer needed.
       EOT
     }
   }
@@ -105,6 +106,20 @@ data "aws_ec2_instance_type_offerings" "available" {
 
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
+
+#------------------------------------------------------------------------------
+# BYO-VPC Data Sources
+#------------------------------------------------------------------------------
+
+data "aws_vpc" "existing" {
+  count = var.existing_vpc_id != null ? 1 : 0
+  id    = var.existing_vpc_id
+}
+
+data "aws_subnet" "existing_private" {
+  count = var.existing_vpc_id != null ? length(var.existing_private_subnet_ids) : 0
+  id    = var.existing_private_subnet_ids[count.index]
+}
 
 #------------------------------------------------------------------------------
 # Local Values
@@ -154,6 +169,17 @@ locals {
 
   # NAT gateway count follows AZ count: single-AZ = single NAT, multi-AZ = NAT per AZ
   use_single_nat = !var.multi_az
+
+  # BYO-VPC: indirection layer for all network references
+  # When existing_vpc_id is set, use provided values instead of module.vpc outputs
+  is_byo_vpc                   = var.existing_vpc_id != null
+  effective_vpc_id             = local.is_byo_vpc ? var.existing_vpc_id : module.vpc[0].vpc_id
+  effective_vpc_cidr           = local.is_byo_vpc ? data.aws_vpc.existing[0].cidr_block : module.vpc[0].vpc_cidr
+  effective_private_subnet_ids = local.is_byo_vpc ? var.existing_private_subnet_ids : module.vpc[0].private_subnet_ids
+  effective_public_subnet_ids  = local.is_byo_vpc ? coalesce(var.existing_public_subnet_ids, []) : module.vpc[0].public_subnet_ids
+  effective_availability_zones = local.is_byo_vpc ? data.aws_subnet.existing_private[*].availability_zone : local.availability_zones
+  effective_az_count           = local.is_byo_vpc ? length(var.existing_private_subnet_ids) : local.az_count
+  effective_multi_az           = local.effective_az_count >= 3
 
   # Common tags
   common_tags = {
@@ -251,6 +277,7 @@ locals {
 
 module "vpc" {
   source = "../../modules/networking/vpc"
+  count  = var.existing_vpc_id == null ? 1 : 0
 
   depends_on = [module.kms]
 
@@ -322,9 +349,9 @@ module "ecr" {
   # VPC endpoints for private ECR access (default: enabled)
   # Avoids NAT egress costs and required for zero-egress clusters
   create_vpc_endpoints = var.ecr_create_vpc_endpoints
-  vpc_id               = module.vpc.vpc_id
-  private_subnet_ids   = module.vpc.private_subnet_ids
-  vpc_cidr             = var.vpc_cidr
+  vpc_id               = local.effective_vpc_id
+  private_subnet_ids   = local.effective_private_subnet_ids
+  vpc_cidr             = local.effective_vpc_cidr
 
   tags = local.common_tags
 
@@ -371,7 +398,7 @@ resource "null_resource" "infrastructure_ready" {
 resource "null_resource" "wait_for_cluster_destroy" {
   triggers = {
     cluster_name = var.cluster_name
-    vpc_id       = module.vpc.vpc_id
+    vpc_id       = local.effective_vpc_id
   }
 
   provisioner "local-exec" {
@@ -461,8 +488,8 @@ module "additional_security_groups" {
   enabled      = var.additional_security_groups_enabled
   cluster_name = var.cluster_name
   cluster_type = local.cluster_type
-  vpc_id       = module.vpc.vpc_id
-  vpc_cidr     = var.vpc_cidr
+  vpc_id       = local.effective_vpc_id
+  vpc_cidr     = local.effective_vpc_cidr
 
   # Intra-VPC template (WARNING: permissive rules for development)
   use_intra_vpc_template = var.use_intra_vpc_security_group_template
@@ -504,14 +531,14 @@ module "rosa_cluster" {
   channel_group                = var.channel_group
   upgrade_acknowledgements_for = var.upgrade_acknowledgements_for
   aws_region                   = var.aws_region
-  availability_zones           = local.availability_zones
+  availability_zones           = local.effective_availability_zones
 
   # VPC Configuration
   # Private cluster: only private subnets (NAT egress handled by VPC routing)
   # Public cluster: both private and public subnets (for public ingress LBs)
-  private_subnet_ids = module.vpc.private_subnet_ids
-  public_subnet_ids  = var.private_cluster ? [] : module.vpc.public_subnet_ids
-  machine_cidr       = var.vpc_cidr
+  private_subnet_ids = local.effective_private_subnet_ids
+  public_subnet_ids  = var.private_cluster ? [] : local.effective_public_subnet_ids
+  machine_cidr       = local.effective_vpc_cidr
   pod_cidr           = var.pod_cidr
   service_cidr       = var.service_cidr
   host_prefix        = var.host_prefix
@@ -580,8 +607,8 @@ module "jumphost" {
   depends_on = [module.vpc, module.kms, module.rosa_cluster]
 
   cluster_name        = var.cluster_name
-  vpc_id              = module.vpc.vpc_id
-  subnet_id           = module.vpc.private_subnet_ids[0]
+  vpc_id              = local.effective_vpc_id
+  subnet_id           = local.effective_private_subnet_ids[0]
   instance_type       = var.jumphost_instance_type
   ami_id              = var.jumphost_ami_id
   cluster_api_url     = module.rosa_cluster.api_url
@@ -607,10 +634,10 @@ module "client_vpn" {
 
   cluster_name   = var.cluster_name
   cluster_domain = module.rosa_cluster.domain
-  vpc_id         = module.vpc.vpc_id
-  vpc_cidr       = var.vpc_cidr
+  vpc_id         = local.effective_vpc_id
+  vpc_cidr       = local.effective_vpc_cidr
 
-  subnet_ids = [module.vpc.private_subnet_ids[0]]
+  subnet_ids = [local.effective_private_subnet_ids[0]]
 
   client_cidr_block     = var.vpn_client_cidr_block
   split_tunnel          = var.vpn_split_tunnel
@@ -638,6 +665,26 @@ module "custom_ingress" {
   custom_domain  = var.custom_domain
   replicas       = var.custom_ingress_replicas
   route_selector = var.custom_ingress_route_selector
+}
+
+# Validate: BYO-VPC requires private subnet IDs and consistent public subnet count
+resource "terraform_data" "validate_byo_vpc" {
+  count = var.existing_vpc_id != null ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = var.existing_private_subnet_ids != null && length(var.existing_private_subnet_ids) > 0
+      error_message = "existing_private_subnet_ids is required when existing_vpc_id is set."
+    }
+    precondition {
+      condition     = var.existing_public_subnet_ids == null ? true : length(var.existing_public_subnet_ids) == length(var.existing_private_subnet_ids)
+      error_message = "existing_public_subnet_ids must have the same count as existing_private_subnet_ids (same AZ topology)."
+    }
+    precondition {
+      condition     = var.private_cluster || (var.existing_public_subnet_ids != null ? length(var.existing_public_subnet_ids) > 0 : false)
+      error_message = "Public clusters require existing_public_subnet_ids when using BYO-VPC."
+    }
+  }
 }
 
 #------------------------------------------------------------------------------

@@ -26,6 +26,8 @@ This document tracks the status of features in this module.
 | Backup/Restore (OADP) | ✅ Stable | GitOps layer with S3 backend, configurable retention |
 | Monitoring/Logging | ✅ Stable | Prometheus + Loki with S3 backend, 30-day retention |
 | GitOps Layers Framework | ✅ Stable | Composable Day 2 operations via ArgoCD |
+| BYO-VPC (Multi-Cluster) | ✅ Stable | Deploy into existing VPC, AZ inference, CIDR planning. See [BYO-VPC.md](BYO-VPC.md) |
+| BYO-VPC Subnet Helper | ✅ Stable | Standalone helper to create subnets in existing VPC. See [helpers/byo-vpc-subnets/](../helpers/byo-vpc-subnets/) |
 | Cert-Manager | ✅ Stable | Let's Encrypt DNS01 with Route53 IRSA, auto-renewal |
 | Custom Ingress | 🚧 WIP | Secondary ingress controller - not fully tested |
 
@@ -51,6 +53,43 @@ This document tracks the status of features in this module.
 1. Update the module to auto-detect based on AWS partition
 2. Remove the `is_govcloud` workaround
 3. Allow explicit billing account for both environments
+
+## Network Prerequisites (Firewall & Proxy)
+
+ROSA clusters require outbound access to several Red Hat and AWS endpoints during installation and at runtime. Before deploying -- especially into a BYO-VPC or a network with restricted egress -- ensure that the required URLs and ports are allowed through your firewall or proxy.
+
+### Required Documentation
+
+| Cluster Type | Firewall/URL Reference |
+|---|---|
+| ROSA Classic | [AWS firewall prerequisites](https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa_getting_started_iam/rosa-aws-prereqs.html#osd-aws-privatelink-firewall-prerequisites_prerequisites) |
+| ROSA HCP | [AWS firewall prerequisites (HCP)](https://docs.openshift.com/rosa/rosa_hcp/rosa-hcp-aws-prereqs.html#osd-aws-privatelink-firewall-prerequisites_rosa-hcp-aws-prereqs) |
+
+### Key Endpoints
+
+At a minimum, the cluster needs outbound HTTPS (443) access to:
+
+- `registry.redhat.io` / `quay.io` -- container image registries
+- `api.openshift.com` (Commercial) or `api.openshiftusgov.com` (GovCloud) -- ROSA/OCM API
+- `sso.redhat.com` -- Red Hat SSO authentication
+- AWS service endpoints (S3, EC2, ELB, STS, etc.) -- varies by region and partition
+
+### Cluster-Wide Proxy
+
+If your network uses a proxy for outbound access instead of NAT/TGW, configure it in your `tfvars`:
+
+```hcl
+http_proxy  = "http://proxy.example.com:3128"
+https_proxy = "http://proxy.example.com:3128"
+no_proxy    = ".cluster.local,.svc,10.128.0.0/14,172.30.0.0/16"
+additional_trust_bundle = file("corporate-ca-bundle.pem")  # if proxy uses custom CA
+```
+
+> **Zero-egress HCP clusters** do not require firewall rules or proxy configuration -- they use AWS PrivateLink and VPC endpoints exclusively. However, you must still ensure the required VPC endpoints are created. See the zero-egress example tfvars for details.
+
+### BYO-VPC Considerations
+
+When deploying into a BYO-VPC, you are responsible for ensuring the VPC's networking meets these requirements. The module does not create or modify firewall rules, NACLs, or proxy configurations in the existing VPC. See [BYO-VPC.md](BYO-VPC.md) for full details.
 
 ## GitOps Layers Framework
 
@@ -179,7 +218,7 @@ Features under consideration for future releases:
 - [x] Cluster autoscaler configuration - See `cluster_autoscaler_enabled` in cluster modules
 - [ ] External Secrets Operator integration
 - [x] Cert-Manager with Let's Encrypt (DNS01 via Route53 IRSA)
-- [ ] Multi-cluster federation examples
+- [x] Multi-cluster in single VPC - BYO-VPC support with subnet helper. See [BYO-VPC.md](BYO-VPC.md)
 - [ ] Unify default worker pool into `machine_pools` variable once HCP supports 0-worker pools (~4.22 timeframe)
 
 ### Security & Documentation

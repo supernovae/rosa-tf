@@ -20,8 +20,8 @@ Please be respectful and constructive in all interactions. We're all working tow
 1. Clone the repository:
 
 ```bash
-git clone git@github.com:supernovae/rosa-classic-govcloud.git
-cd rosa-classic-govcloud
+git clone git@github.com:supernovae/rosa-tf.git
+cd rosa-tf
 ```
 
 2. Install development tools:

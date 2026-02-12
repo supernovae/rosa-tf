@@ -50,7 +50,7 @@ export TF_VAR_aws_region=$AWS_REGION
 rosa login --use-auth-code
 
 # GovCloud
-rosa login --govcloud --token="<your_token_from_console.opnshiftusgov.com_here>"
+rosa login --govcloud --token="<your_token_from_console.openshiftusgov.com_here>"
 ```
 
 **4. Get OCM Token and Set Environment Variable**
@@ -247,7 +247,7 @@ export TF_VAR_ocm_token="your-new-token"
 
 # Re-login to ROSA CLI as well:
 rosa login --use-auth-code  # Commercial
-rosa login --govcloud --token="<your_token_from_console.opnshiftusgov.com_here> # GovCloud
+rosa login --govcloud --token="<your_token_from_console.openshiftusgov.com_here>" # GovCloud
 ```
 
 ## Deployment
@@ -276,7 +276,7 @@ Private clusters (all GovCloud, prod Commercial) require VPN or jump host access
 aws ssm start-session --target $(terraform output -raw jumphost_instance_id)
 
 # From jump host
-oc login $(terraform output -raw api_url) \
+oc login $(terraform output -raw cluster_api_url) \
   -u cluster-admin \
   -p $(terraform output -raw cluster_admin_password)
 ```

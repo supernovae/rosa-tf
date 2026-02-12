@@ -231,6 +231,63 @@ variable "flow_logs_retention_days" {
 }
 
 #------------------------------------------------------------------------------
+# BYO-VPC Configuration (Optional)
+#
+# Deploy into an existing VPC instead of creating a new one.
+# When existing_vpc_id is set, the VPC module is skipped entirely.
+# The number of private subnets determines cluster topology:
+#   - 1 subnet  = single-AZ cluster
+#   - 3 subnets = multi-AZ cluster
+#
+# See docs/BYO-VPC.md for CIDR planning and multi-cluster guidance.
+#------------------------------------------------------------------------------
+
+variable "existing_vpc_id" {
+  type        = string
+  description = <<-EOT
+    ID of an existing VPC to deploy into (BYO-VPC).
+    When set, skips VPC creation and uses provided subnet IDs.
+    
+    The VPC must have:
+    - DNS hostnames enabled
+    - DNS resolution enabled
+    - Appropriate tags for ROSA (kubernetes.io/cluster/<name>)
+  EOT
+  default     = null
+}
+
+variable "existing_private_subnet_ids" {
+  type        = list(string)
+  description = <<-EOT
+    Private subnet IDs in the existing VPC. Required when existing_vpc_id is set.
+
+    The number of subnets determines cluster topology:
+      - 1 subnet  = single-AZ cluster (dev/test)
+      - 3 subnets = multi-AZ cluster (production HA)
+
+    Each subnet must be in a different AZ for multi-AZ deployments.
+    Subnets must be tagged with: kubernetes.io/role/internal-elb = 1
+  EOT
+  default     = null
+
+  validation {
+    condition     = var.existing_private_subnet_ids == null ? true : contains([1, 3], length(var.existing_private_subnet_ids))
+    error_message = "Provide 1 subnet (single-AZ) or 3 subnets (multi-AZ). Other counts are not supported by ROSA."
+  }
+}
+
+variable "existing_public_subnet_ids" {
+  type        = list(string)
+  description = <<-EOT
+    Public subnet IDs in the existing VPC. Required for public clusters with BYO-VPC.
+
+    Must match the same AZ count as existing_private_subnet_ids.
+    Subnets must be tagged with: kubernetes.io/role/elb = 1
+  EOT
+  default     = null
+}
+
+#------------------------------------------------------------------------------
 # Cluster Configuration
 #------------------------------------------------------------------------------
 

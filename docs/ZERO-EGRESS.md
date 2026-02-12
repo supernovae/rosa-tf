@@ -70,7 +70,6 @@ create_ecr = true
 
 # VPN for cluster access (essential for zero egress)
 create_client_vpn = true
-ssm_enabled       = true  # Backup access for node debugging
 
 # GitOps disabled until operators are mirrored
 install_gitops = false

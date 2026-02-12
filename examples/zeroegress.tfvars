@@ -113,7 +113,6 @@ machine_pools = []
 
 create_jumphost   = false
 create_client_vpn = true # <-- Required for cluster access
-ssm_enabled       = true # <-- Enables SSM for node debugging
 
 #------------------------------------------------------------------------------
 # ECR Configuration

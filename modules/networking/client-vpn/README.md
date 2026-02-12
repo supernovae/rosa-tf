@@ -83,7 +83,7 @@ AWS Client VPN provides an OpenVPN-compatible managed VPN service that allows au
 
 ```hcl
 module "rosa_govcloud" {
-  source = "github.com/supernovae/rosa-classic-govcloud"
+  source = "github.com/supernovae/rosa-tf"
 
   # ... other configuration ...
 
