@@ -19,7 +19,7 @@
 # Existing VPC -- CHANGE THESE
 #------------------------------------------------------------------------------
 
-vpc_id     = "vpc-CHANGEME"           # <-- terraform output vpc_id
+vpc_id     = "vpc-CHANGEME" # <-- terraform output vpc_id
 aws_region = "us-gov-west-1"
 
 #------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ availability_zones = [
 ]
 
 private_subnet_cidrs = [
-  "10.0.96.0/20",   # us-gov-west-1a
+  "10.0.96.0/20", # us-gov-west-1a
 ]
 
 # Multi-AZ (uncomment for HA):

@@ -19,7 +19,7 @@
 # Existing VPC -- CHANGE THESE
 #------------------------------------------------------------------------------
 
-vpc_id     = "vpc-CHANGEME"           # <-- terraform output vpc_id
+vpc_id     = "vpc-CHANGEME" # <-- terraform output vpc_id
 aws_region = "us-east-1"
 
 #------------------------------------------------------------------------------
@@ -45,9 +45,9 @@ availability_zones = [
 ]
 
 private_subnet_cidrs = [
-  "10.0.96.0/20",    # us-east-1a
-  "10.0.112.0/20",   # us-east-1b
-  "10.0.128.0/20",   # us-east-1c
+  "10.0.96.0/20",  # us-east-1a
+  "10.0.112.0/20", # us-east-1b
+  "10.0.128.0/20", # us-east-1c
 ]
 
 # Uncomment for public clusters:
