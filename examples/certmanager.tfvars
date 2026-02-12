@@ -193,6 +193,6 @@ enable_timing = true
 
 tags = {
   Environment = "dev"
-  CostCenter  = "MOBB"
-  Feature     = "certmanager"
+  CostCenter  = "development"
+  Layers      = "certmanager"
 }

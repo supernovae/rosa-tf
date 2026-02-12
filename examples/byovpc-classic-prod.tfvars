@@ -126,6 +126,7 @@ enable_layer_terminal       = true
 enable_layer_oadp           = false
 enable_layer_virtualization = false
 enable_layer_monitoring     = false
+enable_layer_certmanager    = false
 
 #------------------------------------------------------------------------------
 # Debug / Timing
@@ -139,5 +140,6 @@ enable_timing = true
 
 tags = {
   Environment = "prod"
-  Purpose     = "byo-vpc-second-cluster"
+  CostCenter  = "production"
+  Layers      = "terminal"
 }
