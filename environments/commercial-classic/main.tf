@@ -41,7 +41,7 @@ provider "rhcs" {
 
 # Validate GitOps configuration before any resources are created/destroyed
 # This uses a null_resource with precondition to FAIL (not warn) if config is invalid
-# Prevents accidental destruction of S3 buckets when install_gitops is toggled off
+# Layers depend on the GitOps operator (ArgoCD) which is installed by install_gitops
 resource "null_resource" "validate_gitops_config" {
   lifecycle {
     precondition {
@@ -66,8 +66,9 @@ resource "null_resource" "validate_gitops_config" {
           1. Set install_gitops = true to enable GitOps and layers
           2. Set all enable_layer_* variables to false
 
-        WARNING: Setting install_gitops = false with layers enabled would
-        attempt to destroy S3 buckets containing your logs and backups!
+        NOTE: S3 buckets (Loki logs, OADP backups) are created via CloudFormation
+        with DeletionPolicy: Retain and will NOT be deleted on destroy. You are
+        responsible for manually cleaning up retained buckets when no longer needed.
       EOT
     }
   }
