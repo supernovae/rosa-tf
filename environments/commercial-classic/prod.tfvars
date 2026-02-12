@@ -64,7 +64,7 @@ fips = false # Set to true for FedRAMP/HIPAA/PCI
 # KMS encryption (separate keys for cluster and infrastructure)
 cluster_kms_mode        = "create" # Customer-managed KMS for ROSA
 infra_kms_mode          = "create" # Customer-managed KMS for infrastructure
-etcd_encryption         = true     # Encrypt etcd with cluster KMS
+etcd_encryption         = false     # Encrypt etcd with cluster KMS
 kms_key_deletion_window = 30
 
 #------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ cluster_autoscaler_enabled = false # Set to true for production autoscaling
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10"
+openshift_version = "4.21.0"
 channel_group     = "stable"
 
 #------------------------------------------------------------------------------

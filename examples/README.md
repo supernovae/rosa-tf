@@ -71,6 +71,25 @@ virt_node_selector = { "node-role.kubernetes.io/virtualization" = "" }
 virt_tolerations   = [{ key = "virtualization", value = "true", effect = "NoSchedule", operator = "Equal" }]
 ```
 
+### `byovpc.tfvars`
+
+Deploy a second ROSA HCP cluster into an existing VPC (BYO-VPC). Uses non-overlapping CIDRs to avoid conflicts with the first cluster.
+
+**Key configuration:**
+```hcl
+# Point to an existing VPC and its subnets
+existing_vpc_id             = "vpc-0123456789abcdef0"
+existing_private_subnet_ids = ["subnet-...", "subnet-...", "subnet-..."]
+
+# Non-overlapping CIDRs (first cluster uses 10.128.0.0/14 + 172.30.0.0/16)
+pod_cidr     = "10.132.0.0/14"
+service_cidr = "172.31.0.0/16"
+```
+
+**Topology inference:** 1 private subnet = single-AZ, 3 = multi-AZ (auto-detected).
+
+See `docs/BYO-VPC.md` for CIDR planning, anti-pattern warnings, and multi-cluster guidance.
+
 ## Usage
 
 ### Step 1: Copy to your environment
@@ -84,6 +103,9 @@ cp examples/observability.tfvars environments/commercial-hcp/my-cluster.tfvars
 
 # For virtualization
 cp examples/ocpvirtualization.tfvars environments/commercial-hcp/my-cluster.tfvars
+
+# For BYO-VPC (second cluster in existing VPC)
+cp examples/byovpc.tfvars environments/commercial-hcp/my-cluster-2.tfvars
 ```
 
 ### Step 2: Customize required values

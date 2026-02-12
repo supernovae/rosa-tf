@@ -23,6 +23,19 @@ The following security controls are **MANDATORY** and cannot be disabled:
 | EBS Encryption | Enabled | KMS required |
 | API Endpoint | api.openshiftusgov.com | FedRAMP authorized |
 
+## VPC and Cluster Topology
+
+Each GovCloud HCP cluster should be deployed into **its own dedicated VPC**. While the BYO-VPC variables (`existing_vpc_id`, `existing_private_subnet_ids`) are available in this environment for flexibility, deploying multiple ROSA clusters into a single VPC in GovCloud is **not recommended and not currently validated**.
+
+ROSA clusters create PrivateLink endpoint services, internal load balancers, and security groups that are tightly coupled to the VPC. When a cluster is destroyed, these resources may not be fully cleaned up, requiring manual intervention to remove orphaned NLBs, VPC endpoint services, and ENIs before subnets or the VPC can be deleted. This teardown complexity multiplies with each additional cluster in the VPC.
+
+**Guidance:**
+
+- **One VPC per cluster** is the supported and tested pattern for GovCloud HCP
+- Use separate Terraform workspaces to manage multiple clusters independently
+- If you have a use case that requires shared networking, consider VPC peering or Transit Gateway to connect independent cluster VPCs
+- For multi-cluster in a single VPC scenarios, see [BYO-VPC.md](../../docs/BYO-VPC.md) for general documentation, but be aware that GovCloud teardown has additional manual cleanup steps
+
 ## Quick Start
 
 ```bash

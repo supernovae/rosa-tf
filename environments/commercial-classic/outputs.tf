@@ -68,52 +68,57 @@ output "oidc_endpoint_url" {
 
 output "vpc_id" {
   description = "ID of the VPC."
-  value       = module.vpc.vpc_id
+  value       = local.effective_vpc_id
 }
 
 output "vpc_cidr" {
   description = "CIDR block of the VPC."
-  value       = module.vpc.vpc_cidr
+  value       = local.effective_vpc_cidr
 }
 
 output "private_subnet_ids" {
   description = "IDs of the private subnets."
-  value       = module.vpc.private_subnet_ids
+  value       = local.effective_private_subnet_ids
 }
 
 output "public_subnet_ids" {
-  description = "IDs of the public subnets (empty if egress_type != 'nat')."
-  value       = module.vpc.public_subnet_ids
+  description = "IDs of the public subnets (empty if egress_type != 'nat' or BYO-VPC)."
+  value       = local.effective_public_subnet_ids
 }
 
 output "availability_zones" {
   description = "Availability zones used by the cluster."
-  value       = module.vpc.availability_zones
+  value       = local.effective_availability_zones
+}
+
+output "byo_vpc" {
+  description = "Whether the cluster is using an existing (BYO) VPC."
+  value       = local.is_byo_vpc
 }
 
 output "private_route_table_ids" {
-  description = "IDs of the private route tables."
-  value       = module.vpc.private_route_table_ids
+  description = "IDs of the private route tables (empty if BYO-VPC)."
+  value       = local.is_byo_vpc ? [] : module.vpc[0].private_route_table_ids
 }
 
 output "nat_gateway_ips" {
-  description = "Elastic IP addresses of NAT gateways (empty if egress_type != 'nat')."
-  value       = module.vpc.nat_gateway_ips
+  description = "Elastic IP addresses of NAT gateways (empty if egress_type != 'nat' or BYO-VPC)."
+  value       = local.is_byo_vpc ? [] : module.vpc[0].nat_gateway_ips
 }
 
 output "egress_type" {
-  description = "The egress type configured for this VPC (nat, tgw, or proxy)."
-  value       = module.vpc.egress_type
+  description = "The egress type configured for this VPC (nat, tgw, proxy, or byo-vpc)."
+  value       = local.is_byo_vpc ? "byo-vpc" : module.vpc[0].egress_type
 }
 
 output "vpc_flow_logs_enabled" {
-  description = "Whether VPC flow logs are enabled."
-  value       = module.vpc.flow_logs_enabled
+  description = "Whether VPC flow logs are enabled (false if BYO-VPC)."
+  value       = local.is_byo_vpc ? false : module.vpc[0].flow_logs_enabled
 }
 
 output "vpc_flow_logs_log_group_arn" {
-  description = "ARN of the CloudWatch log group for VPC flow logs (null if disabled)."
-  value       = module.vpc.flow_logs_log_group_arn
+  description = "ARN of the CloudWatch log group for VPC flow logs (null if disabled or BYO-VPC)."
+  value       = local.is_byo_vpc ? null : module.vpc[0].flow_logs_log_group_arn
 }
 
 #------------------------------------------------------------------------------
