@@ -978,6 +978,19 @@ variable "certmanager_enable_dnssec" {
   default     = true
 }
 
+variable "certmanager_enable_query_logging" {
+  type        = bool
+  description = <<-EOT
+    Enable DNS query logging for the cert-manager Route53 hosted zone.
+    Only applies when certmanager_create_hosted_zone = true.
+
+    IMPORTANT: For Commercial AWS, Route53 query logging requires the
+    CloudWatch log group in us-east-1. Set to false for other regions.
+    For GovCloud, works in any deployment region.
+  EOT
+  default     = true
+}
+
 variable "certmanager_acme_email" {
   type        = string
   description = <<-EOT

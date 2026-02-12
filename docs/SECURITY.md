@@ -21,7 +21,7 @@ This project uses multiple security scanning tools to ensure:
 - Shell scripts are safe from injection vulnerabilities
 - IAM policies follow least-privilege principles
 
-**Current Status:** 347 Checkov checks pass, 22 expected failures, 4 skipped (documented below).
+**Current Status:** 350 Checkov checks pass, 22 expected failures, 4 skipped (documented below).
 
 ---
 

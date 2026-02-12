@@ -95,6 +95,38 @@ variable "enable_dnssec" {
   default     = true
 }
 
+variable "enable_query_logging" {
+  type        = bool
+  description = <<-EOT
+    Enable DNS query logging to CloudWatch Logs for the Route53 hosted zone.
+    Only applies when create_hosted_zone = true.
+
+    Logs DNS queries for security monitoring and troubleshooting.
+
+    IMPORTANT: For Commercial AWS, Route53 query logging requires the
+    CloudWatch log group to be in us-east-1. This only works when the
+    module is deployed in us-east-1. Set to false for other regions.
+    For GovCloud, the log group is created in the deployment region.
+  EOT
+  default     = true
+}
+
+variable "query_log_retention_days" {
+  type        = number
+  description = "Number of days to retain Route53 query logs in CloudWatch. Minimum 365 for compliance."
+  default     = 365
+}
+
+#------------------------------------------------------------------------------
+# Encryption
+#------------------------------------------------------------------------------
+
+variable "kms_key_arn" {
+  type        = string
+  description = "KMS key ARN for encrypting CloudWatch log groups. Null uses AWS default encryption."
+  default     = null
+}
+
 #------------------------------------------------------------------------------
 # IAM Configuration
 #------------------------------------------------------------------------------

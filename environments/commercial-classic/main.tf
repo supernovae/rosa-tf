@@ -731,10 +731,11 @@ module "gitops_resources" {
   openshift_version                  = var.openshift_version
 
   # Cert-Manager config (for AWS resource creation)
-  certmanager_hosted_zone_id     = var.certmanager_hosted_zone_id
-  certmanager_hosted_zone_domain = var.certmanager_hosted_zone_domain
-  certmanager_create_hosted_zone = var.certmanager_create_hosted_zone
-  certmanager_enable_dnssec      = var.certmanager_enable_dnssec
+  certmanager_hosted_zone_id       = var.certmanager_hosted_zone_id
+  certmanager_hosted_zone_domain   = var.certmanager_hosted_zone_domain
+  certmanager_create_hosted_zone   = var.certmanager_create_hosted_zone
+  certmanager_enable_dnssec        = var.certmanager_enable_dnssec
+  certmanager_enable_query_logging = var.certmanager_enable_query_logging
 
   tags = local.common_tags
 }

@@ -158,6 +158,11 @@ certmanager_hosted_zone_domain = "apps.example.com"
 # to complete the chain of trust. Set to false to disable.
 certmanager_enable_dnssec = true
 
+# DNS query logging (default: true) - logs queries to CloudWatch
+# NOTE: For Commercial AWS, requires deployment in us-east-1.
+# Set to false for non-us-east-1 commercial deployments.
+certmanager_enable_query_logging = true
+
 # Let's Encrypt registration email (receives expiry warnings)
 certmanager_acme_email = "platform-team@example.com"
 

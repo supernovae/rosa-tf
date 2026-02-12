@@ -165,6 +165,12 @@ variable "certmanager_enable_dnssec" {
   default     = true
 }
 
+variable "certmanager_enable_query_logging" {
+  type        = bool
+  description = "Enable DNS query logging for the cert-manager Route53 hosted zone."
+  default     = true
+}
+
 variable "openshift_version" {
   type        = string
   description = "OpenShift version for API compatibility."

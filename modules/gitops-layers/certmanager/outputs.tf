@@ -62,6 +62,16 @@ output "dnssec_kms_key_arn" {
   value       = var.create_hosted_zone && var.enable_dnssec ? aws_kms_key.dnssec[0].arn : ""
 }
 
+output "query_logging_enabled" {
+  description = "Whether DNS query logging is enabled on the hosted zone."
+  value       = var.create_hosted_zone && var.enable_query_logging
+}
+
+output "query_log_group_arn" {
+  description = "ARN of the CloudWatch log group for DNS query logs."
+  value       = var.create_hosted_zone && var.enable_query_logging ? aws_cloudwatch_log_group.query_logging[0].arn : ""
+}
+
 #------------------------------------------------------------------------------
 # Summary for GitOps ConfigMap
 #------------------------------------------------------------------------------

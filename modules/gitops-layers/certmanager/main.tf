@@ -164,8 +164,76 @@ resource "aws_route53_hosted_zone_dnssec" "certmanager" {
   count = var.create_hosted_zone && var.enable_dnssec ? 1 : 0
 
   hosted_zone_id = aws_route53_key_signing_key.certmanager[0].hosted_zone_id
+  signing_status = "SIGNING"
 
   depends_on = [aws_route53_key_signing_key.certmanager]
+}
+
+#------------------------------------------------------------------------------
+# DNS Query Logging
+#
+# Logs DNS queries to CloudWatch Logs for security monitoring and
+# troubleshooting. Checkov CKV2_AWS_39 requires this for public zones.
+#
+# NOTE: For Commercial AWS, Route53 query logging requires the
+# CloudWatch log group to be in us-east-1. If this module is deployed
+# in a different region, query logging will fail. Set
+# enable_query_logging = false for non-us-east-1 commercial deployments.
+# For GovCloud, the log group is created in the deployment region.
+#------------------------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "query_logging" {
+  count = var.create_hosted_zone && var.enable_query_logging ? 1 : 0
+
+  name              = "/aws/route53/${var.hosted_zone_domain}"
+  retention_in_days = var.query_log_retention_days
+  kms_key_id        = var.kms_key_arn
+
+  tags = merge(
+    var.tags,
+    {
+      Name                = "${var.cluster_name}-route53-query-logs"
+      "rosa-gitops-layer" = "certmanager"
+    }
+  )
+}
+
+resource "aws_cloudwatch_log_resource_policy" "query_logging" {
+  count = var.create_hosted_zone && var.enable_query_logging ? 1 : 0
+
+  policy_name = "${var.cluster_name}-route53-query-logging"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Route53QueryLogging"
+        Effect = "Allow"
+        Principal = {
+          Service = "route53.amazonaws.com"
+        }
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/route53/*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_route53_query_log" "certmanager" {
+  count = var.create_hosted_zone && var.enable_query_logging ? 1 : 0
+
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.query_logging[0].arn
+  zone_id                  = aws_route53_zone.certmanager[0].zone_id
+
+  depends_on = [aws_cloudwatch_log_resource_policy.query_logging]
 }
 
 #------------------------------------------------------------------------------
