@@ -98,6 +98,70 @@ This triggers cert-manager to:
 2. Store it as a Secret
 3. Configure the Route's TLS termination
 
+## Custom Ingress Integration
+
+When a custom domain is configured, the cert-manager layer automatically creates a **scoped IngressController** that keeps user workload traffic isolated from the default ROSA ingress (which serves console, oauth, monitoring).
+
+### What Gets Created
+
+1. **IngressController** (`custom-apps`) -- scoped to your domain via `spec.domain`
+2. **NLB** -- separate load balancer (private or public, configurable)
+3. **Wildcard TLS certificate** -- issued by Let's Encrypt, auto-renewed by cert-manager
+4. **Route53 wildcard CNAME** -- `*.yourdomain.com` pointing to the custom NLB
+
+### Traffic Isolation
+
+```
+Default ROSA Ingress (untouched):
+  *.apps.cluster-name.xxxx.openshiftapps.com
+  -> console, oauth, monitoring, internal routes
+
+Custom Ingress (cert-manager layer):
+  *.yourdomain.com
+  -> user workload routes only (scoped by domain + optional selectors)
+```
+
+### Configuration
+
+```hcl
+# Custom ingress is enabled by default when certmanager has a domain
+certmanager_ingress_enabled    = true      # default: true
+certmanager_ingress_visibility = "private" # or "public"
+certmanager_ingress_replicas   = 2
+
+# Optional: additional scoping beyond domain-based matching
+certmanager_ingress_route_selector     = {}  # e.g., { "ingress" = "custom-apps" }
+certmanager_ingress_namespace_selector = {}  # e.g., { "apps-domain" = "custom" }
+```
+
+### Creating Routes on the Custom Ingress
+
+Routes matching the custom domain are automatically served by the custom IngressController:
+
+```bash
+# Routes with hostnames under yourdomain.com use the custom ingress
+oc create route edge my-app \
+  --service=my-app \
+  --hostname=my-app.yourdomain.com
+
+# Routes under the default *.apps.cluster.openshiftapps.com domain
+# continue to use the default ROSA ingress (unchanged)
+```
+
+If `certmanager_ingress_route_selector` is set, routes also need the matching labels:
+
+```bash
+oc label route my-app ingress=custom-apps
+```
+
+### Disabling the Custom Ingress
+
+To use cert-manager for certificate management only (without a custom IngressController):
+
+```hcl
+certmanager_ingress_enabled = false
+```
+
 ## Usage
 
 ### Basic (with existing hosted zone)
@@ -108,7 +172,7 @@ certmanager_hosted_zone_id  = "Z0123456789ABCDEF"
 certmanager_acme_email      = "platform-team@example.com"
 ```
 
-### Create hosted zone + wildcard certificate
+### Create hosted zone + custom ingress + wildcard certificate
 
 ```hcl
 enable_layer_certmanager       = true
@@ -116,15 +180,21 @@ certmanager_create_hosted_zone = true
 certmanager_hosted_zone_domain = "apps.example.com"
 certmanager_acme_email         = "platform-team@example.com"
 
+# Custom ingress (enabled by default)
+certmanager_ingress_visibility = "private"
+
+# Wildcard certificate for the custom domain
 certmanager_certificate_domains = [
   {
     name        = "apps-wildcard"
     namespace   = "openshift-ingress"
-    secret_name = "apps-wildcard-tls"
+    secret_name = "custom-apps-default-cert"
     domains     = ["*.apps.example.com"]
   }
 ]
 ```
+
+> **Important:** The certificate `secret_name` should be `custom-apps-default-cert` to match the IngressController's `defaultCertificate` reference.
 
 ## Inputs
 
@@ -137,6 +207,11 @@ certmanager_certificate_domains = [
 | `certmanager_acme_email` | Let's Encrypt registration email | `string` | `""` | Yes (when enabled) |
 | `certmanager_certificate_domains` | Certificate resources to create | `list(object)` | `[]` | No |
 | `certmanager_enable_routes_integration` | Install Routes integration | `bool` | `true` | No |
+| `certmanager_ingress_enabled` | Create a custom IngressController | `bool` | `true` | No |
+| `certmanager_ingress_visibility` | NLB scope: `"private"` or `"public"` | `string` | `"private"` | No |
+| `certmanager_ingress_replicas` | Router replicas for custom ingress | `number` | `2` | No |
+| `certmanager_ingress_route_selector` | Additional route label selector | `map(string)` | `{}` | No |
+| `certmanager_ingress_namespace_selector` | Namespace label selector | `map(string)` | `{}` | No |
 
 ## Outputs
 
@@ -146,3 +221,6 @@ certmanager_certificate_domains = [
 | `certmanager_hosted_zone_id` | Route53 hosted zone ID |
 | `certmanager_hosted_zone_domain` | Hosted zone domain |
 | `certmanager_hosted_zone_nameservers` | NS records (when zone is created) |
+| `certmanager_ingress_enabled` | Whether custom IngressController was created |
+| `certmanager_ingress_domain` | Domain served by the custom ingress |
+| `certmanager_ingress_visibility` | NLB visibility (private/public) |

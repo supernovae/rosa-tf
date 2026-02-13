@@ -172,7 +172,7 @@ certmanager_certificate_domains = [
   {
     name        = "apps-wildcard"
     namespace   = "openshift-ingress"
-    secret_name = "apps-wildcard-tls"
+    secret_name = "custom-apps-default-cert" # Must match IngressController defaultCertificate
     domains     = ["*.apps.example.com"]
   }
 ]
@@ -180,6 +180,31 @@ certmanager_certificate_domains = [
 # Enable OpenShift Routes integration (default: true)
 # Allows annotating Routes for automatic TLS provisioning
 certmanager_enable_routes_integration = true
+
+#------------------------------------------------------------------------------
+# Custom Ingress Configuration
+#
+# When enabled (default), a scoped IngressController is created for the
+# custom domain with its own NLB. This keeps user workload traffic separate
+# from the default ROSA ingress (console, oauth, monitoring).
+#
+# The framework automatically:
+#   1. Creates IngressController "custom-apps" scoped to your domain
+#   2. Provisions an NLB (private by default)
+#   3. Creates a Route53 wildcard CNAME: *.domain -> NLB
+#   4. Uses the wildcard certificate from cert-manager for TLS
+#
+# IMPORTANT: The certificate secret_name in certmanager_certificate_domains
+# should be "custom-apps-default-cert" to match the IngressController.
+#------------------------------------------------------------------------------
+
+certmanager_ingress_enabled    = true      # Create custom IngressController
+certmanager_ingress_visibility = "private" # "private" = internal NLB, "public" = internet-facing
+certmanager_ingress_replicas   = 2         # Router pod replicas
+
+# Optional: additional route/namespace scoping (beyond domain-based matching)
+# certmanager_ingress_route_selector     = { "ingress" = "custom-apps" }
+# certmanager_ingress_namespace_selector = { "apps-domain" = "custom" }
 
 #------------------------------------------------------------------------------
 # Debug / Timing

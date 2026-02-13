@@ -420,6 +420,46 @@ variable "certmanager_enable_routes_integration" {
   default     = true
 }
 
+#------------------------------------------------------------------------------
+# Cert-Manager Custom Ingress Configuration
+#------------------------------------------------------------------------------
+
+variable "certmanager_ingress_enabled" {
+  type        = bool
+  description = "Create a custom IngressController for the cert-manager domain."
+  default     = true
+}
+
+variable "certmanager_ingress_visibility" {
+  type        = string
+  description = "Visibility of the custom ingress NLB: 'private' or 'public'."
+  default     = "private"
+}
+
+variable "certmanager_ingress_replicas" {
+  type        = number
+  description = "Number of router replicas for the custom IngressController."
+  default     = 2
+}
+
+variable "certmanager_ingress_route_selector" {
+  type        = map(string)
+  description = "Additional route label selector for the custom IngressController."
+  default     = {}
+}
+
+variable "certmanager_ingress_namespace_selector" {
+  type        = map(string)
+  description = "Namespace label selector for the custom IngressController."
+  default     = {}
+}
+
+variable "certmanager_ingress_cert_secret_name" {
+  type        = string
+  description = "Name of the TLS secret for the custom IngressController's default certificate."
+  default     = "custom-apps-default-cert"
+}
+
 variable "openshift_version" {
   type        = string
   description = <<-EOT

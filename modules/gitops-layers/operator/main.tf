@@ -550,6 +550,20 @@ locals {
       cert_domains     = cert.domains
     })
   ]
+
+  # Custom IngressController template
+  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
+    custom_domain    = var.certmanager_hosted_zone_domain
+    replicas         = var.certmanager_ingress_replicas
+    visibility       = var.certmanager_ingress_visibility == "private" ? "Internal" : "External"
+    cert_secret_name = var.certmanager_ingress_cert_secret_name
+    route_selector_yaml = join("\n", [
+      for k, v in var.certmanager_ingress_route_selector : "      ${k}: \"${v}\""
+    ])
+    namespace_selector_yaml = join("\n", [
+      for k, v in var.certmanager_ingress_namespace_selector : "      ${k}: \"${v}\""
+    ])
+  }) : ""
 }
 
 #------------------------------------------------------------------------------
@@ -1486,4 +1500,125 @@ resource "null_resource" "layer_certmanager_routes_integration_direct" {
   }
 
   depends_on = [null_resource.layer_certmanager_restart_direct]
+}
+
+#------------------------------------------------------------------------------
+# Direct: Custom IngressController for cert-manager domain
+#
+# Creates a scoped IngressController that only serves routes matching the
+# custom domain (via spec.domain). This keeps user workload traffic separate
+# from the default ROSA ingress (console, oauth, monitoring).
+#
+# After the IngressController provisions its NLB, a Route53 wildcard CNAME
+# is created to point *.domain to the NLB automatically.
+#------------------------------------------------------------------------------
+
+# Step 12: Create custom IngressController
+resource "null_resource" "layer_certmanager_ingress_direct" {
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? 1 : 0
+
+  triggers = {
+    yaml_hash = sha256(local.certmanager_ingress_controller)
+  }
+
+  provisioner "local-exec" {
+    command = "bash '${local.script_path}' '${local.api_url}' '${var.cluster_token}' apply-yaml 'Custom IngressController' '/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers' '${replace(local.certmanager_ingress_controller, "'", "'\\''")}'"
+  }
+
+  depends_on = [
+    null_resource.layer_certmanager_certificate_direct,
+    null_resource.layer_certmanager_issuer_direct
+  ]
+}
+
+# Step 13: Discover NLB hostname and create Route53 wildcard CNAME
+resource "null_resource" "layer_certmanager_dns_record" {
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
+
+  triggers = {
+    domain         = var.certmanager_hosted_zone_domain
+    hosted_zone_id = var.certmanager_hosted_zone_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo ""
+      echo "============================================="
+      echo "  DNS Record: *.${var.certmanager_hosted_zone_domain}"
+      echo "============================================="
+      echo ""
+      echo "  Waiting for custom IngressController NLB..."
+      echo ""
+
+      # Poll for the NLB hostname (created by the IngressController)
+      NLB_HOSTNAME=""
+      for attempt in $(seq 1 30); do
+        NLB_HOSTNAME=$(curl -sk \
+          -H "Authorization: Bearer ${var.cluster_token}" \
+          "${local.api_url}/api/v1/namespaces/openshift-ingress/services/router-custom-apps" \
+          2>/dev/null | grep -o '"hostname":"[^"]*"' | head -1 | sed 's/"hostname":"//;s/"//')
+
+        if [ -n "$NLB_HOSTNAME" ] && [ "$NLB_HOSTNAME" = "null" ]; then
+          NLB_HOSTNAME=""
+        fi
+
+        if [ -n "$NLB_HOSTNAME" ]; then
+          echo "  NLB hostname: $NLB_HOSTNAME"
+          break
+        fi
+
+        echo "  Attempt $attempt/30: NLB not ready yet, waiting 20s..."
+        sleep 20
+      done
+
+      if [ -z "$NLB_HOSTNAME" ]; then
+        echo ""
+        echo "  WARNING: Could not discover NLB hostname after 10 minutes."
+        echo "  The IngressController may still be provisioning."
+        echo ""
+        echo "  To create the DNS record manually:"
+        echo "    1. Get NLB hostname:"
+        echo "       oc get svc -n openshift-ingress router-custom-apps \\"
+        echo "         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
+        echo "    2. Create CNAME record in Route53 zone ${var.certmanager_hosted_zone_id}:"
+        echo "       *.${var.certmanager_hosted_zone_domain} -> <NLB_HOSTNAME>"
+        echo ""
+        exit 0
+      fi
+
+      # Create the wildcard CNAME record
+      echo ""
+      echo "  Creating Route53 CNAME: *.${var.certmanager_hosted_zone_domain} -> $NLB_HOSTNAME"
+      echo ""
+
+      CHANGE_BATCH=$(cat <<ENDJSON
+      {
+        "Changes": [{
+          "Action": "UPSERT",
+          "ResourceRecordSet": {
+            "Name": "*.${var.certmanager_hosted_zone_domain}",
+            "Type": "CNAME",
+            "TTL": 300,
+            "ResourceRecords": [{"Value": "$NLB_HOSTNAME"}]
+          }
+        }]
+      }
+ENDJSON
+      )
+
+      aws route53 change-resource-record-sets \
+        --hosted-zone-id "${var.certmanager_hosted_zone_id}" \
+        --change-batch "$CHANGE_BATCH" > /dev/null 2>&1 \
+        && echo "  DNS record created successfully." \
+        || echo "  WARNING: DNS record creation failed. Create manually (see above)."
+
+      echo ""
+      echo "============================================="
+      echo "  Custom ingress ready: *.${var.certmanager_hosted_zone_domain}"
+      echo "============================================="
+      echo ""
+    EOT
+  }
+
+  depends_on = [null_resource.layer_certmanager_ingress_direct]
 }

@@ -73,6 +73,25 @@ output "query_log_group_arn" {
 }
 
 #------------------------------------------------------------------------------
+# Custom Ingress
+#------------------------------------------------------------------------------
+
+output "ingress_enabled" {
+  description = "Whether a custom IngressController will be created for this domain."
+  value       = var.ingress_enabled && var.hosted_zone_domain != ""
+}
+
+output "ingress_visibility" {
+  description = "Visibility (scope) of the custom IngressController NLB."
+  value       = var.ingress_visibility
+}
+
+output "ingress_domain" {
+  description = "Domain served by the custom IngressController."
+  value       = var.ingress_enabled ? (var.create_hosted_zone ? var.hosted_zone_domain : local.effective_hosted_zone_domain) : ""
+}
+
+#------------------------------------------------------------------------------
 # Summary for GitOps ConfigMap
 #------------------------------------------------------------------------------
 

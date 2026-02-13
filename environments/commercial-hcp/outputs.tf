@@ -320,6 +320,33 @@ output "deployment_timing" {
 }
 
 #------------------------------------------------------------------------------
+# Cert-Manager Ingress Outputs
+#------------------------------------------------------------------------------
+
+output "certmanager_ingress_enabled" {
+  description = "Whether a custom IngressController was created for the cert-manager domain."
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_enabled : false
+}
+
+output "certmanager_ingress_domain" {
+  description = <<-EOT
+    Domain served by the custom IngressController.
+    
+    After apply, verify the custom ingress is working:
+      oc get ingresscontroller custom-apps -n openshift-ingress-operator
+      oc get svc router-custom-apps -n openshift-ingress
+    
+    The Route53 CNAME record *.domain -> NLB is created automatically.
+  EOT
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_domain : ""
+}
+
+output "certmanager_ingress_visibility" {
+  description = "Visibility of the custom IngressController NLB (private or public)."
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_visibility : ""
+}
+
+#------------------------------------------------------------------------------
 # S3 Bucket Cleanup Notice
 #------------------------------------------------------------------------------
 

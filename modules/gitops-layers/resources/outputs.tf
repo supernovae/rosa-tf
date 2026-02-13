@@ -82,6 +82,21 @@ output "certmanager_dnssec_ds_record" {
   value       = var.enable_layer_certmanager ? module.certmanager[0].dnssec_ds_record : ""
 }
 
+output "certmanager_ingress_enabled" {
+  description = "Whether a custom IngressController is being created."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].ingress_enabled : false
+}
+
+output "certmanager_ingress_domain" {
+  description = "Domain served by the custom IngressController."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].ingress_domain : ""
+}
+
+output "certmanager_ingress_visibility" {
+  description = "Visibility of the custom IngressController NLB."
+  value       = var.enable_layer_certmanager ? module.certmanager[0].ingress_visibility : ""
+}
+
 #------------------------------------------------------------------------------
 # Summary Output (for debugging)
 #------------------------------------------------------------------------------
