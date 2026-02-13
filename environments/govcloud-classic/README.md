@@ -239,3 +239,10 @@ terraform destroy -var-file=prod.tfvars
 ```
 
 **Note:** Cluster destruction takes 15-30 minutes. The ROSA API must fully process the deletion before IAM roles can be removed.
+
+## Related Documentation
+
+- [FedRAMP Deployment Guide](../../docs/FEDRAMP.md) - Forking, telemetry, provider vendoring, compliance checklist
+- [Security Scanning](../../docs/SECURITY.md) - Security tools, skipped checks, compliance notes
+- [ROSA GovCloud Guide](https://cloud.redhat.com/experts/rosa/rosa-govcloud/)
+- [FedRAMP Hybrid Cloud Console](https://console.openshiftusgov.com)
