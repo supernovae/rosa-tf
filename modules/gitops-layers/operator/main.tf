@@ -1665,7 +1665,7 @@ resource "null_resource" "layer_certmanager_dns_record" {
           "$API_URL/api/v1/namespaces/openshift-ingress/services/router-custom-apps" \
           2>/dev/null || echo "")
 
-        NLB_HOSTNAME=$(echo "$RESPONSE" | grep -o '"hostname":"[^"]*"' | head -1 | sed 's/"hostname":"//;s/"//') || true
+        NLB_HOSTNAME=$(echo "$RESPONSE" | grep -o '"hostname"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"hostname"[[:space:]]*:[[:space:]]*"//;s/"//') || true
 
         if [ -n "$NLB_HOSTNAME" ] && [ "$NLB_HOSTNAME" = "null" ]; then
           NLB_HOSTNAME=""
