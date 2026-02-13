@@ -281,6 +281,121 @@ To use cert-manager for certificate management only (without a custom IngressCon
 certmanager_ingress_enabled = false
 ```
 
+## DNS Delegation
+
+When using `certmanager_create_hosted_zone = true`, Terraform creates a Route53 hosted zone with a **unique set of 4 nameservers**. Your domain registrar (Squarespace, GoDaddy, Namecheap, etc.) must be updated to delegate DNS to these nameservers before cert-manager can issue certificates.
+
+### Understanding the Workflow
+
+There is an intentional ordering dependency:
+
+1. **`terraform apply`** creates the hosted zone, cluster, cert-manager, and ClusterIssuers
+2. cert-manager immediately attempts to issue certificates via DNS01 challenges
+3. **These will fail** until DNS delegation is complete -- this is expected
+4. You update your registrar with the nameservers from Terraform output
+5. DNS propagates (typically 15-60 minutes, can take up to 48 hours)
+6. cert-manager retries and successfully issues certificates
+
+> **If you provide an existing hosted zone** (`certmanager_hosted_zone_id`), DNS delegation is already done and cert-manager will work immediately after apply. This is the simplest path if you manage DNS ahead of time.
+
+### Step 1: Get the Nameservers
+
+After `terraform apply` completes:
+
+```bash
+# Get the Route53 nameservers for the new hosted zone
+terraform output certmanager_hosted_zone_nameservers
+```
+
+Output example:
+```
+[
+  "ns-1234.awsdns-26.org",
+  "ns-567.awsdns-10.net",
+  "ns-890.awsdns-47.co.uk",
+  "ns-12.awsdns-01.com",
+]
+```
+
+### Step 2: Update Your Domain Registrar
+
+Set the nameservers at your registrar for the domain (e.g., `apps.example.com`):
+
+| Registrar | Where to Update |
+|-----------|----------------|
+| **Squarespace** | Domains > your domain > DNS Settings > Custom nameservers |
+| **GoDaddy** | Domain Settings > Nameservers > Change |
+| **Namecheap** | Domain List > Manage > Nameservers > Custom DNS |
+| **Cloudflare** | (must use full zone transfer or CNAME setup) |
+| **AWS Route53** (parent zone) | Add NS record for the subdomain |
+
+> **Subdomain delegation:** If you're delegating a subdomain like `apps.example.com` and the parent zone (`example.com`) is already in Route53, add an NS record set in the parent zone instead of changing registrar nameservers.
+
+### Step 3: Verify DNS Propagation
+
+```bash
+# Check if nameservers are responding (replace with your domain)
+dig +short NS apps.example.com
+
+# Expected: the 4 Route53 nameservers from Step 1
+# If you see your old nameservers, propagation is still in progress
+```
+
+### Step 4: Force cert-manager to Retry
+
+cert-manager has an exponential backoff that can delay retries up to hours after initial failures. Once DNS is live, force an immediate retry:
+
+```bash
+# Option A: Delete and recreate the CertificateRequest (fastest)
+# List pending certificate requests
+oc get certificaterequests -A
+
+# Delete the failed request -- cert-manager will create a new one immediately
+oc delete certificaterequest <name> -n <namespace>
+
+# Option B: Annotate the Certificate to trigger reconciliation
+oc annotate certificate <name> -n <namespace> \
+  cert-manager.io/manual-trigger="$(date +%s)" --overwrite
+
+# Option C: Restart cert-manager (nuclear option, retries everything)
+oc rollout restart deployment cert-manager -n cert-manager
+```
+
+### Step 5: Verify Certificate Issuance
+
+```bash
+# Check certificate status
+oc get certificates -A
+
+# Expected: READY = True
+# NAME             READY   SECRET              AGE
+# apps-wildcard    True    apps-wildcard-tls   5m
+
+# If still not ready, check the challenge status
+oc get challenges -A
+oc describe challenge <name> -n <namespace>
+```
+
+### DNSSEC DS Record (Optional)
+
+If `certmanager_enable_dnssec = true` (default), you should also add the DS record to your registrar to complete the DNSSEC chain of trust:
+
+```bash
+terraform output certmanager_dnssec_ds_record
+```
+
+Add this as a **DS record** at your registrar. This is not required for cert-manager to work -- it protects against DNS spoofing attacks.
+
+### Troubleshooting DNS Delegation
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `dig NS apps.example.com` returns old nameservers | DNS propagation not complete | Wait, or flush local DNS cache (`sudo dscacheutil -flushcache` on macOS) |
+| Challenge stuck in `pending` state | DNS not resolving | Verify nameservers with `dig`, check registrar settings |
+| `ACME server error: dns problem` | Route53 zone not reachable | Confirm NS records propagated; try `dig @ns-1234.awsdns-26.org apps.example.com` |
+| Certificate shows `False` READY after DNS is working | cert-manager backoff | Force retry (Step 4 above) |
+| `Forbidden: route53:ChangeResourceRecordSets` | IAM role issue | Verify OIDC provider and role trust policy |
+
 ## Usage
 
 ### Basic (with existing hosted zone)

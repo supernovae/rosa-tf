@@ -149,8 +149,12 @@ enable_layer_certmanager    = true # <-- Cert-Manager with Let's Encrypt
 # certmanager_create_hosted_zone = false
 
 # --- Option B: Create a new Route53 hosted zone ---
-# NOTE: You must delegate DNS from your registrar to the AWS nameservers
-# shown in terraform output after the first apply.
+# NOTE: After first apply, you MUST delegate DNS to complete cert issuance:
+#   1. Run: terraform output certmanager_hosted_zone_nameservers
+#   2. Update your domain registrar's nameservers to the 4 values shown
+#   3. Wait for DNS propagation (15-60 minutes)
+#   4. Force cert-manager retry: oc delete certificaterequest <name> -n <namespace>
+#   See modules/gitops-layers/certmanager/README.md for full walkthrough.
 certmanager_create_hosted_zone = true
 certmanager_hosted_zone_domain = "example.com" # Root zone domain
 
