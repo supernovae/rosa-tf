@@ -39,13 +39,15 @@ Fork this repository into your organization's approved source control system (Gi
 ```bash
 # Clone the upstream repo
 git clone https://github.com/supernovae/rosa-tf.git
+cd rosa-tf
 
-# Pin to a tagged release
-git checkout v1.0.1
+# Checkout the latest tagged release
+LATEST_TAG=$(git describe --tags --abbrev=0)
+git checkout "$LATEST_TAG"
 
 # Push to your internal repository
 git remote add internal https://git.your-org.example.com/platform/rosa-tf.git
-git push internal v1.0.1
+git push internal "$LATEST_TAG"
 git push internal main
 ```
 
@@ -54,7 +56,13 @@ git push internal main
 Always deploy from a tagged release rather than `main`:
 
 ```bash
-git clone --branch v1.0.1 https://git.your-org.example.com/platform/rosa-tf.git
+# Clone and checkout the latest release automatically
+git clone https://github.com/supernovae/rosa-tf.git
+cd rosa-tf
+git checkout $(git describe --tags --abbrev=0)
+
+# Or pin a specific version explicitly
+git clone --branch v1.2.0 https://git.your-org.example.com/platform/rosa-tf.git
 ```
 
 This ensures reproducibility and allows your change management process to approve specific versions.
