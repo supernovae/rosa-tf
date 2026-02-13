@@ -120,6 +120,7 @@ Terraform (Day 0/1)                    ArgoCD (Day 2)
 | `oadp` | OpenShift API for Data Protection | S3 bucket, IAM role |
 | `virtualization` | OpenShift Virtualization (KubeVirt) | Bare metal machine pool |
 | `monitoring` | Prometheus + Loki logging stack | S3 bucket, IAM role |
+| `certmanager` | Cert-Manager with Let's Encrypt DNS01 + custom ingress | Route53 zone, IAM role, NLB |
 
 ### Usage
 
@@ -141,6 +142,10 @@ enable_layer_virtualization = true
 # Layer 3: Monitoring and Logging
 enable_layer_monitoring = true
 monitoring_retention_days = 30  # Production (7 for dev)
+
+# Layer 4: Cert-Manager with custom ingress
+enable_layer_certmanager = true
+# See examples/certmanager.tfvars for full configuration
 ```
 
 ### Custom Layers

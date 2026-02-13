@@ -58,6 +58,7 @@ modules/gitops-layers/
 ├── oadp/                      # OADP infrastructure (S3 + IAM)
 ├── monitoring/                # Monitoring infrastructure (S3 + IAM for Loki)
 ├── virtualization/            # Virtualization infrastructure (machine pool)
+├── certmanager/               # Cert-Manager infrastructure (Route53 + IAM + custom ingress)
 └── [new-layer]/               # Add new layer modules here
 ```
 

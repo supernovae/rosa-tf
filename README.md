@@ -221,13 +221,15 @@ This framework includes optional GitOps integration for Day 2 operations via Ope
 - Web Terminal - Browser-based cluster access
 - OADP (Velero) - Backup/restore with Terraform-provisioned S3
 - OpenShift Virtualization - KubeVirt for VM workloads
+- Cert-Manager - Automated TLS with Let's Encrypt DNS01 + custom IngressController
 
 ```hcl
 # Enable in your tfvars
-install_gitops             = true
-enable_layer_terminal      = true
-enable_layer_oadp          = true
+install_gitops              = true
+enable_layer_terminal       = true
+enable_layer_oadp           = true
 enable_layer_virtualization = false
+enable_layer_certmanager    = false  # See examples/certmanager.tfvars
 ```
 
 📖 **[GitOps Documentation](gitops-layers/README.md)** - Architecture, layer details, and customization
@@ -245,7 +247,6 @@ enable_layer_virtualization = false
 │   ├── networking/            # VPC, Jump Host, Client VPN
 │   ├── security/              # KMS, IAM (Classic + HCP)
 │   ├── cluster/               # ROSA clusters, Machine Pools
-│   ├── ingress/               # Custom ingress controllers
 │   └── gitops-layers/         # Day 2 operations via ArgoCD
 │
 ├── gitops-layers/             # ArgoCD manifests (Kustomize)
