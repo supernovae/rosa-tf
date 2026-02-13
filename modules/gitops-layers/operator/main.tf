@@ -554,7 +554,9 @@ locals {
   # Custom IngressController template
   # Uses certmanager_ingress_domain (e.g., apps.example.com) for spec.domain,
   # NOT the hosted zone domain (e.g., example.com) which is the Route53 zone.
-  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
+  # Use certmanager_hosted_zone_domain (tfvars input, known at plan) for the condition,
+  # but certmanager_ingress_domain (computed, e.g. apps.<root>) for the template value.
+  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
     custom_domain    = var.certmanager_ingress_domain
     replicas         = var.certmanager_ingress_replicas
     visibility       = var.certmanager_ingress_visibility == "private" ? "Internal" : "External"
@@ -1520,7 +1522,7 @@ resource "null_resource" "layer_certmanager_routes_integration_direct" {
 # first, which typically takes 1-3 minutes. Without this gate, the
 # IngressController router pods will CrashLoop on missing volume mount.
 resource "null_resource" "layer_certmanager_wait_for_cert" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? 1 : 0
 
   triggers = {
     cert_secret = var.certmanager_ingress_cert_secret_name
@@ -1604,7 +1606,7 @@ resource "null_resource" "layer_certmanager_wait_for_cert" {
 
 # Step 12b: Create custom IngressController (after TLS secret is ready)
 resource "null_resource" "layer_certmanager_ingress_direct" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? 1 : 0
 
   triggers = {
     yaml_hash = sha256(local.certmanager_ingress_controller)
@@ -1621,7 +1623,7 @@ resource "null_resource" "layer_certmanager_ingress_direct" {
 # NOTE: The cluster_token is passed via environment block (not interpolated
 # into the command string) so Terraform does not suppress local-exec output.
 resource "null_resource" "layer_certmanager_dns_record" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
 
   triggers = {
     ingress_domain = var.certmanager_ingress_domain
@@ -1745,6 +1747,58 @@ ENDJSON
       echo "============================================="
       echo "  Custom ingress ready: *.$DOMAIN"
       echo "============================================="
+      echo ""
+    EOT
+  }
+
+  # Clean up the Route53 CNAME on destroy
+  provisioner "local-exec" {
+    when = destroy
+
+    environment = {
+      DOMAIN         = self.triggers.ingress_domain
+      HOSTED_ZONE_ID = self.triggers.hosted_zone_id
+    }
+
+    command = <<-EOT
+      set -euo pipefail
+
+      echo ""
+      echo "============================================="
+      echo "  Removing DNS Record: *.$DOMAIN"
+      echo "============================================="
+
+      # Look up the current CNAME value so we can build the DELETE batch
+      CURRENT=$(aws route53 list-resource-record-sets \
+        --hosted-zone-id "$HOSTED_ZONE_ID" \
+        --query "ResourceRecordSets[?Name=='\\*.$DOMAIN.' && Type=='CNAME'].ResourceRecords[0].Value" \
+        --output text 2>/dev/null || echo "")
+
+      if [ -z "$CURRENT" ] || [ "$CURRENT" = "None" ]; then
+        echo "  No CNAME record found for *.$DOMAIN -- nothing to delete."
+      else
+        CHANGE_BATCH=$(cat <<ENDJSON
+{
+  "Changes": [{
+    "Action": "DELETE",
+    "ResourceRecordSet": {
+      "Name": "*.$DOMAIN",
+      "Type": "CNAME",
+      "TTL": 300,
+      "ResourceRecords": [{"Value": "$CURRENT"}]
+    }
+  }]
+}
+ENDJSON
+        )
+
+        aws route53 change-resource-record-sets \
+          --hosted-zone-id "$HOSTED_ZONE_ID" \
+          --change-batch "$CHANGE_BATCH" > /dev/null 2>&1 \
+          && echo "  DNS record deleted successfully." \
+          || echo "  WARNING: Could not delete DNS record. Remove manually from zone $HOSTED_ZONE_ID."
+      fi
+
       echo ""
     EOT
   }
