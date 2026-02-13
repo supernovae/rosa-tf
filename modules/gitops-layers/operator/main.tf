@@ -1532,6 +1532,8 @@ resource "null_resource" "layer_certmanager_ingress_direct" {
 }
 
 # Step 13: Discover NLB hostname and create Route53 wildcard CNAME
+# NOTE: The cluster_token is passed via environment block (not interpolated
+# into the command string) so Terraform does not suppress local-exec output.
 resource "null_resource" "layer_certmanager_dns_record" {
   count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
 
@@ -1541,22 +1543,36 @@ resource "null_resource" "layer_certmanager_dns_record" {
   }
 
   provisioner "local-exec" {
+    environment = {
+      CLUSTER_TOKEN  = var.cluster_token
+      API_URL        = local.api_url
+      DOMAIN         = var.certmanager_hosted_zone_domain
+      HOSTED_ZONE_ID = var.certmanager_hosted_zone_id
+    }
+
     command = <<-EOT
+      set -euo pipefail
+
       echo ""
       echo "============================================="
-      echo "  DNS Record: *.${var.certmanager_hosted_zone_domain}"
+      echo "  DNS Record: *.$DOMAIN"
       echo "============================================="
       echo ""
-      echo "  Waiting for custom IngressController NLB..."
+      echo "  Waiting for the custom IngressController to provision its NLB."
+      echo "  This typically takes 3-5 minutes while OpenShift reconciles the"
+      echo "  new IngressController and AWS provisions the Network Load Balancer."
+      echo "  Once the NLB is ready, the Route53 CNAME will be created automatically."
       echo ""
 
       # Poll for the NLB hostname (created by the IngressController)
       NLB_HOSTNAME=""
       for attempt in $(seq 1 30); do
-        NLB_HOSTNAME=$(curl -sk \
-          -H "Authorization: Bearer ${var.cluster_token}" \
-          "${local.api_url}/api/v1/namespaces/openshift-ingress/services/router-custom-apps" \
-          2>/dev/null | grep -o '"hostname":"[^"]*"' | head -1 | sed 's/"hostname":"//;s/"//')
+        RESPONSE=$(curl -sk \
+          -H "Authorization: Bearer $CLUSTER_TOKEN" \
+          "$API_URL/api/v1/namespaces/openshift-ingress/services/router-custom-apps" \
+          2>/dev/null || echo "")
+
+        NLB_HOSTNAME=$(echo "$RESPONSE" | grep -o '"hostname":"[^"]*"' | head -1 | sed 's/"hostname":"//;s/"//') || true
 
         if [ -n "$NLB_HOSTNAME" ] && [ "$NLB_HOSTNAME" = "null" ]; then
           NLB_HOSTNAME=""
@@ -1565,6 +1581,15 @@ resource "null_resource" "layer_certmanager_dns_record" {
         if [ -n "$NLB_HOSTNAME" ]; then
           echo "  NLB hostname: $NLB_HOSTNAME"
           break
+        fi
+
+        # On first attempt, show what we got back for debugging
+        if [ "$attempt" -eq 1 ]; then
+          HTTP_CODE=$(curl -sk -o /dev/null -w '%%{http_code}' \
+            -H "Authorization: Bearer $CLUSTER_TOKEN" \
+            "$API_URL/api/v1/namespaces/openshift-ingress/services/router-custom-apps" \
+            2>/dev/null || echo "000")
+          echo "  Debug: API response code=$HTTP_CODE"
         fi
 
         echo "  Attempt $attempt/30: NLB not ready yet, waiting 20s..."
@@ -1580,41 +1605,41 @@ resource "null_resource" "layer_certmanager_dns_record" {
         echo "    1. Get NLB hostname:"
         echo "       oc get svc -n openshift-ingress router-custom-apps \\"
         echo "         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
-        echo "    2. Create CNAME record in Route53 zone ${var.certmanager_hosted_zone_id}:"
-        echo "       *.${var.certmanager_hosted_zone_domain} -> <NLB_HOSTNAME>"
+        echo "    2. Create CNAME record in Route53 zone $HOSTED_ZONE_ID:"
+        echo "       *.$DOMAIN -> <NLB_HOSTNAME>"
         echo ""
         exit 0
       fi
 
       # Create the wildcard CNAME record
       echo ""
-      echo "  Creating Route53 CNAME: *.${var.certmanager_hosted_zone_domain} -> $NLB_HOSTNAME"
+      echo "  Creating Route53 CNAME: *.$DOMAIN -> $NLB_HOSTNAME"
       echo ""
 
       CHANGE_BATCH=$(cat <<ENDJSON
-      {
-        "Changes": [{
-          "Action": "UPSERT",
-          "ResourceRecordSet": {
-            "Name": "*.${var.certmanager_hosted_zone_domain}",
-            "Type": "CNAME",
-            "TTL": 300,
-            "ResourceRecords": [{"Value": "$NLB_HOSTNAME"}]
-          }
-        }]
-      }
+{
+  "Changes": [{
+    "Action": "UPSERT",
+    "ResourceRecordSet": {
+      "Name": "*.$DOMAIN",
+      "Type": "CNAME",
+      "TTL": 300,
+      "ResourceRecords": [{"Value": "$NLB_HOSTNAME"}]
+    }
+  }]
+}
 ENDJSON
       )
 
       aws route53 change-resource-record-sets \
-        --hosted-zone-id "${var.certmanager_hosted_zone_id}" \
+        --hosted-zone-id "$HOSTED_ZONE_ID" \
         --change-batch "$CHANGE_BATCH" > /dev/null 2>&1 \
         && echo "  DNS record created successfully." \
         || echo "  WARNING: DNS record creation failed. Create manually (see above)."
 
       echo ""
       echo "============================================="
-      echo "  Custom ingress ready: *.${var.certmanager_hosted_zone_domain}"
+      echo "  Custom ingress ready: *.$DOMAIN"
       echo "============================================="
       echo ""
     EOT
