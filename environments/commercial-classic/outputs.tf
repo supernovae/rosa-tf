@@ -213,20 +213,6 @@ output "ssm_access_instructions" {
 }
 
 #------------------------------------------------------------------------------
-# Custom Ingress Outputs
-#------------------------------------------------------------------------------
-
-output "custom_ingress_domain" {
-  description = "Domain for the custom ingress controller."
-  value       = var.create_custom_ingress ? module.custom_ingress[0].ingress_domain : null
-}
-
-output "custom_ingress_load_balancer" {
-  description = "Load balancer hostname for custom ingress."
-  value       = var.create_custom_ingress ? module.custom_ingress[0].load_balancer_hostname : null
-}
-
-#------------------------------------------------------------------------------
 # Cluster Authentication Outputs
 #------------------------------------------------------------------------------
 
@@ -401,6 +387,33 @@ output "connection_info" {
 output "deployment_timing" {
   description = "Deployment timing summary (only populated when enable_timing = true)."
   value       = var.enable_timing ? module.timing.timing_summary : null
+}
+
+#------------------------------------------------------------------------------
+# Cert-Manager Ingress Outputs
+#------------------------------------------------------------------------------
+
+output "certmanager_ingress_enabled" {
+  description = "Whether a custom IngressController was created for the cert-manager domain."
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_enabled : false
+}
+
+output "certmanager_ingress_domain" {
+  description = <<-EOT
+    Domain served by the custom IngressController.
+    
+    After apply, verify the custom ingress is working:
+      oc get ingresscontroller custom-apps -n openshift-ingress-operator
+      oc get svc router-custom-apps -n openshift-ingress
+    
+    The Route53 CNAME record *.domain -> NLB is created automatically.
+  EOT
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_domain : ""
+}
+
+output "certmanager_ingress_visibility" {
+  description = "Visibility of the custom IngressController NLB (private or public)."
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_visibility : ""
 }
 
 #------------------------------------------------------------------------------

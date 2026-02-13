@@ -656,34 +656,6 @@ variable "vpn_session_timeout_hours" {
 }
 
 #------------------------------------------------------------------------------
-# Custom Ingress Configuration (Optional)
-#------------------------------------------------------------------------------
-
-variable "create_custom_ingress" {
-  type        = bool
-  description = "Create secondary ingress controller."
-  default     = false
-}
-
-variable "custom_domain" {
-  type        = string
-  description = "Custom domain for secondary ingress."
-  default     = ""
-}
-
-variable "custom_ingress_replicas" {
-  type        = number
-  description = "Number of ingress controller replicas."
-  default     = 2
-}
-
-variable "custom_ingress_route_selector" {
-  type        = map(string)
-  description = "Route label selector for custom ingress."
-  default     = {}
-}
-
-#------------------------------------------------------------------------------
 # GitOps Configuration (Optional)
 #------------------------------------------------------------------------------
 
@@ -961,7 +933,7 @@ variable "certmanager_certificate_domains" {
         {
           name        = "apps-wildcard"
           namespace   = "openshift-ingress"
-          secret_name = "apps-wildcard-tls"
+          secret_name = "custom-apps-default-cert"
           domains     = ["*.apps.example.com"]
         }
       ]
@@ -977,6 +949,54 @@ variable "certmanager_enable_routes_integration" {
       oc annotate route <name> cert-manager.io/issuer-kind=ClusterIssuer cert-manager.io/issuer-name=letsencrypt-production
   EOT
   default     = true
+}
+
+variable "certmanager_ingress_enabled" {
+  type        = bool
+  description = <<-EOT
+    Create a custom IngressController for the cert-manager domain.
+    When true, a scoped IngressController is created with its own NLB,
+    keeping custom domain traffic separate from the default ROSA ingress.
+  EOT
+  default     = true
+}
+
+variable "certmanager_ingress_domain" {
+  type        = string
+  description = <<-EOT
+    Domain the custom IngressController serves (its spec.domain).
+    When empty (default), auto-derives "apps.<hosted_zone_domain>".
+    Override to serve routes on a different subdomain or the root domain.
+    Examples: "apps.example.com", "example.com", "dev.example.com"
+  EOT
+  default     = ""
+}
+
+variable "certmanager_ingress_visibility" {
+  type        = string
+  description = <<-EOT
+    Visibility of the custom ingress NLB: "private" or "public".
+    Default: "private" (internal NLB, accessible within VPC / via VPN).
+  EOT
+  default     = "private"
+}
+
+variable "certmanager_ingress_replicas" {
+  type        = number
+  description = "Number of router replicas for the custom IngressController."
+  default     = 2
+}
+
+variable "certmanager_ingress_route_selector" {
+  type        = map(string)
+  description = "Additional route label selector for the custom IngressController."
+  default     = {}
+}
+
+variable "certmanager_ingress_namespace_selector" {
+  type        = map(string)
+  description = "Namespace label selector for the custom IngressController."
+  default     = {}
 }
 
 #------------------------------------------------------------------------------

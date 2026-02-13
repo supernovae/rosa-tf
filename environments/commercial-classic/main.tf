@@ -593,21 +593,6 @@ module "client_vpn" {
   tags = local.common_tags
 }
 
-#------------------------------------------------------------------------------
-# Module: Custom Ingress (Optional)
-#------------------------------------------------------------------------------
-
-module "custom_ingress" {
-  source = "../../modules/ingress/custom-ingress"
-  count  = var.create_custom_ingress ? 1 : 0
-
-  depends_on = [module.rosa_cluster]
-
-  custom_domain  = var.custom_domain
-  replicas       = var.custom_ingress_replicas
-  route_selector = var.custom_ingress_route_selector
-}
-
 # Validate: BYO-VPC requires private subnet IDs and consistent public subnet count
 resource "terraform_data" "validate_byo_vpc" {
   count = var.existing_vpc_id != null ? 1 : 0
@@ -672,11 +657,17 @@ module "gitops_resources" {
   openshift_version                  = var.openshift_version
 
   # Cert-Manager config (for AWS resource creation)
-  certmanager_hosted_zone_id       = var.certmanager_hosted_zone_id
-  certmanager_hosted_zone_domain   = var.certmanager_hosted_zone_domain
-  certmanager_create_hosted_zone   = var.certmanager_create_hosted_zone
-  certmanager_enable_dnssec        = var.certmanager_enable_dnssec
-  certmanager_enable_query_logging = var.certmanager_enable_query_logging
+  certmanager_hosted_zone_id             = var.certmanager_hosted_zone_id
+  certmanager_hosted_zone_domain         = var.certmanager_hosted_zone_domain
+  certmanager_create_hosted_zone         = var.certmanager_create_hosted_zone
+  certmanager_enable_dnssec              = var.certmanager_enable_dnssec
+  certmanager_enable_query_logging       = var.certmanager_enable_query_logging
+  certmanager_ingress_enabled            = var.certmanager_ingress_enabled
+  certmanager_ingress_domain             = var.certmanager_ingress_domain
+  certmanager_ingress_visibility         = var.certmanager_ingress_visibility
+  certmanager_ingress_replicas           = var.certmanager_ingress_replicas
+  certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
+  certmanager_ingress_namespace_selector = var.certmanager_ingress_namespace_selector
 
   tags = local.common_tags
 }
@@ -763,12 +754,19 @@ module "gitops" {
   monitoring_tolerations             = var.monitoring_tolerations
 
   # Cert-Manager resources from consolidated module
-  certmanager_role_arn                  = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_role_arn : ""
-  certmanager_hosted_zone_id            = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_id : ""
-  certmanager_hosted_zone_domain        = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_domain : ""
-  certmanager_acme_email                = var.certmanager_acme_email
-  certmanager_certificate_domains       = var.certmanager_certificate_domains
-  certmanager_enable_routes_integration = var.certmanager_enable_routes_integration
+  certmanager_role_arn                   = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_role_arn : ""
+  certmanager_hosted_zone_id             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_id : ""
+  certmanager_hosted_zone_domain         = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_domain : ""
+  certmanager_acme_email                 = var.certmanager_acme_email
+  certmanager_certificate_domains        = var.certmanager_certificate_domains
+  certmanager_enable_routes_integration  = var.certmanager_enable_routes_integration
+  certmanager_ingress_enabled            = var.certmanager_ingress_enabled
+  certmanager_ingress_domain             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_domain : ""
+  certmanager_ingress_visibility         = var.certmanager_ingress_visibility
+  certmanager_ingress_replicas           = var.certmanager_ingress_replicas
+  certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
+  certmanager_ingress_namespace_selector = var.certmanager_ingress_namespace_selector
+  certmanager_ingress_cert_secret_name   = length(var.certmanager_certificate_domains) > 0 ? var.certmanager_certificate_domains[0].secret_name : "custom-apps-default-cert"
 
   # OpenShift version for operator channel selection
   openshift_version = var.openshift_version

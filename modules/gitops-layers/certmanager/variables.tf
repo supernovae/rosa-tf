@@ -151,6 +151,99 @@ variable "is_govcloud" {
 }
 
 #------------------------------------------------------------------------------
+# Custom Ingress Configuration
+#
+# When enabled, the certmanager layer creates a scoped IngressController
+# that only serves routes matching the custom domain. This keeps user
+# workload traffic separate from the default ROSA ingress (console, oauth).
+#------------------------------------------------------------------------------
+
+variable "ingress_enabled" {
+  type        = bool
+  description = <<-EOT
+    Create a custom IngressController for the cert-manager domain.
+    
+    When true, a secondary IngressController is created that:
+    - Uses spec.domain to only serve routes matching the ingress domain
+    - Gets its own NLB (separate from the default ROSA ingress)
+    - Uses the cert-manager wildcard certificate for TLS
+    - Gets a Route53 wildcard CNAME pointing to its NLB
+    
+    Default: true (recommended when using a custom apps domain)
+  EOT
+  default     = true
+}
+
+variable "ingress_domain" {
+  type        = string
+  description = <<-EOT
+    Domain the custom IngressController serves (its spec.domain).
+    
+    When empty (default), auto-derives "apps.<hosted_zone_domain>".
+    Override to serve routes on a different subdomain or the root domain.
+    
+    Examples:
+      ""                    -> apps.example.com  (recommended default)
+      "apps.example.com"    -> apps.example.com  (explicit, same result)
+      "example.com"         -> example.com       (root domain ingress)
+      "dev.example.com"     -> dev.example.com   (environment-scoped)
+  EOT
+  default     = ""
+}
+
+variable "ingress_visibility" {
+  type        = string
+  description = <<-EOT
+    Visibility (scope) of the custom IngressController's NLB.
+    
+    - "private": Internal NLB (only accessible within VPC / via VPN)
+    - "public": Internet-facing NLB
+    
+    Default: "private"
+  EOT
+  default     = "private"
+
+  validation {
+    condition     = contains(["private", "public"], var.ingress_visibility)
+    error_message = "ingress_visibility must be 'private' or 'public'."
+  }
+}
+
+variable "ingress_replicas" {
+  type        = number
+  description = "Number of router replicas for the custom IngressController."
+  default     = 2
+}
+
+variable "ingress_route_selector" {
+  type        = map(string)
+  description = <<-EOT
+    Additional route label selector for the custom IngressController.
+    Routes must have ALL of these labels to be served by this ingress.
+    
+    By default, the IngressController uses spec.domain to claim routes
+    matching the custom domain. This selector adds an additional label
+    requirement for finer-grained control.
+    
+    Example: { "ingress" = "custom-apps" }
+    Default: {} (domain-based matching only)
+  EOT
+  default     = {}
+}
+
+variable "ingress_namespace_selector" {
+  type        = map(string)
+  description = <<-EOT
+    Namespace label selector for the custom IngressController.
+    Only routes in namespaces with ALL of these labels will be served.
+    
+    Example: { "apps-domain" = "custom" }
+    Default: {} (all namespaces, filtered by domain and route selector)
+  EOT
+  default     = {}
+}
+
+#------------------------------------------------------------------------------
 # Tags
 #------------------------------------------------------------------------------
 

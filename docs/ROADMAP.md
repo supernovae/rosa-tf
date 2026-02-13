@@ -29,7 +29,7 @@ This document tracks the status of features in this module.
 | BYO-VPC (Multi-Cluster) | ✅ Stable | Deploy into existing VPC, AZ inference, CIDR planning. See [BYO-VPC.md](BYO-VPC.md) |
 | BYO-VPC Subnet Helper | ✅ Stable | Standalone helper to create subnets in existing VPC. See [helpers/byo-vpc-subnets/](../helpers/byo-vpc-subnets/) |
 | Cert-Manager | ✅ Stable | Let's Encrypt DNS01 with Route53 IRSA, auto-renewal |
-| Custom Ingress | 🚧 WIP | Secondary ingress controller - not fully tested |
+| Custom Ingress | ✅ Stable | Integrated with cert-manager layer. Creates scoped IngressController with auto DNS and TLS. |
 
 ## Known Issues
 
@@ -155,20 +155,22 @@ gitops_layers_revision = "main"
 
 See [gitops-layers/README.md](gitops-layers/README.md) for layer structure and customization.
 
-## Work in Progress
+## Completed Features
 
-### Custom Ingress (modules/custom-ingress)
+### Custom Ingress (via cert-manager layer)
 
-**Status:** Work in Progress - Not fully tested
+**Status:** Stable - Integrated with cert-manager
 
-This module is intended to create a secondary ingress controller for custom domains. The core logic is in place but has not been validated in a production environment.
+Custom ingress is now fully integrated with the cert-manager layer. When you define a custom apps domain with `enable_layer_certmanager = true`, the framework automatically:
 
-**Known limitations:**
-- Certificate management not fully implemented
-- DNS integration untested
-- Load balancer configuration may need adjustments for GovCloud
+1. Creates a scoped **IngressController** (`custom-apps`) with its own NLB
+2. Provisions a **wildcard TLS certificate** from Let's Encrypt via DNS01
+3. Creates a **Route53 wildcard CNAME** pointing the domain to the custom NLB
+4. Isolates user workload traffic from the **default ROSA ingress** (console, oauth)
 
-**Use at your own risk.** Contributions and testing feedback welcome.
+The custom IngressController supports configurable visibility (public/private), route selectors, and namespace selectors. See `examples/certmanager.tfvars` for configuration.
+
+> **Note:** The previous standalone `modules/ingress/custom-ingress/` module has been removed. Use the cert-manager layer integration instead.
 
 ## ROSA HCP Support
 

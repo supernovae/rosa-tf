@@ -87,7 +87,7 @@ certmanager_certificate_domains = [
   {
     name        = "apps-wildcard"
     namespace   = "openshift-ingress"
-    secret_name = "apps-wildcard-tls"
+    secret_name = "custom-apps-default-cert"
     domains     = ["*.apps.example.com"]
   }
 ]

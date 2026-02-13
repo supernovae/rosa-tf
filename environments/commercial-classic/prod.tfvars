@@ -191,7 +191,7 @@ enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples
 #   {
 #     name        = "apps-wildcard"
 #     namespace   = "openshift-ingress"
-#     secret_name = "apps-wildcard-tls"
+#     secret_name = "custom-apps-default-cert"
 #     domains     = ["*.apps.example.com"]
 #   }
 # ]
@@ -210,11 +210,6 @@ monitoring_retention_days = 30 # Prod: 30 days
 #------------------------------------------------------------------------------
 # Optional Features
 #------------------------------------------------------------------------------
-
-# Custom ingress for production domains
-create_custom_ingress = false
-# custom_domain           = "apps.example.com"
-# custom_ingress_replicas = 2
 
 #------------------------------------------------------------------------------
 # Machine Pools (optional - disabled by default)

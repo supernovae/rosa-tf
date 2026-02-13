@@ -393,7 +393,7 @@ variable "certmanager_certificate_domains" {
         {
           name        = "apps-wildcard"
           namespace   = "openshift-ingress"
-          secret_name = "apps-wildcard-tls"
+          secret_name = "custom-apps-default-cert"
           domains     = ["*.apps.example.com"]
         }
       ]
@@ -418,6 +418,57 @@ variable "certmanager_enable_routes_integration" {
     Default: true (enabled when cert-manager layer is active)
   EOT
   default     = true
+}
+
+#------------------------------------------------------------------------------
+# Cert-Manager Custom Ingress Configuration
+#------------------------------------------------------------------------------
+
+variable "certmanager_ingress_enabled" {
+  type        = bool
+  description = "Create a custom IngressController for the cert-manager domain."
+  default     = true
+}
+
+variable "certmanager_ingress_domain" {
+  type        = string
+  description = "Domain the custom IngressController serves. Passed from the certmanager module's effective_ingress_domain."
+  default     = ""
+}
+
+variable "certmanager_ingress_visibility" {
+  type        = string
+  description = "Visibility of the custom ingress NLB: 'private' or 'public'."
+  default     = "private"
+}
+
+variable "certmanager_ingress_replicas" {
+  type        = number
+  description = "Number of router replicas for the custom IngressController."
+  default     = 2
+}
+
+variable "certmanager_ingress_route_selector" {
+  type        = map(string)
+  description = "Additional route label selector for the custom IngressController."
+  default     = {}
+}
+
+variable "certmanager_ingress_namespace_selector" {
+  type        = map(string)
+  description = "Namespace label selector for the custom IngressController."
+  default     = {}
+}
+
+variable "certmanager_ingress_cert_secret_name" {
+  type        = string
+  description = <<-EOT
+    Name of the TLS secret for the custom IngressController's default certificate.
+    This MUST match the secret_name in your certmanager_certificate_domains entry.
+    Automatically derived from the first certificate domain when wired through
+    environment main.tf.
+  EOT
+  default     = "custom-apps-default-cert"
 }
 
 variable "openshift_version" {

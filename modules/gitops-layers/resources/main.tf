@@ -94,6 +94,14 @@ module "certmanager" {
   kms_key_arn          = var.kms_key_arn
   is_govcloud          = var.is_govcloud
 
+  # Custom ingress configuration
+  ingress_enabled            = var.certmanager_ingress_enabled
+  ingress_domain             = var.certmanager_ingress_domain
+  ingress_visibility         = var.certmanager_ingress_visibility
+  ingress_replicas           = var.certmanager_ingress_replicas
+  ingress_route_selector     = var.certmanager_ingress_route_selector
+  ingress_namespace_selector = var.certmanager_ingress_namespace_selector
+
   tags = var.tags
 }
 
