@@ -10,7 +10,7 @@ This framework uses a **hybrid approach** that combines Terraform and ArgoCD:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Terraform (Direct Method)                     │
+│                    Terraform (Direct Method)                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  • Creates AWS infrastructure (S3 buckets, IAM roles)           │
 │  • Installs operators (Loki, OADP, Virtualization, etc.)        │
@@ -20,7 +20,7 @@ This framework uses a **hybrid approach** that combines Terraform and ArgoCD:
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              ArgoCD (Your Git Repo - Optional)                   │
+│              ArgoCD (Your Git Repo - Optional)                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  • Projects / Namespaces                                        │
 │  • ResourceQuotas / LimitRanges                                 │
