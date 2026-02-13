@@ -554,9 +554,9 @@ locals {
   # Custom IngressController template
   # Uses certmanager_ingress_domain (e.g., apps.example.com) for spec.domain,
   # NOT the hosted zone domain (e.g., example.com) which is the Route53 zone.
-  # Use certmanager_hosted_zone_domain (tfvars input, known at plan) for the condition,
-  # but certmanager_ingress_domain (computed, e.g. apps.<root>) for the template value.
-  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
+  # Count/condition uses only boolean flags (known at plan time).
+  # The computed ingress_domain is used only for the template value.
+  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
     custom_domain    = var.certmanager_ingress_domain
     replicas         = var.certmanager_ingress_replicas
     visibility       = var.certmanager_ingress_visibility == "private" ? "Internal" : "External"
@@ -1522,7 +1522,7 @@ resource "null_resource" "layer_certmanager_routes_integration_direct" {
 # first, which typically takes 1-3 minutes. Without this gate, the
 # IngressController router pods will CrashLoop on missing volume mount.
 resource "null_resource" "layer_certmanager_wait_for_cert" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   triggers = {
     cert_secret = var.certmanager_ingress_cert_secret_name
@@ -1606,7 +1606,7 @@ resource "null_resource" "layer_certmanager_wait_for_cert" {
 
 # Step 12b: Create custom IngressController (after TLS secret is ready)
 resource "null_resource" "layer_certmanager_ingress_direct" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   triggers = {
     yaml_hash = sha256(local.certmanager_ingress_controller)
@@ -1623,7 +1623,7 @@ resource "null_resource" "layer_certmanager_ingress_direct" {
 # NOTE: The cluster_token is passed via environment block (not interpolated
 # into the command string) so Terraform does not suppress local-exec output.
 resource "null_resource" "layer_certmanager_dns_record" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   triggers = {
     ingress_domain = var.certmanager_ingress_domain
