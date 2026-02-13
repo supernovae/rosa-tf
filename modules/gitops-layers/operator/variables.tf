@@ -393,7 +393,7 @@ variable "certmanager_certificate_domains" {
         {
           name        = "apps-wildcard"
           namespace   = "openshift-ingress"
-          secret_name = "apps-wildcard-tls"
+          secret_name = "custom-apps-default-cert"
           domains     = ["*.apps.example.com"]
         }
       ]
@@ -430,6 +430,12 @@ variable "certmanager_ingress_enabled" {
   default     = true
 }
 
+variable "certmanager_ingress_domain" {
+  type        = string
+  description = "Domain the custom IngressController serves. Passed from the certmanager module's effective_ingress_domain."
+  default     = ""
+}
+
 variable "certmanager_ingress_visibility" {
   type        = string
   description = "Visibility of the custom ingress NLB: 'private' or 'public'."
@@ -456,7 +462,12 @@ variable "certmanager_ingress_namespace_selector" {
 
 variable "certmanager_ingress_cert_secret_name" {
   type        = string
-  description = "Name of the TLS secret for the custom IngressController's default certificate."
+  description = <<-EOT
+    Name of the TLS secret for the custom IngressController's default certificate.
+    This MUST match the secret_name in your certmanager_certificate_domains entry.
+    Automatically derived from the first certificate domain when wired through
+    environment main.tf.
+  EOT
   default     = "custom-apps-default-cert"
 }
 

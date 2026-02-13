@@ -1016,7 +1016,7 @@ variable "certmanager_certificate_domains" {
         {
           name        = "apps-wildcard"
           namespace   = "openshift-ingress"
-          secret_name = "apps-wildcard-tls"
+          secret_name = "custom-apps-default-cert"
           domains     = ["*.apps.example.com"]
         }
       ]
@@ -1042,6 +1042,17 @@ variable "certmanager_ingress_enabled" {
     keeping custom domain traffic separate from the default ROSA ingress.
   EOT
   default     = true
+}
+
+variable "certmanager_ingress_domain" {
+  type        = string
+  description = <<-EOT
+    Domain the custom IngressController serves (its spec.domain).
+    When empty (default), auto-derives "apps.<hosted_zone_domain>".
+    Override to serve routes on a different subdomain or the root domain.
+    Examples: "apps.example.com", "example.com", "dev.example.com"
+  EOT
+  default     = ""
 }
 
 variable "certmanager_ingress_visibility" {

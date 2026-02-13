@@ -552,8 +552,10 @@ locals {
   ]
 
   # Custom IngressController template
-  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
-    custom_domain    = var.certmanager_hosted_zone_domain
+  # Uses certmanager_ingress_domain (e.g., apps.example.com) for spec.domain,
+  # NOT the hosted zone domain (e.g., example.com) which is the Route53 zone.
+  certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
+    custom_domain    = var.certmanager_ingress_domain
     replicas         = var.certmanager_ingress_replicas
     visibility       = var.certmanager_ingress_visibility == "private" ? "Internal" : "External"
     cert_secret_name = var.certmanager_ingress_cert_secret_name
@@ -1513,9 +1515,96 @@ resource "null_resource" "layer_certmanager_routes_integration_direct" {
 # is created to point *.domain to the NLB automatically.
 #------------------------------------------------------------------------------
 
-# Step 12: Create custom IngressController
+# Step 12a: Wait for the TLS certificate secret to exist before creating
+# the IngressController. cert-manager must complete the ACME DNS01 challenge
+# first, which typically takes 1-3 minutes. Without this gate, the
+# IngressController router pods will CrashLoop on missing volume mount.
+resource "null_resource" "layer_certmanager_wait_for_cert" {
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" ? 1 : 0
+
+  triggers = {
+    cert_secret = var.certmanager_ingress_cert_secret_name
+  }
+
+  provisioner "local-exec" {
+    environment = {
+      CLUSTER_TOKEN = var.cluster_token
+      API_URL       = local.api_url
+      SECRET_NAME   = var.certmanager_ingress_cert_secret_name
+      NAMESPACE     = "openshift-ingress"
+    }
+
+    command = <<-EOT
+      set -euo pipefail
+
+      echo ""
+      echo "============================================="
+      echo "  Waiting for TLS certificate: $SECRET_NAME"
+      echo "============================================="
+      echo ""
+      echo "  cert-manager is completing the ACME DNS01 challenge."
+      echo "  This typically takes 1-3 minutes for the first certificate."
+      echo "  The IngressController will be created once the secret exists."
+      echo ""
+
+      for attempt in $(seq 1 30); do
+        HTTP_CODE=$(curl -sk -o /dev/null -w '%%{http_code}' \
+          -H "Authorization: Bearer $CLUSTER_TOKEN" \
+          "$API_URL/api/v1/namespaces/$NAMESPACE/secrets/$SECRET_NAME" \
+          2>/dev/null || echo "000")
+
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "  TLS secret '$SECRET_NAME' is ready."
+          echo ""
+          exit 0
+        fi
+
+        # On first attempt, check the Certificate status for debugging
+        if [ "$attempt" -eq 1 ]; then
+          CERT_STATUS=$(curl -sk \
+            -H "Authorization: Bearer $CLUSTER_TOKEN" \
+            "$API_URL/apis/cert-manager.io/v1/namespaces/$NAMESPACE/certificates" \
+            2>/dev/null || echo "")
+          CERT_COUNT=$(echo "$CERT_STATUS" | grep -c '"kind":"Certificate"' || true)
+          echo "  Debug: Found $CERT_COUNT Certificate resource(s) in $NAMESPACE"
+
+          # Check for active challenges
+          CHALLENGES=$(curl -sk \
+            -H "Authorization: Bearer $CLUSTER_TOKEN" \
+            "$API_URL/apis/acme.cert-manager.io/v1/challenges" \
+            2>/dev/null || echo "")
+          CHALLENGE_COUNT=$(echo "$CHALLENGES" | grep -c '"kind":"Challenge"' || true)
+          if [ "$CHALLENGE_COUNT" -gt 0 ]; then
+            echo "  Debug: $CHALLENGE_COUNT active ACME challenge(s) in progress"
+          fi
+        fi
+
+        echo "  Attempt $attempt/30: Secret not ready yet, waiting 20s..."
+        sleep 20
+      done
+
+      echo ""
+      echo "  WARNING: TLS secret '$SECRET_NAME' not found after 10 minutes."
+      echo "  The certificate may still be issuing. Proceeding with IngressController"
+      echo "  creation -- router pods will start once the secret appears."
+      echo ""
+      echo "  To debug:"
+      echo "    oc get certificate -n $NAMESPACE"
+      echo "    oc describe certificate -n $NAMESPACE"
+      echo "    oc get challenges -A"
+      echo ""
+    EOT
+  }
+
+  depends_on = [
+    null_resource.layer_certmanager_certificate_direct,
+    null_resource.layer_certmanager_issuer_direct
+  ]
+}
+
+# Step 12b: Create custom IngressController (after TLS secret is ready)
 resource "null_resource" "layer_certmanager_ingress_direct" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" ? 1 : 0
 
   triggers = {
     yaml_hash = sha256(local.certmanager_ingress_controller)
@@ -1525,20 +1614,17 @@ resource "null_resource" "layer_certmanager_ingress_direct" {
     command = "bash '${local.script_path}' '${local.api_url}' '${var.cluster_token}' apply-yaml 'Custom IngressController' '/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers' '${replace(local.certmanager_ingress_controller, "'", "'\\''")}'"
   }
 
-  depends_on = [
-    null_resource.layer_certmanager_certificate_direct,
-    null_resource.layer_certmanager_issuer_direct
-  ]
+  depends_on = [null_resource.layer_certmanager_wait_for_cert]
 }
 
 # Step 13: Discover NLB hostname and create Route53 wildcard CNAME
 # NOTE: The cluster_token is passed via environment block (not interpolated
 # into the command string) so Terraform does not suppress local-exec output.
 resource "null_resource" "layer_certmanager_dns_record" {
-  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_hosted_zone_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
+  count = var.layers_install_method == "direct" && var.enable_layer_certmanager && var.certmanager_ingress_enabled && var.certmanager_ingress_domain != "" && var.certmanager_hosted_zone_id != "" ? 1 : 0
 
   triggers = {
-    domain         = var.certmanager_hosted_zone_domain
+    ingress_domain = var.certmanager_ingress_domain
     hosted_zone_id = var.certmanager_hosted_zone_id
   }
 
@@ -1546,7 +1632,7 @@ resource "null_resource" "layer_certmanager_dns_record" {
     environment = {
       CLUSTER_TOKEN  = var.cluster_token
       API_URL        = local.api_url
-      DOMAIN         = var.certmanager_hosted_zone_domain
+      DOMAIN         = var.certmanager_ingress_domain
       HOSTED_ZONE_ID = var.certmanager_hosted_zone_id
     }
 
@@ -1565,6 +1651,7 @@ resource "null_resource" "layer_certmanager_dns_record" {
       echo ""
 
       # Poll for the NLB hostname (created by the IngressController)
+      # The service is named router-<ingresscontroller-name> by OpenShift
       NLB_HOSTNAME=""
       for attempt in $(seq 1 30); do
         RESPONSE=$(curl -sk \
@@ -1590,6 +1677,21 @@ resource "null_resource" "layer_certmanager_dns_record" {
             "$API_URL/api/v1/namespaces/openshift-ingress/services/router-custom-apps" \
             2>/dev/null || echo "000")
           echo "  Debug: API response code=$HTTP_CODE"
+          if [ "$HTTP_CODE" = "404" ]; then
+            echo "  Debug: Service not found yet. IngressController may still be reconciling."
+          elif [ "$HTTP_CODE" != "200" ]; then
+            echo "  Debug: Unexpected response. Checking IngressController status..."
+            IC_STATUS=$(curl -sk \
+              -H "Authorization: Bearer $CLUSTER_TOKEN" \
+              "$API_URL/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers/custom-apps" \
+              2>/dev/null || echo "")
+            IC_EXISTS=$(echo "$IC_STATUS" | grep -c '"kind":"IngressController"' || true)
+            if [ "$IC_EXISTS" -eq 0 ]; then
+              echo "  Debug: IngressController 'custom-apps' not found! Check the apply-yaml step."
+            else
+              echo "  Debug: IngressController exists, waiting for router service..."
+            fi
+          fi
         fi
 
         echo "  Attempt $attempt/30: NLB not ready yet, waiting 20s..."
@@ -1602,10 +1704,12 @@ resource "null_resource" "layer_certmanager_dns_record" {
         echo "  The IngressController may still be provisioning."
         echo ""
         echo "  To create the DNS record manually:"
-        echo "    1. Get NLB hostname:"
+        echo "    1. Check IngressController status:"
+        echo "       oc get ingresscontroller custom-apps -n openshift-ingress-operator"
+        echo "    2. Get NLB hostname once the service exists:"
         echo "       oc get svc -n openshift-ingress router-custom-apps \\"
         echo "         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
-        echo "    2. Create CNAME record in Route53 zone $HOSTED_ZONE_ID:"
+        echo "    3. Create CNAME record in Route53 zone $HOSTED_ZONE_ID:"
         echo "       *.$DOMAIN -> <NLB_HOSTNAME>"
         echo ""
         exit 0

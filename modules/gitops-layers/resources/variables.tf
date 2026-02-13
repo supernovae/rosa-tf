@@ -181,6 +181,12 @@ variable "certmanager_ingress_enabled" {
   default     = true
 }
 
+variable "certmanager_ingress_domain" {
+  type        = string
+  description = "Domain the custom IngressController serves. Empty = auto-derive apps.<hosted_zone_domain>."
+  default     = ""
+}
+
 variable "certmanager_ingress_visibility" {
   type        = string
   description = "Visibility of the custom ingress NLB: 'private' or 'public'."

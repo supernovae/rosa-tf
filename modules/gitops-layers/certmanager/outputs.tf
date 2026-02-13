@@ -87,8 +87,8 @@ output "ingress_visibility" {
 }
 
 output "ingress_domain" {
-  description = "Domain served by the custom IngressController."
-  value       = var.ingress_enabled ? (var.create_hosted_zone ? var.hosted_zone_domain : local.effective_hosted_zone_domain) : ""
+  description = "Domain served by the custom IngressController (e.g., apps.example.com)."
+  value       = var.ingress_enabled ? local.effective_ingress_domain : ""
 }
 
 #------------------------------------------------------------------------------

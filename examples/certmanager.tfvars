@@ -145,13 +145,14 @@ enable_layer_certmanager    = true # <-- Cert-Manager with Let's Encrypt
 
 # --- Option A: Use an existing Route53 hosted zone ---
 # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
+# certmanager_hosted_zone_domain = "example.com"
 # certmanager_create_hosted_zone = false
 
 # --- Option B: Create a new Route53 hosted zone ---
 # NOTE: You must delegate DNS from your registrar to the AWS nameservers
 # shown in terraform output after the first apply.
 certmanager_create_hosted_zone = true
-certmanager_hosted_zone_domain = "apps.example.com"
+certmanager_hosted_zone_domain = "example.com" # Root zone domain
 
 # DNSSEC signing (default: true) - protects against DNS spoofing
 # After first apply, add the DS record from outputs to your domain registrar
@@ -168,12 +169,13 @@ certmanager_acme_email = "platform-team@example.com"
 
 # Pre-create Certificate resources (optional)
 # cert-manager handles renewal automatically (30 days before 90-day expiry)
+# The certificate domain should match the ingress domain (apps.<root> by default)
 certmanager_certificate_domains = [
   {
     name        = "apps-wildcard"
     namespace   = "openshift-ingress"
     secret_name = "custom-apps-default-cert" # Must match IngressController defaultCertificate
-    domains     = ["*.apps.example.com"]
+    domains     = ["*.apps.example.com"]     # Matches default ingress domain
   }
 ]
 
@@ -199,6 +201,7 @@ certmanager_enable_routes_integration = true
 #------------------------------------------------------------------------------
 
 certmanager_ingress_enabled    = true      # Create custom IngressController
+certmanager_ingress_domain     = ""        # Default: "apps.<hosted_zone_domain>" (e.g., apps.example.com)
 certmanager_ingress_visibility = "private" # "private" = internal NLB, "public" = internet-facing
 certmanager_ingress_replicas   = 2         # Router pod replicas
 

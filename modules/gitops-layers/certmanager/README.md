@@ -126,6 +126,7 @@ Custom Ingress (cert-manager layer):
 ```hcl
 # Custom ingress is enabled by default when certmanager has a domain
 certmanager_ingress_enabled    = true      # default: true
+certmanager_ingress_domain     = ""        # default: "apps.<hosted_zone_domain>"
 certmanager_ingress_visibility = "private" # or "public"
 certmanager_ingress_replicas   = 2
 
@@ -134,15 +135,19 @@ certmanager_ingress_route_selector     = {}  # e.g., { "ingress" = "custom-apps"
 certmanager_ingress_namespace_selector = {}  # e.g., { "apps-domain" = "custom" }
 ```
 
+The `certmanager_hosted_zone_domain` is the **root Route53 zone** (e.g., `example.com`).
+The `certmanager_ingress_domain` controls what the IngressController serves and defaults
+to `apps.<root>`. This keeps zone management and ingress scoping cleanly separated.
+
 ### Creating Routes on the Custom Ingress
 
 Routes matching the custom domain are automatically served by the custom IngressController:
 
 ```bash
-# Routes with hostnames under yourdomain.com use the custom ingress
+# Routes with hostnames under the custom domain use the custom ingress
 oc create route edge my-app \
   --service=my-app \
-  --hostname=my-app.yourdomain.com
+  --hostname=my-app.apps.example.com
 
 # Routes under the default *.apps.cluster.openshiftapps.com domain
 # continue to use the default ROSA ingress (unchanged)
@@ -153,6 +158,68 @@ If `certmanager_ingress_route_selector` is set, routes also need the matching la
 ```bash
 oc label route my-app ingress=custom-apps
 ```
+
+### Quick Verification
+
+After deployment, verify the custom ingress is working end-to-end with a simple test app:
+
+```bash
+# 1. Create a test namespace
+oc new-project test-custom-ingress
+
+# 2. Deploy a simple web server
+oc new-app --image=registry.access.redhat.com/ubi9/httpd-24:latest --name=hello-app
+
+# 3. Create a route on the custom apps domain
+oc create route edge hello-app \
+  --service=hello-app \
+  --hostname=hello.apps.example.com \
+  --port=8080
+
+# 4. Verify the route is using the custom IngressController
+oc get route hello-app -o jsonpath='{.status.ingress[0].routerName}'
+# Expected output: custom-apps
+
+# 5. Test HTTPS (certificate should be valid, issued by Let's Encrypt)
+curl -sv https://hello.apps.example.com 2>&1 | grep -E 'subject:|issuer:|HTTP/'
+
+# 6. Clean up
+oc delete project test-custom-ingress
+```
+
+If the route shows `routerName: custom-apps` and curl shows a valid Let's Encrypt
+certificate, the full chain is working: cert-manager -> wildcard cert -> custom
+IngressController -> NLB -> Route53 CNAME -> your app.
+
+### Domain Flexibility
+
+The `certmanager_hosted_zone_domain` is your root Route53 zone (e.g., `example.com`).
+The `certmanager_ingress_domain` controls what the IngressController serves and defaults
+to `apps.<root>`. Override it to use a different pattern:
+
+| `certmanager_ingress_domain` | IngressController serves | Use Case |
+|------------------------------|--------------------------|----------|
+| `""` (default)               | `apps.example.com`       | **Recommended.** Apps subdomain (`myapp.apps.example.com`) |
+| `"example.com"`              | `example.com`            | Root domain ingress (`myapp.example.com`) |
+| `"dev.example.com"`          | `dev.example.com`        | Environment-scoped (`myapp.dev.example.com`) |
+
+### Defaulting Namespaces to the Custom Ingress
+
+To have all Routes in a namespace automatically use the custom ingress domain, label
+the namespace. Combined with `certmanager_ingress_namespace_selector`, this scopes
+which namespaces the custom IngressController watches:
+
+```bash
+# Label a namespace to be served by the custom ingress
+oc label namespace my-project apps-domain=custom
+
+# Then set the namespace selector in your tfvars:
+# certmanager_ingress_namespace_selector = { "apps-domain" = "custom" }
+```
+
+Routes created in labeled namespaces with hostnames matching the custom domain are
+automatically served by the custom IngressController with TLS from the wildcard cert.
+Unlabeled namespaces continue to use the default ROSA ingress.
 
 ### Disabling the Custom Ingress
 
@@ -177,13 +244,13 @@ certmanager_acme_email      = "platform-team@example.com"
 ```hcl
 enable_layer_certmanager       = true
 certmanager_create_hosted_zone = true
-certmanager_hosted_zone_domain = "apps.example.com"
+certmanager_hosted_zone_domain = "example.com"   # Root zone
 certmanager_acme_email         = "platform-team@example.com"
 
-# Custom ingress (enabled by default)
+# Custom ingress (enabled by default, domain defaults to apps.example.com)
 certmanager_ingress_visibility = "private"
 
-# Wildcard certificate for the custom domain
+# Wildcard certificate for the apps domain
 certmanager_certificate_domains = [
   {
     name        = "apps-wildcard"
@@ -208,6 +275,7 @@ certmanager_certificate_domains = [
 | `certmanager_certificate_domains` | Certificate resources to create | `list(object)` | `[]` | No |
 | `certmanager_enable_routes_integration` | Install Routes integration | `bool` | `true` | No |
 | `certmanager_ingress_enabled` | Create a custom IngressController | `bool` | `true` | No |
+| `certmanager_ingress_domain` | Ingress domain (empty = `apps.<root>`) | `string` | `""` | No |
 | `certmanager_ingress_visibility` | NLB scope: `"private"` or `"public"` | `string` | `"private"` | No |
 | `certmanager_ingress_replicas` | Router replicas for custom ingress | `number` | `2` | No |
 | `certmanager_ingress_route_selector` | Additional route label selector | `map(string)` | `{}` | No |

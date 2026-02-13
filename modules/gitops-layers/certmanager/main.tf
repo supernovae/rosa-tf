@@ -41,6 +41,10 @@ locals {
   effective_hosted_zone_domain = var.create_hosted_zone ? var.hosted_zone_domain : (
     length(data.aws_route53_zone.existing) > 0 ? data.aws_route53_zone.existing[0].name : var.hosted_zone_domain
   )
+
+  # Determine the ingress domain (what the IngressController serves)
+  # Default: apps.<hosted_zone_domain>  Override: whatever the user sets
+  effective_ingress_domain = var.ingress_domain != "" ? var.ingress_domain : "apps.${local.effective_hosted_zone_domain}"
 }
 
 #------------------------------------------------------------------------------

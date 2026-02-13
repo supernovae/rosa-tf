@@ -664,6 +664,7 @@ module "gitops_resources" {
   certmanager_enable_dnssec              = var.certmanager_enable_dnssec
   certmanager_enable_query_logging       = var.certmanager_enable_query_logging
   certmanager_ingress_enabled            = var.certmanager_ingress_enabled
+  certmanager_ingress_domain             = var.certmanager_ingress_domain
   certmanager_ingress_visibility         = var.certmanager_ingress_visibility
   certmanager_ingress_replicas           = var.certmanager_ingress_replicas
   certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
@@ -762,11 +763,12 @@ module "gitops" {
   certmanager_certificate_domains        = var.certmanager_certificate_domains
   certmanager_enable_routes_integration  = var.certmanager_enable_routes_integration
   certmanager_ingress_enabled            = var.certmanager_ingress_enabled
+  certmanager_ingress_domain             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_domain : ""
   certmanager_ingress_visibility         = var.certmanager_ingress_visibility
   certmanager_ingress_replicas           = var.certmanager_ingress_replicas
   certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
   certmanager_ingress_namespace_selector = var.certmanager_ingress_namespace_selector
-  certmanager_ingress_cert_secret_name   = "custom-apps-default-cert"
+  certmanager_ingress_cert_secret_name   = length(var.certmanager_certificate_domains) > 0 ? var.certmanager_certificate_domains[0].secret_name : "custom-apps-default-cert"
 
   # OpenShift version for operator channel selection
   openshift_version = var.openshift_version

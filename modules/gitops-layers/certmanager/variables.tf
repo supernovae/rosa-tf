@@ -164,7 +164,7 @@ variable "ingress_enabled" {
     Create a custom IngressController for the cert-manager domain.
     
     When true, a secondary IngressController is created that:
-    - Uses spec.domain to only serve routes matching the hosted zone domain
+    - Uses spec.domain to only serve routes matching the ingress domain
     - Gets its own NLB (separate from the default ROSA ingress)
     - Uses the cert-manager wildcard certificate for TLS
     - Gets a Route53 wildcard CNAME pointing to its NLB
@@ -172,6 +172,23 @@ variable "ingress_enabled" {
     Default: true (recommended when using a custom apps domain)
   EOT
   default     = true
+}
+
+variable "ingress_domain" {
+  type        = string
+  description = <<-EOT
+    Domain the custom IngressController serves (its spec.domain).
+    
+    When empty (default), auto-derives "apps.<hosted_zone_domain>".
+    Override to serve routes on a different subdomain or the root domain.
+    
+    Examples:
+      ""                    -> apps.example.com  (recommended default)
+      "apps.example.com"    -> apps.example.com  (explicit, same result)
+      "example.com"         -> example.com       (root domain ingress)
+      "dev.example.com"     -> dev.example.com   (environment-scoped)
+  EOT
+  default     = ""
 }
 
 variable "ingress_visibility" {
