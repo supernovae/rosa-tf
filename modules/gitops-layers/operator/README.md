@@ -487,6 +487,7 @@ module "gitops" {
   enable_layer_terminal       = true
   enable_layer_oadp           = false
   enable_layer_virtualization = false
+  enable_layer_certmanager    = false  # See examples/certmanager.tfvars
 }
 ```
 
@@ -532,6 +533,7 @@ module "gitops" {
 | `enable_layer_oadp` | bool | `false` | Enable OADP backup layer (requires OADP config) |
 | `enable_layer_virtualization` | bool | `false` | Enable OpenShift Virtualization (requires bare metal) |
 | `enable_layer_monitoring` | bool | `false` | Enable Prometheus + Loki monitoring stack |
+| `enable_layer_certmanager` | bool | `false` | Enable Cert-Manager with Let's Encrypt DNS01 + custom ingress |
 
 ### OADP Configuration (when `enable_layer_oadp = true`)
 
@@ -567,7 +569,7 @@ module "gitops" {
 | `gitops_repo_revision` | string | `"main"` | Git branch/tag/commit |
 | `gitops_repo_path` | string | `"layers"` | Path within repo to manifests |
 
-**Note:** Core layers (monitoring, OADP, virtualization) are always installed via Terraform because they require environment-specific values (S3 buckets, IAM roles). The `gitops_repo_url` is for your **additional** static resources that ArgoCD will sync.
+**Note:** Core layers (monitoring, OADP, virtualization, cert-manager) are always installed via Terraform because they require environment-specific values (S3 buckets, IAM roles, Route53 zones). The `gitops_repo_url` is for your **additional** static resources that ArgoCD will sync.
 
 ### Advanced
 

@@ -87,6 +87,7 @@ apt-get install jq
 | `monitoring` | Prometheus + Loki logging stack | S3 bucket, IAM role |
 | `oadp` | OpenShift API for Data Protection (backup/restore) | S3 bucket, IAM role |
 | `virtualization` | OpenShift Virtualization (KubeVirt) | Bare metal machine pool |
+| `certmanager` | Cert-Manager with Let's Encrypt DNS01 + custom ingress | Route53 zone, IAM role, NLB |
 
 ## Layer Structure
 
@@ -210,6 +211,7 @@ data:
   layer_terminal_enabled: "true"
   layer_oadp_enabled: "true"
   layer_virtualization_enabled: "false"
+  layer_certmanager_enabled: "false"
   
   # OADP configuration (when enabled)
   oadp_bucket_name: "my-cluster-oadp-backups"
@@ -249,6 +251,14 @@ Some layers require Terraform-managed AWS resources:
 
 ### Virtualization Layer
 - **Bare Metal Machine Pool**: Required for KubeVirt nested virtualization
+
+### Cert-Manager Layer
+- **Route53 Hosted Zone**: For DNS01 ACME challenges (existing or Terraform-created)
+- **IAM Role**: With OIDC trust for the cert-manager service account
+- **NLB**: Custom IngressController with its own Network Load Balancer
+- **Route53 CNAME**: Wildcard record pointing to the custom NLB
+
+See [modules/gitops-layers/certmanager/README.md](../modules/gitops-layers/certmanager/README.md) for full documentation.
 
 ## Best Practices
 
