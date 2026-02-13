@@ -1529,8 +1529,10 @@ resource "null_resource" "layer_certmanager_wait_for_cert" {
   }
 
   provisioner "local-exec" {
+    # nonsensitive() is used intentionally so Terraform does not suppress
+    # local-exec output. The token is passed as an env var (not logged).
     environment = {
-      CLUSTER_TOKEN = var.cluster_token
+      CLUSTER_TOKEN = nonsensitive(var.cluster_token)
       API_URL       = local.api_url
       SECRET_NAME   = var.certmanager_ingress_cert_secret_name
       NAMESPACE     = "openshift-ingress"
@@ -1631,8 +1633,10 @@ resource "null_resource" "layer_certmanager_dns_record" {
   }
 
   provisioner "local-exec" {
+    # nonsensitive() is used intentionally so Terraform does not suppress
+    # local-exec output. The token is passed as an env var (not logged).
     environment = {
-      CLUSTER_TOKEN  = var.cluster_token
+      CLUSTER_TOKEN  = nonsensitive(var.cluster_token)
       API_URL        = local.api_url
       DOMAIN         = var.certmanager_ingress_domain
       HOSTED_ZONE_ID = var.certmanager_hosted_zone_id
