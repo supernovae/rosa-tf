@@ -656,34 +656,6 @@ variable "vpn_session_timeout_hours" {
 }
 
 #------------------------------------------------------------------------------
-# Custom Ingress Configuration (Optional)
-#------------------------------------------------------------------------------
-
-variable "create_custom_ingress" {
-  type        = bool
-  description = "Create secondary ingress controller."
-  default     = false
-}
-
-variable "custom_domain" {
-  type        = string
-  description = "Custom domain for secondary ingress."
-  default     = ""
-}
-
-variable "custom_ingress_replicas" {
-  type        = number
-  description = "Number of ingress controller replicas."
-  default     = 2
-}
-
-variable "custom_ingress_route_selector" {
-  type        = map(string)
-  description = "Route label selector for custom ingress."
-  default     = {}
-}
-
-#------------------------------------------------------------------------------
 # GitOps Configuration (Optional)
 #------------------------------------------------------------------------------
 

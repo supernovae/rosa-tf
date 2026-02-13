@@ -150,7 +150,6 @@ create_client_vpn = false
 # Optional Features (disabled for dev simplicity)
 #------------------------------------------------------------------------------
 
-create_custom_ingress = false
 
 #------------------------------------------------------------------------------
 # GitOps Configuration

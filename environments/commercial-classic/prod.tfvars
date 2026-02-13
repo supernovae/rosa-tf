@@ -211,11 +211,6 @@ monitoring_retention_days = 30 # Prod: 30 days
 # Optional Features
 #------------------------------------------------------------------------------
 
-# Custom ingress for production domains
-create_custom_ingress = false
-# custom_domain           = "apps.example.com"
-# custom_ingress_replicas = 2
-
 #------------------------------------------------------------------------------
 # Machine Pools (optional - disabled by default)
 #

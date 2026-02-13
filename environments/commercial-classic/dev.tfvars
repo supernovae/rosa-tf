@@ -197,7 +197,6 @@ monitoring_retention_days = 7 # Dev: 7 days, Prod: 30 days
 # Optional Features
 #------------------------------------------------------------------------------
 
-create_custom_ingress = false
 
 #------------------------------------------------------------------------------
 # Machine Pools (Optional)

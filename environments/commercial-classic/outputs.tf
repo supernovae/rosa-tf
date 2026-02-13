@@ -213,20 +213,6 @@ output "ssm_access_instructions" {
 }
 
 #------------------------------------------------------------------------------
-# Custom Ingress Outputs
-#------------------------------------------------------------------------------
-
-output "custom_ingress_domain" {
-  description = "Domain for the custom ingress controller."
-  value       = var.create_custom_ingress ? module.custom_ingress[0].ingress_domain : null
-}
-
-output "custom_ingress_load_balancer" {
-  description = "Load balancer hostname for custom ingress."
-  value       = var.create_custom_ingress ? module.custom_ingress[0].load_balancer_hostname : null
-}
-
-#------------------------------------------------------------------------------
 # Cluster Authentication Outputs
 #------------------------------------------------------------------------------
 

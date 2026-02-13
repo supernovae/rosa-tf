@@ -593,21 +593,6 @@ module "client_vpn" {
   tags = local.common_tags
 }
 
-#------------------------------------------------------------------------------
-# Module: Custom Ingress (Optional)
-#------------------------------------------------------------------------------
-
-module "custom_ingress" {
-  source = "../../modules/ingress/custom-ingress"
-  count  = var.create_custom_ingress ? 1 : 0
-
-  depends_on = [module.rosa_cluster]
-
-  custom_domain  = var.custom_domain
-  replicas       = var.custom_ingress_replicas
-  route_selector = var.custom_ingress_route_selector
-}
-
 # Validate: BYO-VPC requires private subnet IDs and consistent public subnet count
 resource "terraform_data" "validate_byo_vpc" {
   count = var.existing_vpc_id != null ? 1 : 0

@@ -148,11 +148,6 @@ create_client_vpn = false # Enable if budget allows (~$116/month)
 # Optional Features
 #------------------------------------------------------------------------------
 
-# Custom ingress for production domains
-create_custom_ingress = false
-# custom_domain           = "apps.example.com"
-# custom_ingress_replicas = 2
-
 #------------------------------------------------------------------------------
 # GitOps Configuration
 # Install ArgoCD and optional operators/layers
