@@ -31,11 +31,11 @@ Deploy Red Hat OpenShift Service on AWS (ROSA) across Commercial and GovCloud en
 git clone https://github.com/supernovae/rosa-tf.git
 cd rosa-tf
 
-# Checkout a tagged release (recommended for production)
-git checkout v1.0.1
+# Checkout the latest tagged release (recommended for production)
+git checkout $(git describe --tags --abbrev=0)
 ```
 
-> **Tip:** Pin to a tagged release for stability. Check [Releases](https://github.com/supernovae/rosa-tf/releases) for the latest version. Use `git tag -l` to list available tags.
+> **Tip:** Pin to a tagged release for stability. Check [Releases](https://github.com/supernovae/rosa-tf/releases) for the latest version. Use `git tag -l` to list available tags, or pin a specific version with `git checkout v1.2.0`.
 
 ## Quick Start
 
