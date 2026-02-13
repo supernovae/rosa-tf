@@ -1,5 +1,27 @@
 # ROSA Terraform - Multi-Environment Framework
 
+<!-- Versioning -->
+[![Latest Tag](https://img.shields.io/github/v/tag/supernovae/rosa-tf)](https://github.com/supernovae/rosa-tf/tags)
+[![Latest Release](https://img.shields.io/github/release/supernovae/rosa-tf)](https://github.com/supernovae/rosa-tf/releases)
+
+<!-- Terraform & ROSA -->
+![Terraform Version](https://img.shields.io/badge/Terraform-%3E%3D%201.6-623CE4?logo=terraform)
+![AWS Provider](https://img.shields.io/badge/AWS%20Provider-%3E%3D%205.0-orange?logo=amazon-aws)
+![ROSA](https://img.shields.io/badge/ROSA-HCP%20%7C%20Classic-red?logo=red-hat)
+
+<!-- Security Posture -->
+![Trivy IaC](https://img.shields.io/badge/Trivy-IaC%20Scanning-blue?logo=aqua)
+[![Security Checks](https://github.com/supernovae/rosa-tf/actions/workflows/security.yml/badge.svg)](https://github.com/supernovae/rosa-tf/actions/workflows/security.yml)
+[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/supernovae/rosa-tf/security)
+
+<!-- GovCloud & Compliance Signals -->
+[![GovCloud Safe](https://img.shields.io/badge/GovCloud-Safe-success)](docs/FEDRAMP.md)
+[![Reproducible Builds](https://img.shields.io/badge/Reproducible-Builds-blue)](docs/FEDRAMP.md#vendor-terraform-providers)
+[![Telemetry Disabled](https://img.shields.io/badge/Telemetry-Disabled-lightgrey)](docs/FEDRAMP.md#disable-terraform-telemetry)
+
+<!-- CI -->
+[![Release Workflow](https://github.com/supernovae/rosa-tf/actions/workflows/release.yml/badge.svg)](https://github.com/supernovae/rosa-tf/actions/workflows/release.yml)
+
 Deploy Red Hat OpenShift Service on AWS (ROSA) across Commercial and GovCloud environments with Classic or Hosted Control Plane (HCP) cluster types.
 
 ## Getting Started
@@ -467,6 +489,8 @@ HCP control plane is always multi-AZ (managed by Red Hat). You only pay for work
 | Document | Description |
 |----------|-------------|
 | [Operations Guide](docs/OPERATIONS.md) | Day-to-day operations, troubleshooting, credentials |
+| [FedRAMP Guide](docs/FEDRAMP.md) | FedRAMP deployment, telemetry, provider vendoring |
+| [Security Scanning](docs/SECURITY.md) | Security tools, skipped checks, compliance notes |
 | [Roadmap](docs/ROADMAP.md) | Feature status and planned work |
 | [Client VPN](modules/networking/client-vpn/README.md) | VPN setup and costs |
 | [Machine Pools (Classic)](modules/cluster/machine-pools/README.md) | GPU, spot, autoscaling |

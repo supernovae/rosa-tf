@@ -352,6 +352,8 @@ Upgrade control plane first, then machine pools. Set `skip_version_drift_check =
 
 ## Related Documentation
 
+- [FedRAMP Deployment Guide](../../docs/FEDRAMP.md) - Forking, telemetry, provider vendoring, compliance checklist
+- [Security Scanning](../../docs/SECURITY.md) - Security tools, skipped checks, compliance notes
 - [ROSA GovCloud Documentation](https://cloud.redhat.com/experts/rosa/rosa-govcloud/)
 - [FedRAMP Hybrid Cloud Console](https://console.openshiftusgov.com)
 - [AWS GovCloud Managed Policies](https://docs.aws.amazon.com/rosa/latest/userguide/security-iam-awsmanpol.html)
