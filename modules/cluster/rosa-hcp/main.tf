@@ -206,19 +206,6 @@ resource "rhcs_group_membership" "cluster_admin" {
 }
 
 #------------------------------------------------------------------------------
-# Wait for OAuth server to reconcile after htpasswd IDP is configured
-# HCP OAuth runs in Red Hat's hosted control plane, which may take longer
-# to sync IDP changes than Classic clusters
-#------------------------------------------------------------------------------
-
-resource "time_sleep" "htpasswd_ready" {
-  count = var.create_admin_user ? 1 : 0
-
-  depends_on      = [rhcs_group_membership.cluster_admin]
-  create_duration = "120s" # OAuth server needs time to restart after IDP configuration
-}
-
-#------------------------------------------------------------------------------
 # Cluster Autoscaler (Optional)
 # 
 # For ROSA HCP, the Cluster Autoscaler is fully managed by Red Hat and runs

@@ -1,44 +1,54 @@
 #------------------------------------------------------------------------------
-# ROSA HCP - AWS GovCloud - Development Environment
+# ROSA HCP - AWS GovCloud - Production Environment (Cluster Phase)
 #
-# Cost-optimized single-AZ configuration for development and testing.
+# Highly available multi-AZ configuration for production FedRAMP workloads.
 # All GovCloud security requirements are ENFORCED (FIPS, private, KMS).
 #
-# Estimated monthly cost: ~$600-800 (vs ~$1500+ for prod)
+# Estimated monthly cost: ~$1500-2000+
+#
+# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR GOVCLOUD:
+# All GovCloud clusters are private - GitOps requires VPN connectivity.
+# Phase 1: Deploy cluster (and VPN if needed). Phase 2: Connect VPN, apply gitops overlay.
+#
+# TWO-PHASE WORKFLOW:
+#   Phase 1 (cluster only):
+#     terraform apply -var-file="cluster-prod.tfvars"
+#   Phase 2 (with GitOps, after VPN connected):
+#     terraform apply -var-file="cluster-prod.tfvars" -var-file="gitops-prod.tfvars"
 #
 # Usage:
 #   export TF_VAR_ocm_token="your-token-from-console.openshiftusgov.com"
 #   terraform init
-#   terraform plan -var-file="dev.tfvars"
-#   terraform apply -var-file="dev.tfvars"
+#   terraform plan -var-file="cluster-prod.tfvars"
+#   terraform apply -var-file="cluster-prod.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
 # Cluster Identification
 #------------------------------------------------------------------------------
 
-cluster_name = "dev-hcp-gov"
-environment  = "dev"
+cluster_name = "prod-hcp-gov"
+environment  = "prod"
 aws_region   = "us-gov-west-1"
 
 #------------------------------------------------------------------------------
 # OpenShift Version
 # Control plane and machine pools use same version by default
 # For upgrades: set machine_pool_version to upgrade pools separately
-# EUS recommended for GovCloud stability
+# EUS mandatory for production
 #------------------------------------------------------------------------------
 
-openshift_version = "4.16.55"
-# machine_pool_version = "4.16.55"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
+openshift_version = "4.16.54"
+# machine_pool_version = "4.16.54"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
 channel_group = "eus"
 
 #------------------------------------------------------------------------------
 # Network Configuration
-# Single-AZ for cost savings (still private, still secure)
+# Multi-AZ for high availability
 #------------------------------------------------------------------------------
 
 vpc_cidr = "10.0.0.0/16"
-multi_az = false # Single AZ, single NAT
+multi_az = true # 3 AZs, NAT per AZ for HA
 
 #------------------------------------------------------------------------------
 # KMS Configuration
@@ -52,16 +62,17 @@ multi_az = false # Single AZ, single NAT
 # "provider_managed" is NOT available in GovCloud
 #------------------------------------------------------------------------------
 
-cluster_kms_mode = "create" # Terraform creates cluster KMS key
-infra_kms_mode   = "create" # Terraform creates infrastructure KMS key
+cluster_kms_mode        = "create" # Terraform creates cluster KMS key
+infra_kms_mode          = "create" # Terraform creates infrastructure KMS key
+kms_key_deletion_window = 30       # Days before keys are permanently deleted
 
 #------------------------------------------------------------------------------
 # Cluster Configuration
 # Note: FIPS, private, KMS are MANDATORY - not configurable
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m5.4xlarge"
-worker_node_count    = 4
+compute_machine_type = "m5.xlarge"
+worker_node_count    = 3
 
 #------------------------------------------------------------------------------
 # Zero Egress Configuration (HCP Only)
@@ -77,7 +88,7 @@ zero_egress = false # ⚠️ Must be false until 4.18 is available
 # Private container registry for custom images or operator mirroring
 #------------------------------------------------------------------------------
 
-create_ecr = true # Set to true to create ECR repository
+create_ecr = false # Set to true to create ECR repository
 # ecr_repository_name = "custom-name"  # Optional: defaults to {cluster_name}-registry
 # ecr_prevent_destroy = true           # Preserve ECR when cluster is destroyed
 
@@ -128,29 +139,42 @@ external_auth_providers_enabled = false
 
 #------------------------------------------------------------------------------
 # Admin User
+#
+# htpasswd admin user -- required for initial bootstrap (creates OAuth token).
+# After bootstrap, Terraform uses the SA token (gitops_cluster_token).
+# To harden: set to false and run terraform apply to remove htpasswd IDP.
+# See docs/OPERATIONS.md for the full credential lifecycle.
 #------------------------------------------------------------------------------
 
 create_admin_user = true
 admin_username    = "cluster-admin"
 
 #------------------------------------------------------------------------------
-# Machine Pools (Optional)
+# Machine Pools (optional - disabled by default)
 #
 # Generic list - define any pool type by configuration.
+# Production pools should use autoscaling for resilience.
 # Note: Check GovCloud availability for specific instance types.
 # See docs/MACHINE-POOLS.md for detailed guidance.
 #------------------------------------------------------------------------------
 
 machine_pools = []
 
-# GovCloud examples (uncomment to enable):
+# GovCloud production examples (uncomment to enable):
 #
 # machine_pools = [
+#   # General worker pool with autoscaling
+#   # {
+#   #   name          = "workers"
+#   #   instance_type = "m5.xlarge"
+#   #   autoscaling   = { enabled = true, min = 2, max = 6 }
+#   # },
+#   #
 #   # GPU Pool - for ML/AI workloads (check GovCloud availability)
 #   # {
 #   #   name          = "gpu"
 #   #   instance_type = "p3.2xlarge"  # GovCloud: p3.2xlarge, p3.8xlarge, g4dn.xlarge
-#   #   replicas      = 1
+#   #   autoscaling   = { enabled = true, min = 0, max = 4 }
 #   #   labels = {
 #   #     "node-role.kubernetes.io/gpu"    = ""
 #   #     "nvidia.com/gpu.workload.config" = "container"
@@ -162,25 +186,25 @@ machine_pools = []
 #   #   }]
 #   # },
 #   #
-#   # High Memory Pool - for data-intensive workloads
-#   # {
-#   #   name          = "highmem"
-#   #   instance_type = "r5.2xlarge"
-#   #   replicas      = 2
-#   #   labels        = { "node-role.kubernetes.io/highmem" = "" }
-#   # },
-#   #
 #   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
 #   #   instance_type = "m5.metal"
-#   #   replicas      = 2
+#   #   replicas      = 3
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints = [{
 #   #     key           = "node-role.kubernetes.io/metal"
 #   #     value         = "true"
 #   #     schedule_type = "NoSchedule"
 #   #   }]
+#   # },
+#   #
+#   # High Memory Pool - data-intensive workloads
+#   # {
+#   #   name          = "highmem"
+#   #   instance_type = "r5.2xlarge"
+#   #   autoscaling   = { enabled = true, min = 2, max = 8 }
+#   #   labels        = { "node-role.kubernetes.io/highmem" = "" }
 #   # },
 # ]
 
@@ -194,97 +218,66 @@ machine_pools = []
 # enabled for automatic scaling to work.
 #------------------------------------------------------------------------------
 
-# Enable cluster autoscaler (disabled by default for dev - cost control)
-# cluster_autoscaler_enabled = true
+# Enable cluster autoscaler for production resilience
+cluster_autoscaler_enabled = true
 
 # Maximum nodes across all autoscaling machine pools
-# autoscaler_max_nodes_total = 50
+autoscaler_max_nodes_total = 100
 
-# Example: Enable autoscaling in dev
-# cluster_autoscaler_enabled = true
-# autoscaler_max_nodes_total = 20
+# Node provision timeout (how long to wait for a node)
+# autoscaler_max_node_provision_time = "25m"
+
+# Pod grace period during scale down (seconds)
+# autoscaler_max_pod_grace_period = 600
+
+# Example: Production configuration with autoscaling
 # machine_pools = [
 #   {
 #     name          = "workers"
 #     instance_type = "m5.xlarge"
-#     autoscaling   = { enabled = true, min = 2, max = 10 }
+#     autoscaling   = { enabled = true, min = 3, max = 20 }
 #   }
 # ]
 
 #------------------------------------------------------------------------------
 # Access Configuration
-# Jump host recommended for private cluster access
+# Both jump host and VPN recommended for production
 #------------------------------------------------------------------------------
 
+# Jump host with SSM (always recommended)
 create_jumphost        = true
-jumphost_instance_type = "t3.micro"
+jumphost_instance_type = "t3.small"
 
-# VPN optional for dev
-create_client_vpn = true
+# Client VPN for broader team access
+# Note: Certificates are auto-generated - no ACM setup required
+# Cost: ~$116/month, takes 15-20 min to create
+create_client_vpn = false
+# vpn_client_cidr_block     = "10.100.0.0/22"
+# vpn_split_tunnel          = true
+# vpn_session_timeout_hours = 12
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Install ArgoCD and optional operators/layers
-#
-# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR GOVCLOUD:
-# All GovCloud clusters are private - GitOps requires VPN connectivity.
-#
-# Phase 1: Deploy cluster + VPN with install_gitops = false
-# Phase 2: Connect to VPN, then set install_gitops = true and re-apply
-#
-# See: docs/OPERATIONS.md "Two-Phase Deployment for Private Clusters"
+# Phase 1: Cluster only. Phase 2: Use gitops-prod.tfvars overlay.
 #------------------------------------------------------------------------------
 
-install_gitops           = false # Phase 1: false, Phase 2: true (after VPN connect)
-enable_layer_terminal    = false # Web Terminal operator
-enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring  = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-# enable_layer_virtualization = false # Requires bare metal nodes
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_retention_days = 7 # Dev: 7 days, Prod: 30 days
-
-# Additional GitOps configuration (optional)
-# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD Application alongside the built-in layers.
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
-
-# Override OAuth URL if auto-detection fails (GovCloud 4.16 may differ)
-# gitops_oauth_url = "https://oauth-openshift.apps.<cluster>.<domain>"
+install_gitops = false # Use gitops-prod.tfvars overlay for Phase 2
 
 #------------------------------------------------------------------------------
 # Debug / Timing
 #------------------------------------------------------------------------------
 
-enable_timing = true # Show deployment duration in outputs
+enable_timing = false # Set to true to see deployment duration
 
 #------------------------------------------------------------------------------
 # Tags
 #------------------------------------------------------------------------------
 
 tags = {
-  Environment = "dev"
-  CostCenter  = "development"
-  Compliance  = "fedramp-high"
-  DataClass   = "cui"
+  Environment    = "prod"
+  CostCenter     = "production"
+  Compliance     = "fedramp-high"
+  DataClass      = "cui"
+  BackupRequired = "true"
+  CriticalSystem = "true"
 }

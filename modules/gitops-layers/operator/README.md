@@ -295,19 +295,15 @@ Even if you enable both `create_client_vpn = true` and `install_gitops = true`, 
 
 ```bash
 # ═══════════════════════════════════════════════════════════════════
-# PHASE 1: Deploy cluster and VPN (GitOps disabled)
+# PHASE 1: Deploy cluster and VPN (GitOps disabled in cluster tfvars)
 # ═══════════════════════════════════════════════════════════════════
 
-# In your tfvars:
-#   install_gitops    = false    # Disabled for Phase 1
-#   create_client_vpn = true     # Create VPN infrastructure
-
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars
 # Cluster: 45-60 min (Classic) or 15-20 min (HCP)
-# VPN: 15-20 min
+# VPN: 15-20 min (if create_client_vpn = true)
 
 # ═══════════════════════════════════════════════════════════════════
-# CONNECT TO VPN (required before Phase 2)
+# CONNECT TO VPN (required before Phase 2 for private clusters)
 # ═══════════════════════════════════════════════════════════════════
 
 # Download VPN configuration
@@ -323,13 +319,10 @@ sudo openvpn --config vpn-config.ovpn
 curl -sk https://$(terraform output -raw cluster_api_url)/healthz
 
 # ═══════════════════════════════════════════════════════════════════
-# PHASE 2: Install GitOps (while connected to VPN)
+# PHASE 2: Apply GitOps layers (stacked tfvars override install_gitops)
 # ═══════════════════════════════════════════════════════════════════
 
-# Update your tfvars:
-#   install_gitops = true    # Now enabled
-
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 # GitOps installation: 2-5 min
 ```
 
@@ -428,35 +421,52 @@ If any condition fails, GitOps is skipped gracefully and can be installed on sub
 
 ### 1. Kubernetes and kubectl Providers
 
-The environment must configure `kubernetes` and `kubectl` providers:
+The environment must configure `kubernetes` and `kubectl` providers. With the two-phase deployment, `install_gitops = false` in Phase 1 causes the provider to use a dummy `localhost` host (no K8s resources are created). In Phase 2, the cluster is already in state so `api_url` is known:
 
 ```hcl
 provider "kubernetes" {
-  host  = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
-  token = local.effective_k8s_token
+  host     = local.effective_k8s_host
+  token    = local.effective_k8s_token
   insecure = true
+
+  # Suppress all kubeconfig file loading
+  config_path    = "/dev/null"
+  config_paths   = []
+  config_context = ""
 }
 
 provider "kubectl" {
-  host             = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  host             = local.effective_k8s_host
   token            = local.effective_k8s_token
   load_config_file = false
-  insecure = true
+  insecure         = true
 }
 
 locals {
+  # Phase 1: install_gitops=false -> localhost (no K8s calls)
+  # Phase 2: install_gitops=true  -> cluster API (known from state)
+  effective_k8s_host = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+
   # SA token (steady state) or OAuth token (bootstrap)
   effective_k8s_token = (
-    var.gitops_cluster_token != null && var.gitops_cluster_token != ""
+    var.gitops_cluster_token != null
     ? var.gitops_cluster_token
     : try(module.cluster_auth[0].token, "")
   )
 }
 ```
 
-### 2. Bootstrap Authentication (First Run Only)
+### 2. Two-Phase Deployment
 
-For the initial apply, `cluster_auth` provides an OAuth token using htpasswd admin credentials. After bootstrap, set `gitops_cluster_token` to the SA token and the OAuth flow is no longer needed.
+```bash
+# Phase 1: Create cluster (install_gitops = false in cluster tfvars)
+terraform apply -var-file=cluster-dev.tfvars
+
+# Phase 2: Apply GitOps layers (stacked tfvars override install_gitops -> true)
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+```
+
+For the initial Phase 2, `cluster_auth` provides an OAuth token using htpasswd admin credentials. After bootstrap, set `gitops_cluster_token` in the gitops tfvars to the SA token and the OAuth flow is no longer needed.
 
 ### 3. Network Connectivity
 
@@ -707,22 +717,16 @@ When destroying a cluster, the GitOps module requires OAuth authentication to th
 - VPN connectivity is not available (private clusters)
 - Network path to cluster doesn't exist from Terraform runner
 
-**Solution:** Disable GitOps and all layers during destroy:
+**Solution:** Destroy using only the cluster tfvars (which has `install_gitops = false`):
 
 ```bash
-terraform destroy \
-  -var-file="dev.tfvars" \
-  -var="install_gitops=false" \
-  -var="enable_layer_monitoring=false" \
-  -var="enable_layer_oadp=false" \
-  -var="enable_layer_terminal=false" \
-  -var="enable_layer_virtualization=false"
+terraform destroy -var-file="cluster-dev.tfvars"
 ```
 
 **Why this works:**
-- GitOps resources (operators, ArgoCD, LokiStack) live inside the cluster
-- They are automatically destroyed when the cluster is deleted
-- Disabling the module skips the authentication that would fail
+- The cluster tfvars has `install_gitops = false`, so the kubernetes provider uses a dummy localhost host
+- GitOps resources (operators, ArgoCD, LokiStack) live inside the cluster and are automatically destroyed with it
+- No K8s resources are in scope, so no cluster authentication is needed
 - All AWS resources (VPC, IAM, etc.) are still properly cleaned up
 
 ### Private/PrivateLink Clusters

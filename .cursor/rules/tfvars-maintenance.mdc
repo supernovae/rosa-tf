@@ -1,0 +1,124 @@
+---
+description: Rules for maintaining tfvars files across environments and keeping them in sync
+globs: environments/**/*.tfvars
+alwaysApply: false
+---
+
+# Tfvars Maintenance
+
+Standards for maintaining `.tfvars` files across all environments. These rules ensure consistency, clarity, and reviewability across PRs.
+
+## File Naming Convention
+
+Each environment has paired tfvars files following this pattern:
+
+```
+environments/<environment>/
+├── cluster-dev.tfvars         # Cluster infrastructure (install_gitops = false)
+├── gitops-dev.tfvars          # GitOps overlay (install_gitops = true)
+├── cluster-prod.tfvars        # Cluster infrastructure (install_gitops = false)
+├── gitops-prod.tfvars         # GitOps overlay (install_gitops = true)
+└── <name>-dev.tfvars          # Personal/named cluster (install_gitops = false)
+    <name>-dev-gitops.tfvars   # Personal/named gitops overlay (install_gitops = true)
+```
+
+Tracked files use `cluster-`/`gitops-` prefix. Personal files use `<name>-`/`<name>-gitops` suffix.
+
+## Separation of Concerns
+
+### Cluster tfvars (Phase 1)
+
+Contains ONLY cluster-level configuration:
+- Cluster name, environment, region
+- OpenShift version, channel group
+- Network (VPC CIDR, multi_az, private_cluster)
+- Compute (machine type, worker count)
+- Encryption (KMS mode, etcd_encryption)
+- Access (jumphost, VPN, admin user)
+- Machine pools
+- Tags
+- `install_gitops = false` (ALWAYS false in cluster tfvars)
+
+### GitOps tfvars (Phase 2 overlay)
+
+Contains ONLY GitOps-specific settings:
+- `install_gitops = true` (ALWAYS true in gitops tfvars)
+- `enable_layer_*` flags
+- Layer config (certmanager domains, monitoring sizes, OADP settings)
+- Monitoring retention/sizing
+- Commented `gitops_cluster_token` placeholder
+- NO cluster-level variables (those are inherited from the cluster tfvars)
+
+### Rules
+
+1. **Never duplicate** cluster-level variables in gitops tfvars
+2. **Never set** `install_gitops = true` in cluster tfvars
+3. **Never set** `install_gitops = false` in gitops tfvars
+4. **Always include** a header comment showing the stacked usage pattern
+5. **Always include** a commented `gitops_cluster_token` in gitops tfvars for subsequent runs
+
+## Cross-Environment Sync
+
+When modifying a tfvars variable across environments:
+
+1. **Same keys, different values**: All cluster-dev.tfvars should have the same variable keys (e.g., `cluster_name`, `aws_region`), just different values.
+2. **Same layer flags**: All gitops-dev.tfvars should have the same `enable_layer_*` flags, even if some are `false`.
+3. **Same section structure**: Use consistent section headers (`#---...`) and ordering.
+4. **GovCloud differences**: GovCloud files may have additional mandatory settings (FIPS, private_cluster = true, KMS) but the structure should match.
+
+## Comment Standards
+
+### Section Headers
+
+Use consistent section headers with separator lines:
+
+```hcl
+#------------------------------------------------------------------------------
+# Cluster Identification
+#------------------------------------------------------------------------------
+```
+
+### Inline Comments
+
+- Explain WHY a value is set, not WHAT it is (the variable name does that)
+- Use `# Default: <value>` to note non-obvious defaults
+- Use `# Required for: <feature>` to note dependencies
+- Comment out optional features with a one-line explanation
+
+### Header Block
+
+Every tfvars file MUST start with a header block:
+
+```hcl
+#------------------------------------------------------------------------------
+# ROSA {HCP|Classic} - {Commercial|GovCloud} - {Dev|Prod} {Cluster|GitOps}
+#
+# {Brief description of this file's purpose}
+#
+# Usage:
+#   {Phase 1 and/or Phase 2 commands}
+#------------------------------------------------------------------------------
+```
+
+## PR Review Checklist
+
+When reviewing a PR that modifies tfvars:
+
+1. Is the variable in the correct file (cluster vs gitops)?
+2. Is the same change applied to all relevant environments?
+3. Are comments clear and consistent?
+4. Does the gitops overlay NOT repeat any cluster-level settings?
+5. Is `install_gitops` set correctly (`false` in cluster, `true` in gitops)?
+6. Are section headers and ordering consistent across environments?
+7. If a new variable was added, is it documented in `variables.tf`?
+
+## Adding New Variables
+
+When adding a new variable to tfvars:
+
+1. Add to `variables.tf` in all 4 environments (see `environment-consistency` rule)
+2. Determine if it belongs in cluster or gitops tfvars
+3. Add to ALL matching tfvars files (e.g., all `cluster-dev.tfvars` files)
+4. Add with a reasonable default or commented out with explanation
+5. Update personal tfvars (e.g., `byron-dev.tfvars`) if they exist
+6. Verify with grep: `grep "new_variable" environments/*/cluster-*.tfvars`

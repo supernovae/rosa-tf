@@ -19,13 +19,49 @@ There are 4 cluster environments that MUST stay structurally identical. When mod
 
 Note: `account-hcp` exists but is a separate account-level environment, not a cluster environment.
 
-## What MUST Be Identical
+## Two-Phase Deployment and Tfvars Structure
+
+Each environment uses **stacked tfvars** for a two-phase deployment:
+
+```
+environments/<environment>/
+├── cluster-dev.tfvars       # Phase 1: cluster infrastructure (install_gitops = false)
+├── gitops-dev.tfvars        # Phase 2: GitOps overlay (install_gitops = true)
+├── cluster-prod.tfvars      # Phase 1: cluster infrastructure (install_gitops = false)
+├── gitops-prod.tfvars       # Phase 2: GitOps overlay (install_gitops = true)
+└── <name>-dev.tfvars        # Personal/named cluster tfvars
+    <name>-dev-gitops.tfvars # Personal/named gitops overlay
+```
+
+Usage:
+- Phase 1: `terraform apply -var-file=cluster-dev.tfvars`
+- Phase 2: `terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars`
+- Destroy: `terraform destroy -var-file=cluster-dev.tfvars` (gitops overlay not needed)
+
+The gitops overlay ONLY contains:
+- `install_gitops = true`
+- `enable_layer_*` flags
+- Layer-specific config (certmanager, monitoring, OADP settings)
+- Commented `gitops_cluster_token` for subsequent runs
+
+The cluster tfvars MUST NOT duplicate gitops settings. The cluster tfvars MUST set `install_gitops = false`.
+
+## What MUST Be Identical (Terraform Files)
 
 - `versions.tf`: Same provider requirements (kubernetes, kubectl, aws, rhcs, etc.)
 - `variables.tf`: Same variable definitions (type, description, default)
 - `outputs.tf`: Same output definitions
 - Module calls: Same variables passed to `module "gitops"`, `module "gitops_resources"`, etc.
-- Provider blocks: `kubernetes {}` and `kubectl {}` use the same `effective_k8s_token` pattern
+- Provider blocks: `kubernetes {}` and `kubectl {}` use the same `effective_k8s_host`/`effective_k8s_token` pattern
+- `effective_k8s_host` local: `var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"`
+- `effective_k8s_token` local: `var.gitops_cluster_token != null ? var.gitops_cluster_token : try(module.cluster_auth[0].token, "")`
+
+## What MUST Be Identical (Tfvars Structure)
+
+- All 4 environments MUST have the same set of `cluster-*.tfvars` and `gitops-*.tfvars` files
+- `cluster-dev.tfvars` across environments: Same variable keys, different values
+- `gitops-dev.tfvars` across environments: Same layer enable flags and config structure
+- Comments and section headers should be consistent across environments
 
 ## Allowed Differences
 
@@ -35,6 +71,8 @@ Note: `account-hcp` exists but is a separate account-level environment, not a cl
 - `rhcs` version pin: May differ between classic (>= 1.6.7) and hcp (>= 1.6.3)
 - KMS locals: GovCloud uses `var.cluster_kms_key_arn`; Commercial may use module output
 - tfvars values: Environment-specific settings (cluster name, region, etc.)
+- GovCloud gitops tfvars: Include VPN connectivity note in header
+- GovCloud cluster tfvars: FIPS, private_cluster, etcd_encryption are hardcoded/mandatory
 
 ## Workflow
 
@@ -43,3 +81,5 @@ When adding a variable, output, or module parameter:
 1. Make the change in one environment
 2. Immediately replicate to the other 3
 3. Verify with `grep` that the change appears identically in all 4 files
+4. If the variable is GitOps-specific, update the gitops tfvars templates
+5. If the variable is cluster-specific, update the cluster tfvars templates

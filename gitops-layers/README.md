@@ -43,14 +43,26 @@ The `gitops_repo_url` is for **your additional static resources** that ArgoCD sy
 
 ## Quick Start
 
-| What You Want | Configuration |
-|---------------|---------------|
-| **Enable layers (default)** | `install_gitops = true` + enable desired `enable_layer_*` flags |
+This module uses a **two-phase deployment** with stacked tfvars files:
+
+```bash
+# Phase 1: Create cluster (install_gitops = false in cluster tfvars)
+terraform apply -var-file=cluster-dev.tfvars
+
+# Phase 2: Apply GitOps layers (overrides install_gitops -> true)
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+```
+
+| What You Want | Configuration (in gitops tfvars) |
+|---------------|----------------------------------|
+| **Enable layers** | `install_gitops = true` + desired `enable_layer_*` flags |
 | **Add your own resources** | Above + `gitops_repo_url = "https://github.com/your-org/your-manifests.git"` |
 | **GitOps only, no layers** | `install_gitops = true` + all `enable_layer_* = false` |
 
+Example `gitops-dev.tfvars`:
+
 ```hcl
-# Enable layers (Terraform applies them directly)
+# Overrides install_gitops from cluster tfvars (false -> true)
 install_gitops          = true
 enable_layer_monitoring = true
 enable_layer_oadp       = true
@@ -235,14 +247,14 @@ See [modules/gitops-layers/certmanager/README.md](../modules/gitops-layers/certm
 
 ### Layer not deploying
 
-1. Check that the layer is enabled in your tfvars:
+1. Check that the layer is enabled in your gitops tfvars:
    ```bash
-   grep enable_layer_ *.tfvars
+   grep enable_layer_ gitops-*.tfvars
    ```
 
-2. Re-run Terraform to reconcile:
+2. Re-run Terraform with stacked tfvars:
    ```bash
-   terraform apply -var-file=prod.tfvars
+   terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
    ```
 
 3. Check Terraform state for the layer resources:

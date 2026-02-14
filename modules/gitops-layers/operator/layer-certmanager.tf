@@ -12,6 +12,10 @@
 #------------------------------------------------------------------------------
 
 locals {
+  # Map user-friendly visibility values to OpenShift IngressController scope values.
+  # The OpenShift API expects "Internal" or "External", not "private" or "public".
+  certmanager_ingress_scope = var.certmanager_ingress_visibility == "public" ? "External" : "Internal"
+
   # Cert-Manager templates
   certmanager_cluster_issuer = templatefile("${local.layers_path}/certmanager/cluster-issuer.yaml.tftpl", {
     acme_email     = var.certmanager_acme_email
@@ -34,7 +38,7 @@ locals {
   certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
     custom_domain          = var.certmanager_ingress_domain
     replicas               = var.certmanager_ingress_replicas
-    visibility             = var.certmanager_ingress_visibility
+    visibility             = local.certmanager_ingress_scope
     cert_secret_name       = var.certmanager_ingress_cert_secret_name
     route_selector_yaml    = join("\n", [for k, v in var.certmanager_ingress_route_selector : "      ${k}: \"${v}\""])
     namespace_selector_yaml = join("\n", [for k, v in var.certmanager_ingress_namespace_selector : "      ${k}: \"${v}\""])
@@ -256,7 +260,7 @@ resource "kubectl_manifest" "certmanager_routes_integration" {
           serviceAccountName: cert-manager
           containers:
             - name: cert-manager-openshift-routes
-              image: ghcr.io/cert-manager/cert-manager-openshift-routes:latest
+              image: ${var.certmanager_routes_image}
               args:
                 - --enable-leader-election
   YAML
@@ -264,7 +268,9 @@ resource "kubectl_manifest" "certmanager_routes_integration" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [time_sleep.wait_for_certmanager_restart]
+  # Sequence after ClusterIssuer to avoid parallel API calls that
+  # trigger the kubectl provider's client rate limiter.
+  depends_on = [kubectl_manifest.certmanager_issuer_production]
 }
 
 #------------------------------------------------------------------------------
@@ -348,4 +354,9 @@ resource "aws_route53_record" "certmanager_wildcard" {
   type    = "CNAME"
   ttl     = 300
   records = [data.kubernetes_service_v1.custom_apps_router[0].status[0].load_balancer[0].ingress[0].hostname]
+
+  # ROSA creates a default *.apps.<domain> record for the built-in ingress.
+  # allow_overwrite lets Terraform take ownership and point it to the custom
+  # IngressController's NLB (with cert-manager TLS) instead.
+  allow_overwrite = true
 }

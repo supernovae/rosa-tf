@@ -63,30 +63,30 @@ output "openshift_version" {
 output "admin_username" {
   description = "Cluster admin username."
   value       = var.create_admin_user ? var.admin_username : null
-  # Ensure htpasswd IDP is configured and OAuth server has reconciled
-  depends_on = [time_sleep.htpasswd_ready]
+  # With two-phase deployment, OAuth has settled by the time Phase 2 runs.
+  # No sleep needed -- the time gap between phases handles reconciliation.
+  depends_on = [rhcs_group_membership.cluster_admin]
 }
 
 output "admin_password" {
   description = "Cluster admin password."
   value       = var.create_admin_user ? random_password.cluster_admin[0].result : null
   sensitive   = true
-  # Ensure htpasswd IDP is configured and OAuth server has reconciled
-  depends_on = [time_sleep.htpasswd_ready]
+  depends_on  = [rhcs_group_membership.cluster_admin]
 }
 
 # Aliases for backward compatibility
 output "cluster_admin_username" {
   description = "Cluster admin username (alias for admin_username)."
   value       = var.create_admin_user ? var.admin_username : null
-  depends_on  = [time_sleep.htpasswd_ready]
+  depends_on  = [rhcs_group_membership.cluster_admin]
 }
 
 output "cluster_admin_password" {
   description = "Cluster admin password (alias for admin_password)."
   value       = var.create_admin_user ? random_password.cluster_admin[0].result : null
   sensitive   = true
-  depends_on  = [time_sleep.htpasswd_ready]
+  depends_on  = [rhcs_group_membership.cluster_admin]
 }
 
 #------------------------------------------------------------------------------

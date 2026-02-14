@@ -107,9 +107,27 @@ When a custom domain is configured, the cert-manager layer automatically creates
 1. **IngressController** (`custom-apps`) -- scoped to your domain via `spec.domain`
 2. **NLB** -- separate load balancer (private or public, configurable)
 3. **Wildcard TLS certificate** -- issued by Let's Encrypt, auto-renewed by cert-manager
-4. **Route53 wildcard CNAME** -- `*.yourdomain.com` pointing to the custom NLB
+4. **Route53 wildcard CNAME** -- `*.yourdomain.com` pointing to the custom NLB (upsert)
+
+### DNS Record Behavior
+
+The Route53 wildcard CNAME (`*.apps.<domain>`) is created using **upsert** semantics
+(`allow_overwrite = true`). This means:
+
+- If the record **does not exist**, it is created pointing to the custom IngressController's NLB.
+- If the record **already exists** (e.g., ROSA pre-creates `*.apps.<domain>` for its default ingress), Terraform takes ownership and **updates it** to point to the custom NLB instead.
+
+This is the expected behavior when the custom ingress domain matches the cluster's default
+apps domain. The custom IngressController replaces the default ROSA ingress for that domain,
+serving routes with a valid Let's Encrypt wildcard certificate instead of the default
+self-signed certificate.
+
+On `terraform destroy`, Terraform removes the record. If the cluster is still running,
+ROSA's ingress operator will recreate the default record on its own.
 
 ### Traffic Isolation
+
+When a **separate custom domain** is used (different from the ROSA apps domain):
 
 ```
 Default ROSA Ingress (untouched):
@@ -119,6 +137,19 @@ Default ROSA Ingress (untouched):
 Custom Ingress (cert-manager layer):
   *.yourdomain.com
   -> user workload routes only (scoped by domain + optional selectors)
+```
+
+When the **custom domain matches the ROSA apps domain** (e.g., `apps.example.com`):
+
+```
+Custom Ingress (replaces default for this domain):
+  *.apps.example.com
+  -> all routes on this domain, now served with Let's Encrypt TLS
+  -> Route53 CNAME is upserted to point to the custom NLB
+
+Default ROSA Ingress (still active):
+  *.apps.cluster-name.xxxx.openshiftapps.com
+  -> console, oauth, monitoring (via the cluster's built-in domain)
 ```
 
 ### Configuration

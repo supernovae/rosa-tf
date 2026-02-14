@@ -141,11 +141,15 @@ rosa create account-roles --hosted-cp --mode auto
 ```bash
 # Commercial Classic
 cd environments/commercial-classic
-terraform init && terraform plan -var-file=dev.tfvars
+terraform init
+terraform plan  -var-file=cluster-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars
 
 # GovCloud Classic (FedRAMP)
 cd environments/govcloud-classic
-terraform init && terraform plan -var-file=dev.tfvars
+terraform init
+terraform plan  -var-file=cluster-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars
 ```
 
 ### Deploy HCP Clusters
@@ -155,11 +159,15 @@ terraform init && terraform plan -var-file=dev.tfvars
 ```bash
 # Commercial HCP (~15 min provisioning)
 cd environments/commercial-hcp
-terraform init && terraform plan -var-file=dev.tfvars
+terraform init
+terraform plan  -var-file=cluster-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars
 
 # GovCloud HCP (FedRAMP)
 cd environments/govcloud-hcp
-terraform init && terraform plan -var-file=dev.tfvars
+terraform init
+terraform plan  -var-file=cluster-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars
 ```
 
 If account roles are missing, Terraform will detect this and show instructions to create them.
@@ -173,7 +181,9 @@ If account roles are missing, Terraform will detect this and show instructions t
 | [govcloud-classic](environments/govcloud-classic/) | Classic | FIPS, Private, KMS mandatory | [README](environments/govcloud-classic/README.md) |
 | [govcloud-hcp](environments/govcloud-hcp/) | HCP | FIPS, Private, KMS mandatory | [README](environments/govcloud-hcp/README.md) |
 
-Each environment includes `dev.tfvars` (single-AZ, cost-optimized) and `prod.tfvars` (multi-AZ, HA).
+Each environment includes split tfvars for the two-phase deployment pattern:
+- `cluster-dev.tfvars` / `cluster-prod.tfvars` -- Phase 1: cluster provisioning (`install_gitops = false`)
+- `gitops-dev.tfvars` / `gitops-prod.tfvars` -- Phase 2: GitOps overlay (`install_gitops = true`, stacked on top of cluster tfvars)
 
 ## Regional Limitations
 
@@ -210,59 +220,62 @@ If you attempt an unsupported deployment, Terraform will show a helpful error me
 
 ## GitOps Integration (Optional)
 
-This framework includes optional GitOps integration for Day 2 operations via OpenShift GitOps (ArgoCD).
+This framework includes optional GitOps integration for Day 2 operations via OpenShift GitOps (ArgoCD). GitOps layers are applied in a **separate phase** after cluster provisioning using stacked tfvars.
 
 **Key Principles:**
+- **Two-phase deployment**: Phase 1 creates the cluster (`cluster-*.tfvars`), Phase 2 applies GitOps layers (`gitops-*.tfvars` overlay)
 - **Infrastructure-focused**: Deploys cluster operators and platform services, not user workloads
 - **No secrets in GitOps**: Credentials and secrets are managed by Terraform/AWS, never in Git
-- **Terraform-to-GitOps bridge**: Uses ConfigMaps to pass Terraform-managed values (S3 buckets, KMS keys, etc.) to GitOps-deployed operators
+- **Native Terraform providers**: All Kubernetes resources are managed via `hashicorp/kubernetes` and `alekc/kubectl` -- no shell scripts or `local-exec`
+- **Dedicated Service Account**: A `terraform-operator` ServiceAccount with cluster-admin is created during Phase 2 for long-term state management
 
 **Included Layers:**
 - Web Terminal - Browser-based cluster access
 - OADP (Velero) - Backup/restore with Terraform-provisioned S3
 - OpenShift Virtualization - KubeVirt for VM workloads
 - Cert-Manager - Automated TLS with Let's Encrypt DNS01 + custom IngressController
+- Monitoring (Loki + Grafana) - Centralized log aggregation
 
-```hcl
-# Enable in your tfvars
-install_gitops              = true
-enable_layer_terminal       = true
-enable_layer_oadp           = true
-enable_layer_virtualization = false
-enable_layer_certmanager    = false  # See examples/certmanager.tfvars
-```
-
-📖 **[GitOps Documentation](gitops-layers/README.md)** - Architecture, layer details, and customization
+See [Deployment](#deployment) for the two-phase workflow, or the full **[GitOps Documentation](gitops-layers/README.md)** for architecture, layer details, and customization.
 
 ## Repository Structure
 
 ```
 ├── environments/
-│   ├── commercial-classic/    # AWS Commercial + Classic
-│   ├── commercial-hcp/        # AWS Commercial + HCP
-│   ├── govcloud-classic/      # GovCloud + Classic (FedRAMP)
-│   └── govcloud-hcp/          # GovCloud + HCP (FedRAMP)
+│   ├── account-hcp/             # HCP account-level IAM roles
+│   ├── commercial-classic/      # AWS Commercial + Classic
+│   ├── commercial-hcp/          # AWS Commercial + HCP
+│   ├── govcloud-classic/        # GovCloud + Classic (FedRAMP)
+│   └── govcloud-hcp/            # GovCloud + HCP (FedRAMP)
+│       ├── cluster-dev.tfvars   # Phase 1: cluster provisioning
+│       ├── gitops-dev.tfvars    # Phase 2: GitOps overlay
+│       ├── cluster-prod.tfvars  # Phase 1: production cluster
+│       └── gitops-prod.tfvars   # Phase 2: production GitOps
 │
 ├── modules/
-│   ├── networking/            # VPC, Jump Host, Client VPN
-│   ├── security/              # KMS, IAM (Classic + HCP)
-│   ├── cluster/               # ROSA clusters, Machine Pools
-│   └── gitops-layers/         # Day 2 operations via ArgoCD
+│   ├── networking/              # VPC, Jump Host, Client VPN
+│   ├── security/                # KMS, IAM (Classic + HCP)
+│   ├── cluster/                 # ROSA clusters, Machine Pools
+│   └── gitops-layers/           # Day 2 operations (native providers)
+│       ├── operator/            # Kubernetes manifests (kubectl_manifest)
+│       ├── certmanager/         # IAM + Route53 for cert-manager
+│       ├── oadp/                # IAM + S3 for Velero backups
+│       ├── monitoring/          # IAM + S3 for Loki log storage
+│       └── virtualization/      # Resource configuration
 │
-├── gitops-layers/             # ArgoCD manifests (Kustomize)
-└── docs/                      # Operations guide, Roadmap
+├── gitops-layers/layers/        # YAML templates for kubectl_manifest
+└── docs/                        # Operations, FedRAMP, Roadmap
 ```
 
 ## Prerequisites
 
 **Required:**
-- [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) >= 1.4.6
+- [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) >= 1.6
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) v2
 - [ROSA CLI](https://docs.openshift.com/rosa/cli_reference/rosa_cli/rosa-get-started-cli.html) >= 1.2.39
-- [OpenShift CLI (oc)](https://docs.openshift.com/rosa/cli_reference/openshift_cli/getting-started-cli.html)
+- [OpenShift CLI (oc)](https://docs.openshift.com/rosa/cli_reference/openshift_cli/getting-started-cli.html) -- for cluster access and verification
 
-**Optional (recommended for GitOps):**
-- [jq](https://jqlang.github.io/jq/download/) - JSON processor for parsing API responses. Used by GitOps layers to retrieve OAuth tokens when running locally. The scripts have fallback parsing without jq, but jq improves reliability.
+> **Note:** GitOps layers use native Terraform providers (`kubernetes`, `kubectl`) and do not require `jq`, `curl`, or shell scripts.
 
 ## RHCS Authentication
 
@@ -303,20 +316,36 @@ rosa login --govcloud --token="<your_token_from_console.openshiftusgov.com_here>
 
 ## Deployment
 
-### Deploy a Cluster
+### Phase 1: Create a Cluster
 
 ```bash
 cd environments/<environment>
 
 # Development (single-AZ, cost-optimized)
 terraform init
-terraform plan -var-file=dev.tfvars
-terraform apply -var-file=dev.tfvars
+terraform plan  -var-file=cluster-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars
 
 # Production (multi-AZ, HA)
-terraform plan -var-file=prod.tfvars
-terraform apply -var-file=prod.tfvars
+terraform plan  -var-file=cluster-prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars
 ```
+
+### Phase 2: Apply GitOps Layers (Optional)
+
+After the cluster is provisioned, apply the GitOps overlay by stacking both tfvars files. The gitops tfvars sets `install_gitops = true` and enables layers.
+
+```bash
+# Development
+terraform plan  -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+
+# Production
+terraform plan  -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
+```
+
+> **Note:** The gitops tfvars overrides `install_gitops = true` and layer flags on top of the cluster tfvars. Both files must be passed together so all cluster configuration remains consistent. See [Operations Guide](docs/OPERATIONS.md) for full details.
 
 ### Access Private Clusters
 
@@ -346,10 +375,19 @@ aws ec2 export-client-vpn-client-configuration \
 
 ### Destroy a Cluster
 
+Destroy uses only the cluster tfvars (`install_gitops = false`), which skips all GitOps layer resources. Terraform tears down the cluster without attempting to reach the Kubernetes API for individual layer cleanup.
+
 ```bash
 cd environments/<environment>
-terraform destroy -var-file=dev.tfvars
+
+# Development
+terraform destroy -var-file=cluster-dev.tfvars
+
+# Production
+terraform destroy -var-file=cluster-prod.tfvars
 ```
+
+> **Note:** If you need to remove individual GitOps layers while keeping the cluster running, disable them in the gitops tfvars and re-apply with both files. See [Operations Guide](docs/OPERATIONS.md) for details.
 
 ## Features
 

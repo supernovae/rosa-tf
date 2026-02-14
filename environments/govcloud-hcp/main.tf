@@ -9,10 +9,9 @@
 # - KMS encryption: REQUIRED (mandatory)
 # - API endpoint: api.openshiftusgov.com
 #
-# Usage:
-#   terraform init
-#   terraform plan -var-file="dev.tfvars"    # Single-AZ development
-#   terraform plan -var-file="prod.tfvars"   # Multi-AZ production
+# Two-phase deployment:
+#   Phase 1 (cluster):  terraform apply -var-file="cluster-dev.tfvars"
+#   Phase 2 (layers):   terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -30,6 +29,13 @@ provider "aws" {
       ClusterName = var.cluster_name
       Compliance  = "fedramp-high"
     }
+  }
+
+  # ROSA installer manages kubernetes.io/cluster/* tags on subnets and
+  # security groups. Ignore them so Phase 2 (and subsequent) applies
+  # don't produce unnecessary modifications.
+  ignore_tags {
+    key_prefixes = ["kubernetes.io/cluster/"]
   }
 }
 
@@ -51,22 +57,20 @@ provider "rhcs" {
 #
 # For GovCloud private clusters: VPN connectivity required for API access.
 provider "kubernetes" {
-  host  = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
-  token = local.effective_k8s_token
-
+  host     = local.effective_k8s_host
+  token    = local.effective_k8s_token
   insecure = true
 
-  # Prevent the provider from reading ~/.kube/config which causes
-  # "default cluster has no server defined" errors during plan
-  config_path = ""
+  # Suppress kubeconfig file loading -- use explicit host/token only
+  config_paths   = []
+  config_context = ""
 }
 
 provider "kubectl" {
-  host             = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  host             = local.effective_k8s_host
   token            = local.effective_k8s_token
   load_config_file = false
-
-  insecure = true
+  insecure         = true
 }
 
 #------------------------------------------------------------------------------
@@ -162,9 +166,15 @@ locals {
   # HCP clusters have full control over openshift-monitoring namespace
   cluster_type = "hcp"
 
+  # Kubernetes provider host: cluster API when gitops enabled, dummy otherwise.
+  # With two-phase deployment, Phase 1 always has install_gitops=false (localhost)
+  # and Phase 2 always has the cluster in state (api_url is known).
+  effective_k8s_host = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+
   # Kubernetes provider token: SA token (steady state) or OAuth token (bootstrap)
+  # Priority: gitops_cluster_token (from previous run) > cluster_auth OAuth > empty
   effective_k8s_token = (
-    var.gitops_cluster_token != null && var.gitops_cluster_token != ""
+    var.gitops_cluster_token != null
     ? var.gitops_cluster_token
     : try(module.cluster_auth[0].token, "")
   )

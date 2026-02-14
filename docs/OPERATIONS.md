@@ -303,7 +303,24 @@ aws s3api put-bucket-logging \
 | `govcloud-classic` | FedRAMP workloads with Classic architecture |
 | `govcloud-hcp` | FedRAMP workloads with HCP (~15 min deploy) |
 
-### Deploy a Cluster
+### Deploy a Cluster (Two-Phase Workflow)
+
+This codebase uses a **two-phase deployment** with stacked tfvars files:
+
+- **Phase 1 (Cluster)**: Provisions the ROSA cluster, VPC, IAM, KMS, VPN, etc. GitOps is disabled (`install_gitops = false`).
+- **Phase 2 (GitOps Layers)**: Applies the gitops overlay tfvars on top of the cluster tfvars. This enables `install_gitops = true` and configures the desired layers.
+
+Each environment has paired tfvars files:
+
+```
+environments/<environment>/
+├── cluster-dev.tfvars      # Phase 1: cluster infrastructure
+├── gitops-dev.tfvars       # Phase 2: GitOps overlay (stacks on top)
+├── cluster-prod.tfvars     # Phase 1: cluster infrastructure
+└── gitops-prod.tfvars      # Phase 2: GitOps overlay (stacks on top)
+```
+
+Personal/named tfvars follow the same pattern (e.g., `byron-dev.tfvars` + `byron-dev-gitops.tfvars`).
 
 ```bash
 # 1. Navigate to environment
@@ -317,68 +334,54 @@ export TF_VAR_rhcs_client_secret="your-client-secret"
 # export TF_VAR_ocm_token="your-offline-token"
 export AWS_REGION="us-east-1"  # or us-gov-west-1 for GovCloud
 
-# 3. Initialize and deploy
+# 3. Phase 1: Create cluster (GitOps disabled by default in cluster tfvars)
 terraform init
-terraform plan -var-file=dev.tfvars    # or prod.tfvars
-terraform apply -var-file=dev.tfvars
-```
+terraform plan -var-file=cluster-dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars
+# Wait: 45-60 min (Classic) or 15-20 min (HCP)
 
-### Two-Phase Deployment for Private Clusters
-
-**⚠️ IMPORTANT: Private clusters (including all GovCloud clusters) require a two-phase deployment if you want to use GitOps layers.**
-
-The Terraform runner must have network connectivity to the cluster API to install GitOps. For private clusters, this means you must:
-
-1. **Phase 1**: Deploy the cluster and VPN infrastructure (without GitOps)
-2. **Connect to VPN**: Download VPN config and connect
-3. **Phase 2**: Enable GitOps and re-apply
-
-```bash
-# Phase 1: Deploy cluster + VPN (GitOps disabled)
-# dev.tfvars:
-#   install_gitops    = false
-#   create_client_vpn = true
-
-terraform apply -var-file=dev.tfvars
-# Wait 45-60 min for cluster, 15-20 min for VPN
-
-# Download VPN config
+# 4. For PRIVATE clusters: connect VPN before Phase 2
 aws ec2 export-client-vpn-client-configuration \
   --client-vpn-endpoint-id $(terraform output -raw vpn_endpoint_id) \
   --output text > vpn-config.ovpn
-
-# Connect to VPN (must be connected before Phase 2)
 sudo openvpn --config vpn-config.ovpn
 
-# Phase 2: Enable GitOps (while connected to VPN)
-# Update dev.tfvars:
-#   install_gitops = true
-
-terraform apply -var-file=dev.tfvars
+# 5. Phase 2: Apply GitOps layers (stacked tfvars override install_gitops -> true)
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+# GitOps installation: 2-5 min
 ```
+
+**How Stacked Tfvars Work:**
+
+The second `-var-file` overrides any variables defined in the first. The gitops overlay sets `install_gitops = true` and layer flags, while all cluster-level settings (name, region, compute, etc.) come from the cluster tfvars.
 
 **Why Two Phases?**
 
-| What Happens | Without VPN Connected |
-|--------------|----------------------|
-| Cluster creation | ✅ Works (uses AWS/ROSA APIs) |
-| VPN creation | ✅ Works (AWS APIs only) |
-| GitOps installation | ❌ Fails (can't reach cluster OAuth) |
+| What Happens | Phase 1 Only | Phase 1 + Phase 2 |
+|--------------|-------------|-------------------|
+| Cluster creation | Works (AWS/ROSA APIs) | Already done |
+| VPN creation | Works (AWS APIs only) | Already done |
+| GitOps installation | Skipped (disabled) | Works (cluster in state, API reachable) |
 
-GitOps requires authenticating to the cluster's OAuth server, which is only reachable from within the VPC for private clusters. Even if `create_client_vpn = true`, the VPN infrastructure exists but **you must actually connect to it** before GitOps can be installed.
+This split solves two problems:
+1. **Provider initialization**: The `kubernetes` provider needs a known cluster API URL. In Phase 1, `install_gitops = false` so the provider uses a dummy `localhost` and no K8s resources are created.
+2. **Network connectivity**: GitOps requires authenticating to the cluster's OAuth server, which is only reachable from within the VPC for private clusters.
 
 **GovCloud Note:** All GovCloud clusters are private by design (FedRAMP requirement). The two-phase approach is **mandatory** for GovCloud + GitOps.
 
 ### Using Make Shortcuts
 
 ```bash
-# Quick deployment
+# Quick deployment (Phase 1)
 make commercial-classic-dev
 make govcloud-hcp-prod
 
 # Or with explicit variables
-make plan ENV=commercial-hcp TFVARS=prod.tfvars
-make apply ENV=govcloud-classic TFVARS=dev.tfvars
+make plan ENV=commercial-hcp TFVARS=cluster-prod.tfvars
+make apply ENV=govcloud-classic TFVARS=cluster-dev.tfvars
+
+# Phase 2: GitOps layers
+make apply ENV=commercial-hcp TFVARS="cluster-dev.tfvars -var-file=gitops-dev.tfvars"
 ```
 
 ### Destroy a Cluster (Complete Guide)
@@ -394,19 +397,15 @@ cd environments/<environment>  # e.g., commercial-hcp, govcloud-classic
 #### Step 2: Run Destroy
 
 ```bash
-# Standard destroy - disables GitOps to avoid cluster connectivity issues
-terraform destroy \
-  -var-file="dev.tfvars" \
-  -var="install_gitops=false" \
-  -var="enable_layer_monitoring=false" \
-  -var="enable_layer_oadp=false" \
-  -var="enable_layer_terminal=false" \
-  -var="enable_layer_virtualization=false"
+# Standard destroy - use only the cluster tfvars (install_gitops = false by default)
+# This skips GitOps authentication, avoiding cluster connectivity issues
+terraform destroy -var-file="cluster-dev.tfvars"
 ```
 
-> **Why disable GitOps?** GitOps resources live inside the cluster and are automatically 
-> destroyed when the cluster is deleted. Disabling GitOps skips cluster API authentication, 
-> which avoids connectivity issues (especially for private clusters or when VPN is down).
+> **Why use only the cluster tfvars?** The cluster tfvars has `install_gitops = false`,
+> so the kubernetes provider uses a dummy localhost host and no K8s resources are in scope.
+> GitOps resources live inside the cluster and are automatically destroyed with the cluster.
+> This avoids connectivity issues (especially for private clusters or when VPN is down).
 
 #### Step 3: Clean Up Retained S3 Buckets
 
@@ -450,16 +449,15 @@ aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*your-cluster-name*"
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Token is empty` | GitOps trying to auth | Add `-var="install_gitops=false"` |
-| `connection refused` | Cluster API unreachable | Add `-var="install_gitops=false"` |
+| `Token is empty` | GitOps trying to auth | Use only cluster tfvars (no gitops overlay) |
+| `connection refused` | Cluster API unreachable | Use only cluster tfvars (no gitops overlay) |
 | VPC deletion fails | Resources still attached | Wait 5 min, retry; check for orphaned ENIs |
 
 #### Quick One-Liner
 
 ```bash
-terraform destroy -var-file="dev.tfvars" -var="install_gitops=false" \
-  -var="enable_layer_monitoring=false" -var="enable_layer_oadp=false" \
-  -var="enable_layer_terminal=false" -var="enable_layer_virtualization=false"
+# Using only the cluster tfvars (install_gitops = false) handles everything
+terraform destroy -var-file="cluster-dev.tfvars"
 ```
 
 ### Timing Expectations
@@ -610,19 +608,26 @@ After bootstrap, the htpasswd IDP can be removed to reduce the cluster's attack 
 
 > **Note:** Do not remove htpasswd until you have verified the SA token works. Test with `terraform plan` using the SA token first.
 
-### Destroy Workflow (skip_k8s_destroy)
+### Destroy Workflow
 
-When destroying a cluster, Terraform must not attempt to reach the Kubernetes API to delete individual resources (the API will be gone). Use the `skip_k8s_destroy` pattern:
+With the two-phase tfvars approach, destruction is simple:
+
+```bash
+# Destroy using only the cluster tfvars (install_gitops = false)
+# All K8s resources are skipped because the kubernetes provider uses dummy localhost
+terraform destroy -var-file=cluster-prod.tfvars
+```
+
+For advanced cases where you need to explicitly remove K8s resources from state before destroying (e.g., during debugging), use `skip_k8s_destroy`:
 
 ```bash
 # Step 1: Remove K8s resources from state (cluster still running)
-terraform apply -var="skip_k8s_destroy=true" -var-file=prod.tfvars
+terraform apply -var="skip_k8s_destroy=true" \
+  -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 
 # Step 2: Destroy the cluster (no K8s resources left in state)
-terraform destroy -var-file=prod.tfvars
+terraform destroy -var-file=cluster-prod.tfvars
 ```
-
-This two-step process ensures clean destruction without API connectivity errors.
 
 ---
 
@@ -733,13 +738,13 @@ See [Machine Pools Guide](MACHINE-POOLS.md) for GPU, bare metal, ARM/Graviton ex
 ### Enable GitOps Layers
 
 ```bash
-# Edit tfvars
+# Edit gitops-prod.tfvars to enable desired layers
 install_gitops = true
 enable_layer_terminal = true
 enable_layer_oadp = true
 
-# Apply (requires cluster access)
-terraform apply -var-file=prod.tfvars
+# Apply with stacked tfvars (requires cluster access)
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 ```
 
 ### Upgrade Cluster

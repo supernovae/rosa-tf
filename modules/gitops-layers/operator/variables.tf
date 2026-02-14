@@ -447,6 +447,17 @@ variable "certmanager_enable_routes_integration" {
   default     = true
 }
 
+variable "certmanager_routes_image" {
+  type        = string
+  description = <<-EOT
+    Container image for the cert-manager OpenShift Routes integration controller.
+    
+    Override this for GovCloud or air-gapped environments to point to an
+    approved registry mirror. Pin to a specific tag for reproducibility.
+  EOT
+  default     = "ghcr.io/cert-manager/cert-manager-openshift-routes:v0.6.1"
+}
+
 #------------------------------------------------------------------------------
 # Cert-Manager Custom Ingress Configuration
 #------------------------------------------------------------------------------

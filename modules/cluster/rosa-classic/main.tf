@@ -185,18 +185,6 @@ resource "rhcs_group_membership" "cluster_admin" {
 }
 
 #------------------------------------------------------------------------------
-# Wait for OAuth server to reconcile after htpasswd IDP is configured
-# The OAuth server needs time to pick up the new IDP before logins work
-#------------------------------------------------------------------------------
-
-resource "time_sleep" "htpasswd_ready" {
-  count = var.create_admin_user ? 1 : 0
-
-  depends_on      = [rhcs_group_membership.cluster_admin]
-  create_duration = "120s" # OAuth server needs time to restart after IDP configuration
-}
-
-#------------------------------------------------------------------------------
 # Wait for cluster to be ready (create) and fully deleted (destroy)
 #------------------------------------------------------------------------------
 

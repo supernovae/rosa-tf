@@ -1,13 +1,12 @@
 #------------------------------------------------------------------------------
-# ROSA HCP - Commercial AWS - Production Environment
+# ROSA HCP - Commercial AWS - Production Environment (Cluster Only)
 #
 # Highly available multi-AZ configuration for production workloads.
 # Includes encryption, private networking, and VPN access.
 #
-# Usage:
-#   terraform init
-#   terraform plan -var-file="prod.tfvars"
-#   terraform apply -var-file="prod.tfvars"
+# Two-phase workflow:
+#   Phase 1: terraform apply -var-file="cluster-prod.tfvars"
+#   Phase 2: terraform apply -var-file="cluster-prod.tfvars" -var-file="gitops-prod.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -252,50 +251,16 @@ create_client_vpn = false
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Install ArgoCD and optional operators/layers
+# Set install_gitops = false for Phase 1. Use gitops-prod.tfvars overlay for Phase 2.
 #
 # ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR PRIVATE CLUSTERS:
 # This cluster is private - GitOps requires VPN/network connectivity.
-#
 # Phase 1: Deploy cluster + VPN with install_gitops = false
-# Phase 2: Connect to VPN, then set install_gitops = true and re-apply
-#
+# Phase 2: Connect to VPN, then apply gitops-prod.tfvars overlay
 # See: docs/OPERATIONS.md "Two-Phase Deployment for Private Clusters"
 #------------------------------------------------------------------------------
 
-install_gitops           = false # Phase 1: false, Phase 2: true (after VPN connect)
-enable_layer_terminal    = false # Web Terminal operator
-enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring  = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-# enable_layer_virtualization = false # Requires bare metal nodes
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_retention_days = 30 # Prod: 30 days
-
-# Additional GitOps configuration (optional)
-# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD Application alongside the built-in layers.
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
+install_gitops = false
 
 #------------------------------------------------------------------------------
 # Debug / Timing
