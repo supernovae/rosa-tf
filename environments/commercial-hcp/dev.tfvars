@@ -295,7 +295,7 @@ monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
 
 # Additional GitOps configuration (optional)
 # Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD ApplicationSet alongside the built-in layers.
+# via ArgoCD Application alongside the built-in layers.
 # gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
 
 # Override OAuth URL if auto-detection fails

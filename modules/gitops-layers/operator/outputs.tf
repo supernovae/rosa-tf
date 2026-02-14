@@ -29,16 +29,6 @@ output "namespace" {
   value       = "openshift-gitops"
 }
 
-output "configmap_name" {
-  description = "Name of the ConfigMap bridge for Terraform-to-GitOps communication."
-  value       = "rosa-gitops-config"
-}
-
-output "configmap_namespace" {
-  description = "Namespace of the ConfigMap bridge."
-  value       = "openshift-gitops"
-}
-
 output "argocd_url" {
   description = "Command to get the ArgoCD console URL."
   value       = "oc get route openshift-gitops-server -n openshift-gitops -o jsonpath='{.spec.host}'"
@@ -95,10 +85,6 @@ output "install_instructions" {
     - Virtualization: ${var.enable_layer_virtualization}
     - Monitoring: ${var.enable_layer_monitoring}
     - Cert-Manager: ${var.enable_layer_certmanager}
-    
-    ConfigMap Bridge:
-    The ConfigMap 'rosa-gitops-config' in namespace 'openshift-gitops' contains
-    cluster metadata and layer configuration that ArgoCD uses to manage layers.
     
     To modify layer settings, update the Terraform variables and re-apply.
     

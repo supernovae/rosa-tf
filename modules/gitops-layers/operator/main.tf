@@ -6,9 +6,8 @@
 #
 # 1. Terraform Operator Identity (ServiceAccount + RBAC + token)
 # 2. OpenShift GitOps Operator (ArgoCD) installation
-# 3. ConfigMap bridge for Terraform-to-GitOps communication
-# 4. Direct layer installation via kubectl_manifest resources
-# 5. External repo Application (optional)
+# 3. Direct layer installation via kubectl_manifest resources
+# 4. External repo Application (optional)
 #
 # IMPLEMENTATION NOTE:
 # This module uses native hashicorp/kubernetes and alekc/kubectl providers
@@ -72,37 +71,4 @@ locals {
   # When true, a single ArgoCD Application is created to sync from that repo.
   has_custom_gitops_repo = var.gitops_repo_url != "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
 
-  # ConfigMap data -- passes Terraform-managed values to GitOps layers
-  configmap_data = merge(
-    {
-      cluster_name                 = var.cluster_name
-      aws_region                   = var.aws_region
-      aws_account                  = var.aws_account_id
-      gitops_repo_url              = var.gitops_repo_url
-      gitops_repo_revision         = var.gitops_repo_revision
-      gitops_repo_path             = var.gitops_repo_path
-      layer_terminal_enabled       = tostring(var.enable_layer_terminal)
-      layer_oadp_enabled           = tostring(var.enable_layer_oadp)
-      layer_virtualization_enabled = tostring(var.enable_layer_virtualization)
-      layer_monitoring_enabled     = tostring(var.enable_layer_monitoring)
-      layer_certmanager_enabled    = tostring(var.enable_layer_certmanager)
-    },
-    var.enable_layer_oadp ? {
-      oadp_bucket_name = var.oadp_bucket_name
-      oadp_role_arn    = var.oadp_role_arn
-      oadp_region      = var.aws_region
-    } : {},
-    var.enable_layer_monitoring ? {
-      monitoring_bucket_name    = var.monitoring_bucket_name
-      monitoring_role_arn       = var.monitoring_role_arn
-      monitoring_retention_days = tostring(var.monitoring_retention_days)
-    } : {},
-    var.enable_layer_certmanager ? {
-      certmanager_role_arn           = var.certmanager_role_arn
-      certmanager_hosted_zone_id     = var.certmanager_hosted_zone_id
-      certmanager_hosted_zone_domain = var.certmanager_hosted_zone_domain
-      certmanager_acme_email         = var.certmanager_acme_email
-    } : {},
-    var.additional_config_data
-  )
 }

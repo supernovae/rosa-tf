@@ -720,7 +720,7 @@ variable "gitops_repo_url" {
     Git repository URL for ADDITIONAL custom resources to deploy via ArgoCD.
     This does NOT replace the built-in layers (monitoring, OADP, etc.) which
     are always managed by Terraform. Use this for your own static manifests
-    (projects, quotas, RBAC, apps). When provided, an ArgoCD ApplicationSet
+    (projects, quotas, RBAC, apps). When provided, an ArgoCD Application
     is created to sync from this repo.
   EOT
   default     = null

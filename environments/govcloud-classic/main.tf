@@ -50,6 +50,10 @@ provider "kubernetes" {
   token = local.effective_k8s_token
 
   insecure = true
+
+  # Prevent the provider from reading ~/.kube/config which causes
+  # "default cluster has no server defined" errors during plan
+  config_path = ""
 }
 
 provider "kubectl" {

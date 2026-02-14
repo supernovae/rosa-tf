@@ -102,13 +102,13 @@ Terraform (Day 0/1)                    ArgoCD (Day 2)
        │                                     │
        │ Creates:                            │
        │ • AWS resources (S3, IAM, etc.)     │
-       │ • ConfigMap bridge                  │
-       │ • GitOps operator                   │
+       │ • GitOps operator + ArgoCD          │
+       │ • Layer resources (kubectl_manifest)│
        ▼                                     ▼
 ┌─────────────────────┐           ┌─────────────────────┐
-│ rosa-gitops-config  │           │ ApplicationSet      │
-│ ConfigMap           │──────────▶│ manages layers      │
-│                     │           │ based on flags      │
+│ Terraform-managed   │           │ ArgoCD Application  │
+│ layer resources     │           │ (external repo,     │
+│ (native providers)  │           │  optional)          │
 └─────────────────────┘           └─────────────────────┘
 ```
 

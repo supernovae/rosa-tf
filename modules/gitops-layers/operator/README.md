@@ -25,9 +25,8 @@ This module provides:
 
 1. **Terraform Operator Identity** - ServiceAccount with cluster-admin for Terraform operations
 2. **OpenShift GitOps Operator** - Installs ArgoCD for GitOps-based cluster management
-3. **ConfigMap Bridge** - Stores cluster metadata and layer configuration for reference
-4. **ArgoCD Instance** - Pre-configured ArgoCD with OpenShift OAuth integration
-5. **Core Layers** - Terraform-managed operators with environment-specific configuration
+3. **ArgoCD Instance** - Pre-configured ArgoCD with OpenShift OAuth integration
+4. **Core Layers** - Terraform-managed operators with environment-specific configuration
 
 All Kubernetes resources are managed via native `kubernetes_*` and `kubectl_manifest` resources. No shell scripts or `curl` commands are used.
 
@@ -52,13 +51,13 @@ terraform output -raw terraform_sa_token  # copy to gitops_cluster_token in tfva
 | File | Purpose |
 |------|---------|
 | `identity.tf` | ServiceAccount, ClusterRoleBinding, token Secret |
-| `gitops-core.tf` | ArgoCD operator, instance, ConfigMap bridge |
+| `gitops-core.tf` | ArgoCD operator, instance, external repo Application |
 | `layer-terminal.tf` | Web Terminal operator |
 | `layer-oadp.tf` | OADP (backup/restore) operator and configuration |
 | `layer-virtualization.tf` | OpenShift Virtualization operator |
 | `layer-monitoring.tf` | Prometheus, Loki, Cluster Logging, COO |
 | `layer-certmanager.tf` | cert-manager, ClusterIssuers, DNS records |
-| `main.tf` | Shared locals (operator channels, ConfigMap data) |
+| `main.tf` | Shared locals (operator channels, paths) |
 
 ## Architecture: Hybrid GitOps
 
@@ -71,7 +70,6 @@ This module uses a **hybrid approach** that combines Terraform and ArgoCD:
 │  • Creates AWS infrastructure (S3 buckets, IAM roles)           │
 │  • Installs operators (Loki, OADP, Virtualization, etc.)        │
 │  • Deploys CRs with environment values (LokiStack, DPA)         │
-│  • Creates ConfigMap bridge with cluster metadata               │
 └─────────────────────────────────────────────────────────────────┘
                                │
                                ▼
@@ -100,21 +98,6 @@ These values cannot be known until Terraform creates the infrastructure.
 - Static YAML manifests that don't need Terraform values
 - GitOps-native with automatic sync
 - Version controlled in your own repository
-
-### ConfigMap Bridge
-
-The `rosa-gitops-config` ConfigMap stores values for reference:
-
-```yaml
-data:
-  cluster_name: "my-cluster"
-  aws_region: "us-gov-west-1"
-  monitoring_bucket_name: "my-cluster-123456-loki-logs"
-  monitoring_role_arn: "arn:aws-us-gov:iam::123456:role/my-cluster-loki"
-  # ... other values
-```
-
-Your ArgoCD applications can read these values if needed (e.g., for Kustomize replacements).
 
 ## Operator Channel Selection
 
@@ -580,30 +563,22 @@ module "gitops" {
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `gitops_repo_url` | string | (default repo) | Git repo URL for your additional custom resources (projects, quotas, RBAC). When provided, an ArgoCD ApplicationSet is created. |
+| `gitops_repo_url` | string | (default repo) | Git repo URL for your additional custom resources (projects, quotas, RBAC). When provided, an ArgoCD Application is created. |
 | `gitops_repo_revision` | string | `"main"` | Git branch/tag/commit |
 | `gitops_repo_path` | string | `"layers"` | Path within repo to manifests |
 
 **Note:** Core layers (monitoring, OADP, virtualization, cert-manager) are always installed via Terraform because they require environment-specific values (S3 buckets, IAM roles, Route53 zones). The `gitops_repo_url` is for your **additional** static resources that ArgoCD will sync.
-
-### Advanced
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `additional_config_data` | map(string) | `{}` | Additional ConfigMap key-value pairs |
 
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
 | `namespace` | Namespace where GitOps is installed (`openshift-gitops`) |
-| `configmap_name` | Name of the ConfigMap bridge (`rosa-gitops-config`) |
-| `configmap_namespace` | Namespace of the ConfigMap bridge |
 | `argocd_url` | Command to get ArgoCD console URL |
 | `argocd_admin_password` | Command to get ArgoCD admin password |
 | `layers_enabled` | Map of enabled layers (terminal, oadp, virtualization, monitoring) |
 | `layers_repo` | GitOps layers repository configuration |
-| `applicationset_deployed` | Whether ApplicationSet was deployed |
+| `external_repo_deployed` | Whether external repo Application was deployed |
 | `install_instructions` | Instructions for accessing GitOps |
 
 ## Idempotency and Re-run Behavior
@@ -612,60 +587,42 @@ This module is designed to be **safe to re-run**. Running `terraform apply` mult
 
 ### How It Works
 
-Resources use **stable triggers** based on content, not execution order:
+All resources are managed via native Terraform providers with standard state tracking:
 
-| Resource Type | Trigger | Re-runs when... |
-|--------------|---------|-----------------|
-| Connectivity check | Every apply | Always (quick validation) |
-| Core GitOps (namespace, subscription, rbac, argocd) | Cluster URL | Never after initial creation |
-| ConfigMap bridge | Content hash | Layer toggles or metadata changes |
-| Layer operators (Terminal, OADP, Virtualization) | YAML hash | Layer YAML content changes |
-| CRD readiness checks | Cluster URL | Never after initial creation |
+| Resource Type | Behavior | Re-runs when... |
+|--------------|----------|-----------------|
+| Core GitOps (namespace, subscription, rbac, argocd) | In state | YAML content changes |
+| Layer operators (Terminal, OADP, Virtualization, etc.) | In state | Template variables or YAML changes |
+| External repo Application | In state | Repo URL, revision, or path changes |
 
 ### Expected Behavior
 
 **First apply (new cluster):**
 ```
-null_resource.validate_connection: Creating...
-null_resource.create_namespace: Creating...
-null_resource.create_subscription: Creating...
-time_sleep.wait_for_operator: Creating...
+kubernetes_namespace_v1.openshift_gitops: Creating...
+kubectl_manifest.gitops_subscription: Creating...
+time_sleep.wait_for_gitops_operator: Creating...
 ... (all resources created)
 ```
 
 **Subsequent applies (no changes):**
 ```
-null_resource.validate_connection: Creating...    # Always runs - connectivity check
-null_resource.validate_connection: Creation complete after 1s
-
-Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
 ```
 
-**When you change a layer toggle:**
+**When you enable a new layer:**
 ```
-null_resource.validate_connection: Creating...
-null_resource.create_configmap: Destroying... [id=...]
-null_resource.create_configmap: Creating...      # ConfigMap content changed
+kubernetes_namespace_v1.monitoring: Creating...
+kubectl_manifest.monitoring_loki_subscription: Creating...
+... (layer resources created)
 ```
 
 ### Why This Matters
 
-- **Fast re-runs**: Only connectivity validation runs on each apply (~1-2 seconds)
+- **Fast re-runs**: No changes when state matches cluster (~2-5 seconds for plan)
 - **Safe operations**: Accidentally running `terraform apply` won't disrupt existing operators
-- **Predictable changes**: Resources only update when their actual content changes
-- **Proper ordering**: `depends_on` ensures correct sequencing even with stable triggers
-
-### Script Idempotency
-
-The underlying installation script handles already-existing resources gracefully:
-
-```
->>> Creating Namespace
-HTTP Status: 409
-OK (already exists)
-```
-
-HTTP 409 (Conflict) is treated as success - the resource already exists, which is the desired state.
+- **Predictable changes**: Resources only update when their Terraform definition changes
+- **Proper ordering**: `depends_on` ensures correct sequencing between resources
 
 ## Troubleshooting
 

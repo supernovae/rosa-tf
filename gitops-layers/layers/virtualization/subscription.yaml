@@ -2,8 +2,8 @@
 #
 # Installs the OpenShift Virtualization (KubeVirt) Operator from OperatorHub.
 #
-# Note: This static file is used by ApplicationSet/Kustomize method.
-# For direct install method, Terraform uses subscription.yaml.tftpl template.
+# Note: This is a reference file. Terraform uses the .yaml.tftpl template
+# in this directory to install the operator via kubectl_manifest.
 #
 # Channel: stable auto-selects appropriate version for OCP release
 #

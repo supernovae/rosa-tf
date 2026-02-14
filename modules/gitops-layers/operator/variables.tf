@@ -109,7 +109,7 @@ variable "gitops_repo_url" {
     - Any other manifests you want ArgoCD to manage
     
     The repository should contain kustomize-compatible YAML manifests.
-    ArgoCD will sync from this repo using the ApplicationSet pattern.
+    ArgoCD will sync from this repo using a single Application resource.
   EOT
   default     = "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
 }
@@ -521,15 +521,3 @@ variable "openshift_version" {
   default     = "4.20"
 }
 
-#------------------------------------------------------------------------------
-# Advanced Configuration
-#------------------------------------------------------------------------------
-
-variable "additional_config_data" {
-  type        = map(string)
-  description = <<-EOT
-    Additional key-value pairs to add to the rosa-gitops-config ConfigMap.
-    Use this to pass custom configuration to your GitOps layers.
-  EOT
-  default     = {}
-}

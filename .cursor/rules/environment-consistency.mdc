@@ -1,0 +1,45 @@
+---
+description: Rules for keeping all 4 cluster environments in sync
+globs: environments/**/*.tf, environments/**/*.tfvars
+alwaysApply: false
+---
+
+# Environment Consistency
+
+There are 4 cluster environments that MUST stay structurally identical. When modifying one, apply the same change to all 4.
+
+## The 4 Cluster Environments
+
+| Environment | Cluster Type | Cloud | RHCS Auth |
+|---|---|---|---|
+| `commercial-classic` | Classic | AWS Commercial | `client_id` + `client_secret` |
+| `commercial-hcp` | HCP | AWS Commercial | `client_id` + `client_secret` |
+| `govcloud-classic` | Classic | AWS GovCloud | `token` + `token_url` |
+| `govcloud-hcp` | HCP | AWS GovCloud | `token` + `token_url` |
+
+Note: `account-hcp` exists but is a separate account-level environment, not a cluster environment.
+
+## What MUST Be Identical
+
+- `versions.tf`: Same provider requirements (kubernetes, kubectl, aws, rhcs, etc.)
+- `variables.tf`: Same variable definitions (type, description, default)
+- `outputs.tf`: Same output definitions
+- Module calls: Same variables passed to `module "gitops"`, `module "gitops_resources"`, etc.
+- Provider blocks: `kubernetes {}` and `kubectl {}` use the same `effective_k8s_token` pattern
+
+## Allowed Differences
+
+- `locals { cluster_type }`: "classic" or "hcp"
+- `provider "rhcs"`: Commercial uses `client_id`/`client_secret`; GovCloud uses `token`/`token_url`/`client_id`
+- `provider "aws" { default_tags }`: Different `Project` and optional `Compliance` tag
+- `rhcs` version pin: May differ between classic (>= 1.6.7) and hcp (>= 1.6.3)
+- KMS locals: GovCloud uses `var.cluster_kms_key_arn`; Commercial may use module output
+- tfvars values: Environment-specific settings (cluster name, region, etc.)
+
+## Workflow
+
+When adding a variable, output, or module parameter:
+
+1. Make the change in one environment
+2. Immediately replicate to the other 3
+3. Verify with `grep` that the change appears identically in all 4 files

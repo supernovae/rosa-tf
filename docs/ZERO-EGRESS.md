@@ -325,7 +325,7 @@ Zero-egress deployments have different cost characteristics:
 1. **HCP Only** - Zero-egress is not available for ROSA Classic
 2. **No Internet Access** - Workloads cannot reach the internet without additional configuration
 3. **Mirror Maintenance** - Operators must be re-mirrored before cluster upgrades
-4. **GitOps Considerations** - Default "direct" installation method works; "applicationset" requires mirrored Git access or internal Git server
+4. **GitOps Considerations** - Terraform-managed layers work natively; the optional external repo Application requires mirrored Git access or internal Git server
 
 ## Related Documentation
 

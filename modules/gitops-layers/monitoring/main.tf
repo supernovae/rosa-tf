@@ -14,8 +14,8 @@
 # is retained (not deleted). This avoids BucketNotEmpty errors and preserves
 # log data for compliance. Users must manually delete the bucket when ready.
 #
-# The monitoring operators and configuration are deployed via GitOps using
-# the rosa-gitops-config ConfigMap for values.
+# The monitoring operators and configuration are deployed by the operator module
+# using native kubernetes/kubectl providers with templatefile().
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------

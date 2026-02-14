@@ -6,13 +6,9 @@
 # - Restic for filesystem backups
 # - OpenShift and AWS plugins
 #
-# IMPORTANT: Update these values from your rosa-gitops-config ConfigMap:
-# - OADP_BUCKET_NAME: S3 bucket created by Terraform
-# - OADP_ROLE_ARN: IAM role ARN created by Terraform  
-# - AWS_REGION: Region where bucket is located
-#
-# TODO: In production, use Kustomize replacements or a Helm chart
-# to dynamically inject these values from the ConfigMap.
+# NOTE: This is a reference/example file. Terraform uses the .yaml.tftpl
+# template in this directory, which injects environment-specific values
+# (bucket name, role ARN, region) via templatefile().
 ---
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
@@ -41,13 +37,11 @@ spec:
         provider: aws
         default: true
         objectStorage:
-          # UPDATE: Replace with value from rosa-gitops-config ConfigMap
-          # bucket: "{{ .Values.oadp_bucket_name }}"
+          # Value injected by Terraform via templatefile()
           bucket: "OADP_BUCKET_NAME_PLACEHOLDER"
           prefix: backups
         config:
-          # UPDATE: Replace with value from rosa-gitops-config ConfigMap
-          # region: "{{ .Values.oadp_region }}"
+          # Value injected by Terraform via templatefile()
           region: "us-gov-west-1"
           profile: default
         credential:
@@ -57,7 +51,7 @@ spec:
     - velero:
         provider: aws
         config:
-          # UPDATE: Replace with value from rosa-gitops-config ConfigMap
+          # Value injected by Terraform via templatefile()
           region: "us-gov-west-1"
           profile: default
   # Uncomment if using STS role assumption (recommended for ROSA)

@@ -3,8 +3,8 @@
 # This configures the OpenShift Virtualization deployment.
 # The CR will only be created after the operator is fully installed.
 #
-# Note: This static file is used by ApplicationSet/Kustomize method.
-# For direct install method, Terraform uses hyperconverged.yaml.tftpl template.
+# Note: This is a reference file. Terraform uses the .yaml.tftpl template
+# in this directory to install the CR via kubectl_manifest.
 #
 # Node Placement (default configuration):
 # - nodeSelector: node-role.kubernetes.io/virtualization=""

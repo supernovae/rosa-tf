@@ -10,8 +10,7 @@
 #   2. GitOps Operator Subscription (OLM)
 #   3. Cluster-admin RBAC for ArgoCD controller
 #   4. ArgoCD instance with monitoring enabled
-#   5. ConfigMap bridge (Terraform -> GitOps)
-#   6. External repo Application (optional)
+#   5. External repo Application (optional)
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -218,39 +217,13 @@ resource "time_sleep" "wait_for_argocd_ready" {
 }
 
 #------------------------------------------------------------------------------
-# Step 7: ConfigMap Bridge
-#
-# Creates the rosa-gitops-config ConfigMap that passes Terraform-managed
-# values (S3 buckets, IAM roles, cluster metadata) to GitOps layers.
-#------------------------------------------------------------------------------
-
-resource "kubernetes_config_map_v1" "rosa_gitops_config" {
-  count = var.skip_k8s_destroy ? 0 : 1
-
-  metadata {
-    name      = "rosa-gitops-config"
-    namespace = "openshift-gitops"
-
-    labels = {
-      "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
-      "app.kubernetes.io/component"  = "config-bridge"
-      "app.kubernetes.io/managed-by" = "terraform"
-    }
-  }
-
-  data = local.configmap_data
-
-  depends_on = [time_sleep.wait_for_argocd_ready]
-}
-
-#------------------------------------------------------------------------------
-# Step 8: External Repo Application (Optional)
+# Step 7: External Repo Application (Optional)
 #
 # When a custom gitops_repo_url is provided, creates a single ArgoCD
 # Application pointing at the user's repo. Users manage their own app
 # structure within their repo.
 #
-# This replaces the previous ApplicationSet layer-generator pattern.
+# This creates a single Application (not an ApplicationSet).
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "external_repo_application" {
@@ -292,5 +265,5 @@ resource "kubectl_manifest" "external_repo_application" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubernetes_config_map_v1.rosa_gitops_config]
+  depends_on = [time_sleep.wait_for_argocd_ready]
 }

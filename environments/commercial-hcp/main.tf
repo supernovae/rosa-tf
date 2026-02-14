@@ -66,6 +66,10 @@ provider "kubernetes" {
 
   # ROSA uses a custom CA; skip TLS verification for API access
   insecure = true
+
+  # Prevent the provider from reading ~/.kube/config which causes
+  # "default cluster has no server defined" errors during plan
+  config_path = ""
 }
 
 provider "kubectl" {

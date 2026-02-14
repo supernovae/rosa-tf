@@ -7,10 +7,8 @@
 #   - Terraform: S3 bucket (modules/oadp-resources)
 #   - Terraform: IAM role with OIDC trust (modules/oadp-resources)
 #
-# Configuration values come from rosa-gitops-config ConfigMap:
-#   - oadp_bucket_name
-#   - oadp_role_arn
-#   - oadp_region
+# Configuration values are injected by Terraform via templatefile() in
+# modules/gitops-layers/operator/layer-oadp.tf
 #
 # Channel: Using 'stable' for automatic version selection based on
 # OpenShift version compatibility (avoids version-specific channel issues)

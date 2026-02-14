@@ -28,14 +28,14 @@ module "oadp_resources" {
 }
 ```
 
-## Integration with GitOps
+## Integration with Operator Module
 
-This module outputs configuration values for the GitOps ConfigMap bridge:
+This module outputs configuration values that are passed to the operator module:
 
 ```hcl
-# Pass to gitops module
+# Pass to gitops operator module
 module "gitops" {
-  source = "./modules/gitops"
+  source = "./modules/gitops-layers/operator"
   
   enable_layer_oadp = true
   oadp_bucket_name  = module.oadp_resources.bucket_name
@@ -94,7 +94,7 @@ During destroy, Terraform prints cleanup commands for the retained bucket.
 | bucket_region | AWS region of the bucket |
 | role_arn | IAM role ARN |
 | role_name | IAM role name |
-| gitops_config | Values for GitOps ConfigMap |
+| gitops_config | Values for operator module layer config |
 | ready | Dependency marker (true when all resources created) |
 
 ## Security Considerations

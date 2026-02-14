@@ -67,11 +67,11 @@ output "log_retention_hours" {
 }
 
 #------------------------------------------------------------------------------
-# Summary for GitOps ConfigMap
+# Summary for Operator Module
 #------------------------------------------------------------------------------
 
 output "gitops_config" {
-  description = "Configuration values to pass to GitOps layer."
+  description = "Configuration values passed to the operator module for monitoring layer."
   value = {
     bucket_name       = local.bucket_name
     bucket_region     = var.aws_region

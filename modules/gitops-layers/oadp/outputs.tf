@@ -27,9 +27,9 @@ output "role_name" {
   value       = aws_iam_role.oadp.name
 }
 
-# ConfigMap contribution - values to pass to GitOps layer
+# Values passed to the operator module for layer configuration
 output "gitops_config" {
-  description = "Configuration values to add to the GitOps ConfigMap bridge."
+  description = "Configuration values passed to the operator module for OADP layer."
   value = {
     oadp_bucket_name = local.bucket_name
     oadp_bucket_arn  = local.bucket_arn

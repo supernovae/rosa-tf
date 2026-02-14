@@ -176,10 +176,10 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
     namespace = "openshift-logging"
   }
 
-  string_data = {
-    bucketnames = var.monitoring_bucket_name
-    region      = var.aws_region
-    role_arn    = var.monitoring_role_arn
+  data = {
+    bucketnames = base64encode(var.monitoring_bucket_name)
+    region      = base64encode(var.aws_region)
+    role_arn    = base64encode(var.monitoring_role_arn)
   }
 
   depends_on = [kubernetes_namespace_v1.monitoring_logging]

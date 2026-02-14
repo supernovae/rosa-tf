@@ -75,7 +75,7 @@ The logging operators require specific channels based on OpenShift version:
 
 Terraform automatically selects the correct channel based on `openshift_version`.
 
-> **Note:** The monitoring layer is always applied by Terraform (direct method) because it requires environment-specific values (S3 bucket, IAM role) that Terraform creates. The `applicationset` method is for your own additional static resources, not for core layers.
+> **Note:** The monitoring layer is always applied by Terraform using native `kubectl_manifest` resources because it requires environment-specific values (S3 bucket, IAM role) that Terraform creates.
 
 ## Prerequisites
 

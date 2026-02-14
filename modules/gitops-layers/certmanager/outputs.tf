@@ -92,11 +92,11 @@ output "ingress_domain" {
 }
 
 #------------------------------------------------------------------------------
-# Summary for GitOps ConfigMap
+# Summary for Operator Module
 #------------------------------------------------------------------------------
 
 output "gitops_config" {
-  description = "Configuration values to pass to GitOps layer."
+  description = "Configuration values passed to the operator module for cert-manager layer."
   value = {
     role_arn       = aws_iam_role.certmanager.arn
     hosted_zone_id = local.effective_hosted_zone_id

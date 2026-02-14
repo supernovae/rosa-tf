@@ -1,6 +1,6 @@
 # GitOps Layers for ROSA
 
-GitOps integration for ROSA clusters using ArgoCD and the ConfigMap bridge pattern.
+GitOps integration for ROSA clusters using native Terraform providers and ArgoCD.
 
 > **Repo**: [supernovae/rosa-tf](https://github.com/supernovae/rosa-tf)
 
@@ -15,7 +15,6 @@ This framework uses a **hybrid approach** that combines Terraform and ArgoCD:
 │  • Creates AWS infrastructure (S3 buckets, IAM roles)           │
 │  • Installs operators (Loki, OADP, Virtualization, etc.)        │
 │  • Deploys CRs with environment values (LokiStack, DPA)         │
-│  • Creates ConfigMap bridge with cluster metadata               │
 └─────────────────────────────────────────────────────────────────┘
                                │
                                ▼
@@ -56,7 +55,7 @@ install_gitops          = true
 enable_layer_monitoring = true
 enable_layer_oadp       = true
 
-# Optional: Add YOUR static resources via ArgoCD ApplicationSet
+# Optional: Add YOUR static resources via ArgoCD Application
 # gitops_repo_url = "https://github.com/your-org/your-manifests.git"
 ```
 
@@ -124,7 +123,7 @@ enable_layer_virtualization = true
 ### Additional GitOps Configuration
 
 To deploy your own custom resources (projects, quotas, RBAC, apps) alongside the
-built-in layers, provide a `gitops_repo_url`. An ArgoCD ApplicationSet will be
+built-in layers, provide a `gitops_repo_url`. An ArgoCD Application will be
 created automatically to sync from your repo:
 
 ```hcl
@@ -141,7 +140,7 @@ gitops_repo_revision = "main"     # branch, tag, or commit
 
 ## Minimal GitOps (No Layers)
 
-With all `enable_layer_*` set to false, Terraform still installs ArgoCD and the ConfigMap bridge. You can use this as a foundation for your own GitOps resources via the external repo.
+With all `enable_layer_*` set to false, Terraform still installs ArgoCD. You can use this as a foundation for your own GitOps resources via the external repo.
 
 ```hcl
 # GitOps with ArgoCD only (no operator layers)
@@ -187,35 +186,6 @@ ArgoCD will sync your manifests automatically when changes are pushed to Git.
 
 📖 **[OAuth Troubleshooting](../docs/OPERATIONS.md#gitops-troubleshooting)** - Debug authentication issues
 
-## ConfigMap Bridge
-
-Terraform creates a ConfigMap `rosa-gitops-config` in `openshift-gitops` namespace containing:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rosa-gitops-config
-  namespace: openshift-gitops
-data:
-  cluster_name: "my-cluster"
-  aws_region: "us-east-1"
-  
-  # Layer flags
-  layer_terminal_enabled: "true"
-  layer_oadp_enabled: "true"
-  layer_virtualization_enabled: "false"
-  layer_certmanager_enabled: "false"
-  
-  # OADP configuration (when enabled)
-  oadp_bucket_name: "my-cluster-oadp-backups"
-  oadp_bucket_region: "us-east-1"
-  oadp_role_arn: "arn:aws:iam::123456789012:role/my-cluster-oadp"
-```
-
-This bridge pattern allows GitOps-deployed operators to inherit Terraform-managed values
-(S3 buckets, KMS keys, IAM roles) without storing sensitive data in Git.
-
 ## Adding New Layers
 
 1. Create a new directory under `layers/`:
@@ -230,10 +200,9 @@ This bridge pattern allows GitOps-deployed operators to inherit Terraform-manage
 
 3. Update Terraform variables (if layer needs AWS resources):
    - Add `enable_layer_<name>` variable
-   - Create Terraform module for AWS resources
-   - Add layer to ApplicationSet generator
-
-4. Update the ConfigMap bridge with new layer flag
+   - Create `layer-<name>.tf` in `modules/gitops-layers/operator/`
+   - Create Terraform module for AWS resources (if needed)
+   - Wire through all 4 environments (see `.cursor/rules/gitops-variables.mdc`)
 
 ## Layer Dependencies
 
@@ -266,19 +235,19 @@ See [modules/gitops-layers/certmanager/README.md](../modules/gitops-layers/certm
 
 ### Layer not deploying
 
-1. Check ApplicationSet status:
+1. Check that the layer is enabled in your tfvars:
    ```bash
-   oc get applicationset rosa-layers -n openshift-gitops -o yaml
+   grep enable_layer_ *.tfvars
    ```
 
-2. Check Application status:
+2. Re-run Terraform to reconcile:
    ```bash
-   oc get applications -n openshift-gitops
+   terraform apply -var-file=prod.tfvars
    ```
 
-3. Verify ConfigMap bridge:
+3. Check Terraform state for the layer resources:
    ```bash
-   oc get configmap rosa-gitops-config -n openshift-gitops -o yaml
+   terraform state list | grep layer_<name>
    ```
 
 ### Operator installation stuck
