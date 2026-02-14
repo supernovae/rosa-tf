@@ -6,7 +6,7 @@ metadata:
 spec:
   secretName: ${cert_secret_name}
   issuerRef:
-    name: letsencrypt-production
+    name: ${issuer_name}
     kind: ClusterIssuer
   dnsNames:
 %{ for domain in cert_domains ~}

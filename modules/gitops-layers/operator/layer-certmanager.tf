@@ -27,12 +27,16 @@ locals {
     hosted_zone_id = var.certmanager_hosted_zone_id
     aws_region     = var.aws_region
   })
+  # Select issuer: staging has much higher rate limits for dev/test
+  certmanager_issuer_name = var.certmanager_use_staging_issuer ? "letsencrypt-staging" : "letsencrypt-production"
+
   certmanager_certificates = [
     for cert in var.certmanager_certificate_domains : templatefile("${local.layers_path}/certmanager/certificate.yaml.tftpl", {
       cert_name        = cert.name
       cert_namespace   = cert.namespace
       cert_secret_name = cert.secret_name
       cert_domains     = cert.domains
+      issuer_name      = local.certmanager_issuer_name
     })
   ]
   certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {

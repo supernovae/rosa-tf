@@ -65,6 +65,27 @@ When using `cert_mode=provided` (zero-egress):
 - Monitor certificate expiry dates
 - Renew certificates before they expire
 
+### Staging vs Production Issuer
+
+Both ClusterIssuers are always created. By default, certificates use **production** Let's Encrypt. For dev/test environments, set `certmanager_use_staging_issuer = true` to use the **staging** issuer instead.
+
+| | Production | Staging |
+|---|---|---|
+| **Issuer** | `letsencrypt-production` | `letsencrypt-staging` |
+| **Browser trusted** | Yes | No (Fake LE Intermediate X1) |
+| **Rate limit** | 50 certs/week per domain set | 30,000 certs/week |
+| **Use case** | Production, user-facing | Dev, test, CI/CD |
+
+```hcl
+# Dev/test -- avoid rate limits during iteration
+certmanager_use_staging_issuer = true
+
+# Production -- real certificates (default)
+certmanager_use_staging_issuer = false
+```
+
+> **Tip:** If you hit `429 rateLimited` errors from Let's Encrypt during development, switch to staging. The ACME flow is identical -- only the trust chain differs.
+
 ## DNS01 Challenge Flow
 
 1. cert-manager requests a certificate from Let's Encrypt
@@ -303,6 +324,7 @@ certmanager_certificate_domains = [
 | `certmanager_hosted_zone_domain` | Domain for the hosted zone | `string` | `""` | When creating |
 | `certmanager_create_hosted_zone` | Create a new hosted zone | `bool` | `false` | No |
 | `certmanager_acme_email` | Let's Encrypt registration email | `string` | `""` | Yes (when enabled) |
+| `certmanager_use_staging_issuer` | Use staging LE (untrusted, high rate limits) | `bool` | `false` | No |
 | `certmanager_certificate_domains` | Certificate resources to create | `list(object)` | `[]` | No |
 | `certmanager_enable_routes_integration` | Install Routes integration | `bool` | `true` | No |
 | `certmanager_ingress_enabled` | Create a custom IngressController | `bool` | `true` | No |

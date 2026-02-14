@@ -417,6 +417,20 @@ variable "certmanager_acme_email" {
   default     = ""
 }
 
+variable "certmanager_use_staging_issuer" {
+  type        = bool
+  description = <<-EOT
+    Use Let's Encrypt staging issuer for certificates instead of production.
+    
+    Staging certificates are NOT trusted by browsers but have much higher
+    rate limits (30,000 certs per week vs 50 per week). Use this for
+    dev/test environments to avoid hitting production rate limits.
+    
+    Default: false (production Let's Encrypt)
+  EOT
+  default     = false
+}
+
 variable "certmanager_certificate_domains" {
   type = list(object({
     name        = string
