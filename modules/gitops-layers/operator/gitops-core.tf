@@ -80,7 +80,7 @@ resource "time_sleep" "wait_for_gitops_operator" {
   count = var.skip_k8s_destroy ? 0 : 1
 
   create_duration  = "120s"
-  destroy_duration = "30s" # Give the operator time to clean up finalizers before namespace deletion
+  destroy_duration = "45s" # Give the operator time to clean up finalizers before namespace deletion
 
   depends_on = [kubectl_manifest.gitops_subscription]
 }
