@@ -64,8 +64,8 @@ enable_layer_oadp       = true
 
 | Tool | Required | Purpose |
 |------|----------|---------|
-| `curl` | Yes | HTTP requests to cluster API for OAuth token retrieval |
-| `jq` | Recommended | Parses JSON responses from OAuth/API endpoints |
+| `terraform` | Yes | Infrastructure and cluster resource management |
+| `jq` | Recommended | Parses JSON output from Terraform |
 
 **Install jq:**
 ```bash
@@ -139,26 +139,20 @@ gitops_repo_revision = "main"     # branch, tag, or commit
 > OADP, virtualization) are always managed by Terraform because they depend on
 > infrastructure it creates (S3 buckets, IAM roles, etc.).
 
-## Customizing Without Layers
+## Minimal GitOps (No Layers)
 
-Even with all `enable_layer_*` set to false, the **base layer** is always applied when
-`install_gitops = true`. Use `layers/base/` to customize:
-
-- Cluster-wide defaults (resource quotas, limit ranges)
-- Project templates and configurations
-- RBAC policies and cluster roles
-- Any cluster configurations you want GitOps-managed
+With all `enable_layer_*` set to false, Terraform still installs ArgoCD and the ConfigMap bridge. You can use this as a foundation for your own GitOps resources via the external repo.
 
 ```hcl
-# GitOps with only base customizations (no operator layers)
+# GitOps with ArgoCD only (no operator layers)
 install_gitops        = true
 enable_layer_terminal = false
 enable_layer_oadp     = false
 ```
 
-## ArgoCD ApplicationSet (Custom Resources)
+## External Repo Application (Custom Resources)
 
-When you provide a `gitops_repo_url`, an ArgoCD ApplicationSet is created to sync
+When you provide a `gitops_repo_url`, a single ArgoCD Application is created to sync
 your custom Kubernetes manifests. This is independent of the built-in layers.
 
 > **Note:** Core layers (monitoring, OADP, virtualization) are always applied by

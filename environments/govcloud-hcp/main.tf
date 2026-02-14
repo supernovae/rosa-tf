@@ -731,7 +731,7 @@ module "cluster_auth" {
 # Module: GitOps (Optional)
 #
 # Installs OpenShift GitOps (ArgoCD) and configures the GitOps Layers framework.
-# Uses curl-based API calls with OAuth token from cluster_auth module.
+# Uses native kubernetes/kubectl providers for cluster resource management.
 #
 # NOTE: GovCloud clusters are ALWAYS private. GitOps will only succeed if:
 # 1. Terraform runner has VPN or direct network access to cluster
