@@ -10,18 +10,18 @@ output "terraform_sa_token" {
       gitops_cluster_token = "<this value>"
     
     Retrieve with: terraform output -raw terraform_sa_token
-    Rotate with:   terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+    Rotate with:   terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token[0]"
     
     SECURITY: This token is stored in Terraform state. Ensure state is on
     encrypted S3 with IAM access controls (see docs/FEDRAMP.md).
   EOT
-  value       = kubernetes_secret_v1.terraform_operator_token.data["token"]
+  value       = var.skip_k8s_destroy ? "" : kubernetes_secret_v1.terraform_operator_token[0].data["token"]
   sensitive   = true
 }
 
 output "terraform_sa_name" {
   description = "Name of the Terraform ServiceAccount in kube-system namespace."
-  value       = kubernetes_service_account_v1.terraform_operator.metadata[0].name
+  value       = var.skip_k8s_destroy ? var.terraform_sa_name : kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
 }
 
 output "namespace" {

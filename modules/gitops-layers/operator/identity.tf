@@ -27,6 +27,8 @@
 #------------------------------------------------------------------------------
 
 resource "kubernetes_service_account_v1" "terraform_operator" {
+  count = var.skip_k8s_destroy ? 0 : 1
+
   metadata {
     name      = var.terraform_sa_name
     namespace = "kube-system"
@@ -45,6 +47,8 @@ resource "kubernetes_service_account_v1" "terraform_operator" {
 }
 
 resource "kubernetes_cluster_role_binding_v1" "terraform_operator" {
+  count = var.skip_k8s_destroy ? 0 : 1
+
   metadata {
     name = "${var.terraform_sa_name}-cluster-admin"
 
@@ -63,7 +67,7 @@ resource "kubernetes_cluster_role_binding_v1" "terraform_operator" {
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account_v1.terraform_operator.metadata[0].name
+    name      = kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
     namespace = "kube-system"
   }
 }
@@ -77,12 +81,14 @@ resource "kubernetes_cluster_role_binding_v1" "terraform_operator" {
 # This deletes the old secret (immediately invalidating the token) and creates
 # a new one in a single apply.
 resource "kubernetes_secret_v1" "terraform_operator_token" {
+  count = var.skip_k8s_destroy ? 0 : 1
+
   metadata {
     name      = "${var.terraform_sa_name}-token"
     namespace = "kube-system"
 
     annotations = {
-      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.terraform_operator.metadata[0].name
+      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
     }
 
     labels = {
