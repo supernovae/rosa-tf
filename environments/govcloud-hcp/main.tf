@@ -43,6 +43,28 @@ provider "rhcs" {
   client_id = "console-dot"
 }
 
+# Kubernetes provider for native resource management (GitOps layers).
+#
+# Authentication priority:
+#   1. gitops_cluster_token (SA token from previous bootstrap) -- no OAuth needed
+#   2. cluster_auth module (OAuth bootstrap) -- first run only
+#
+# For GovCloud private clusters: VPN connectivity required for API access.
+provider "kubernetes" {
+  host  = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  token = local.effective_k8s_token
+
+  insecure = true
+}
+
+provider "kubectl" {
+  host             = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  token            = local.effective_k8s_token
+  load_config_file = false
+
+  insecure = true
+}
+
 #------------------------------------------------------------------------------
 # Validation Checks
 #------------------------------------------------------------------------------
@@ -135,6 +157,13 @@ locals {
   # Cluster type - single source of truth for all modules
   # HCP clusters have full control over openshift-monitoring namespace
   cluster_type = "hcp"
+
+  # Kubernetes provider token: SA token (steady state) or OAuth token (bootstrap)
+  effective_k8s_token = (
+    var.gitops_cluster_token != null && var.gitops_cluster_token != ""
+    ? var.gitops_cluster_token
+    : try(module.cluster_auth[0].token, "")
+  )
 
   account_id = data.aws_caller_identity.current.account_id
   partition  = data.aws_partition.current.partition
@@ -723,6 +752,8 @@ module "gitops" {
   cluster_name    = var.cluster_name
   cluster_api_url = module.rosa_cluster.api_url
   cluster_token   = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
+  terraform_sa_name = var.terraform_sa_name
+  skip_k8s_destroy  = var.skip_k8s_destroy
   cluster_type    = local.cluster_type
   aws_region      = var.aws_region
   aws_account_id  = data.aws_caller_identity.current.account_id

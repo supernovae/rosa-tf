@@ -13,6 +13,33 @@
 # Required Variables
 #------------------------------------------------------------------------------
 
+variable "terraform_sa_name" {
+  type        = string
+  description = <<-EOT
+    Name of the Kubernetes ServiceAccount created for Terraform.
+    This SA is used for all subsequent Terraform runs after bootstrap.
+    The token is stored in Terraform state (must be encrypted at rest).
+    
+    To rotate the token:
+      terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+  EOT
+  default     = "terraform-operator"
+}
+
+variable "skip_k8s_destroy" {
+  type        = bool
+  description = <<-EOT
+    When true, removes all Kubernetes resources from Terraform state without
+    attempting to delete them from the cluster. Use before destroying a cluster:
+      1. terraform apply -var="skip_k8s_destroy=true"
+      2. terraform destroy
+    
+    This prevents Terraform from failing when trying to reach a cluster API
+    that no longer exists during destroy.
+  EOT
+  default     = false
+}
+
 variable "cluster_name" {
   type        = string
   description = "Name of the ROSA cluster."

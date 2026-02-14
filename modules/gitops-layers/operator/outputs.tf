@@ -2,6 +2,28 @@
 # GitOps Module Outputs
 #------------------------------------------------------------------------------
 
+output "terraform_sa_token" {
+  description = <<-EOT
+    ServiceAccount token for Terraform cluster management.
+    
+    After first apply, set this in your tfvars to bypass OAuth on future runs:
+      gitops_cluster_token = "<this value>"
+    
+    Retrieve with: terraform output -raw terraform_sa_token
+    Rotate with:   terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+    
+    SECURITY: This token is stored in Terraform state. Ensure state is on
+    encrypted S3 with IAM access controls (see docs/FEDRAMP.md).
+  EOT
+  value       = kubernetes_secret_v1.terraform_operator_token.data["token"]
+  sensitive   = true
+}
+
+output "terraform_sa_name" {
+  description = "Name of the Terraform ServiceAccount in kube-system namespace."
+  value       = kubernetes_service_account_v1.terraform_operator.metadata[0].name
+}
+
 output "namespace" {
   description = "Namespace where GitOps operator is installed."
   value       = "openshift-gitops"

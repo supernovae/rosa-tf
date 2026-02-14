@@ -1379,3 +1379,15 @@ variable "compute_security_group_rules" {
     egress  = []
   }
 }
+
+variable "terraform_sa_name" {
+  type        = string
+  description = "Name of the Kubernetes ServiceAccount for Terraform cluster management."
+  default     = "terraform-operator"
+}
+
+variable "skip_k8s_destroy" {
+  type        = bool
+  description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."
+  default     = false
+}
