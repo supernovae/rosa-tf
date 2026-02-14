@@ -1,10 +1,11 @@
 # GitOps Operator Module
 
-This module installs the OpenShift GitOps operator (ArgoCD) on ROSA clusters and configures the GitOps Layers framework for Day 2 operations.
+This module installs the OpenShift GitOps operator (ArgoCD) on ROSA clusters and configures the GitOps Layers framework for Day 2 operations using **native Terraform providers** (`hashicorp/kubernetes` and `alekc/kubectl`).
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Terraform Identity](#terraform-identity)
 - [Network Connectivity Requirements](#network-connectivity-requirements)
 - [Authentication Requirements](#authentication-requirements)
 - [Day 0 vs Day 2 Operations](#day-0-vs-day-2-operations)
@@ -15,16 +16,49 @@ This module installs the OpenShift GitOps operator (ArgoCD) on ROSA clusters and
 - [Variables](#variables)
 - [Outputs](#outputs)
 - [Idempotency and Re-run Behavior](#idempotency-and-re-run-behavior)
+- [Destroy Workflow](#destroy-workflow)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
 This module provides:
 
-1. **OpenShift GitOps Operator** - Installs ArgoCD for GitOps-based cluster management
-2. **ConfigMap Bridge** - Stores cluster metadata and layer configuration for reference
-3. **ArgoCD Instance** - Pre-configured ArgoCD with OpenShift OAuth integration
-4. **Core Layers** - Terraform-managed operators with environment-specific configuration
+1. **Terraform Operator Identity** - ServiceAccount with cluster-admin for Terraform operations
+2. **OpenShift GitOps Operator** - Installs ArgoCD for GitOps-based cluster management
+3. **ConfigMap Bridge** - Stores cluster metadata and layer configuration for reference
+4. **ArgoCD Instance** - Pre-configured ArgoCD with OpenShift OAuth integration
+5. **Core Layers** - Terraform-managed operators with environment-specific configuration
+
+All Kubernetes resources are managed via native `kubernetes_*` and `kubectl_manifest` resources. No shell scripts or `curl` commands are used.
+
+## Terraform Identity
+
+The module creates a dedicated Kubernetes ServiceAccount (`terraform-operator`) in the `kube-system` namespace with a long-lived token. This provides:
+
+- **Non-human identity** for all Terraform operations
+- **Persistent token** stored in Terraform state (encrypted S3 at rest)
+- **Audit trail** via `system:serviceaccount:kube-system:terraform-operator` in API logs
+- **No OAuth dependency** after initial bootstrap
+
+### Token Rotation
+
+```bash
+terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+terraform output -raw terraform_sa_token  # copy to gitops_cluster_token in tfvars
+```
+
+### File Structure
+
+| File | Purpose |
+|------|---------|
+| `identity.tf` | ServiceAccount, ClusterRoleBinding, token Secret |
+| `gitops-core.tf` | ArgoCD operator, instance, ConfigMap bridge |
+| `layer-terminal.tf` | Web Terminal operator |
+| `layer-oadp.tf` | OADP (backup/restore) operator and configuration |
+| `layer-virtualization.tf` | OpenShift Virtualization operator |
+| `layer-monitoring.tf` | Prometheus, Loki, Cluster Logging, COO |
+| `layer-certmanager.tf` | cert-manager, ClusterIssuers, DNS records |
+| `main.tf` | Shared locals (operator channels, ConfigMap data) |
 
 ## Architecture: Hybrid GitOps
 
@@ -409,60 +443,41 @@ If any condition fails, GitOps is skipped gracefully and can be installed on sub
 
 ## Prerequisites
 
-### 1. Cluster with htpasswd IDP
+### 1. Kubernetes and kubectl Providers
 
-The ROSA cluster must have:
-
-```hcl
-# In cluster module
-resource "rhcs_identity_provider" "htpasswd" {
-  cluster = rhcs_cluster_rosa_classic.this.id
-  name    = "htpasswd"
-  htpasswd = {
-    users = [{
-      username = "cluster-admin"
-      password = random_password.admin.result
-    }]
-  }
-}
-
-resource "rhcs_group_membership" "cluster_admin" {
-  cluster = rhcs_cluster_rosa_classic.this.id
-  group   = "cluster-admins"
-  user    = "cluster-admin"
-}
-```
-
-### 2. cluster-auth Module
-
-Configure authentication in your environment:
-
-```hcl
-module "cluster_auth" {
-  source = "../../modules/utility/cluster-auth"
-  count  = var.install_gitops ? 1 : 0
-
-  enabled  = var.install_gitops
-  api_url  = module.rosa_cluster.api_url
-  username = module.rosa_cluster.admin_username
-  password = module.rosa_cluster.admin_password
-}
-```
-
-### 3. Kubernetes Provider Configuration
-
-Configure the provider with the obtained token:
+The environment must configure `kubernetes` and `kubectl` providers:
 
 ```hcl
 provider "kubernetes" {
-  host  = var.install_gitops ? module.cluster_auth[0].host : ""
-  token = var.install_gitops ? module.cluster_auth[0].token : ""
-
-  # Skip TLS verification for self-signed certificates
-  # For production, configure proper CA certificate
+  host  = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  token = local.effective_k8s_token
   insecure = true
 }
+
+provider "kubectl" {
+  host             = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  token            = local.effective_k8s_token
+  load_config_file = false
+  insecure = true
+}
+
+locals {
+  # SA token (steady state) or OAuth token (bootstrap)
+  effective_k8s_token = (
+    var.gitops_cluster_token != null && var.gitops_cluster_token != ""
+    ? var.gitops_cluster_token
+    : try(module.cluster_auth[0].token, "")
+  )
+}
 ```
+
+### 2. Bootstrap Authentication (First Run Only)
+
+For the initial apply, `cluster_auth` provides an OAuth token using htpasswd admin credentials. After bootstrap, set `gitops_cluster_token` to the SA token and the OAuth flow is no longer needed.
+
+### 3. Network Connectivity
+
+The Terraform runner must be able to reach the cluster API. For private clusters, this requires VPN or bastion host connectivity.
 
 ## Usage
 

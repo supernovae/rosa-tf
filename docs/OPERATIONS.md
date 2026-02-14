@@ -7,6 +7,7 @@ Day-to-day operations, troubleshooting, and best practices for ROSA clusters.
 - [Terraform State Management](#terraform-state-management)
 - [Deployment Workflow](#deployment-workflow)
 - [Credential Management](#credential-management)
+- [Terraform Service Account Lifecycle](#terraform-service-account-lifecycle)
 - [Cluster Access](#cluster-access)
 - [Common Operations](#common-operations)
 - [Client VPN Operations](#client-vpn-operations)
@@ -561,6 +562,67 @@ rosa whoami
 ```
 
 > **Important:** The `rosa` CLI caches session state. Failing to log out before switching environments can cause connectivity issues or operations against the wrong Hybrid Cloud Console.
+
+---
+
+## Terraform Service Account Lifecycle
+
+After the initial cluster bootstrap, Terraform creates a Kubernetes ServiceAccount (`terraform-operator`) with a long-lived token for all subsequent operations. This replaces the OAuth-based authentication flow.
+
+### Bootstrap Flow (First Apply)
+
+1. `cluster_auth` module obtains OAuth token using htpasswd admin credentials
+2. Kubernetes/kubectl providers use OAuth token to create cluster resources
+3. `identity.tf` creates the ServiceAccount, ClusterRoleBinding, and token Secret
+4. Token is stored in Terraform state (encrypted S3 at rest)
+5. Output the token: `terraform output -raw terraform_sa_token`
+6. Set in tfvars: `gitops_cluster_token = "<token>"`
+
+### Subsequent Applies (SA Token)
+
+Once `gitops_cluster_token` is set, Terraform uses the SA token directly:
+- No OAuth flow, no htpasswd dependency
+- Token is persistent (does not expire unless manually rotated)
+- Identity appears in cluster audit logs as `system:serviceaccount:kube-system:terraform-operator`
+
+### Rotating the SA Token
+
+Auditors may require periodic token rotation. Because the token is managed by Terraform, rotation is a single command:
+
+```bash
+terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+```
+
+This deletes the old Secret (immediately invalidating the token), creates a new one, and updates the Terraform state. After rotation:
+
+1. Retrieve the new token: `terraform output -raw terraform_sa_token`
+2. Update `gitops_cluster_token` in your tfvars
+3. Verify: `terraform plan` should show no changes
+
+### Removing the htpasswd IDP (Production Hardening)
+
+After bootstrap, the htpasswd IDP can be removed to reduce the cluster's attack surface:
+
+1. Set `create_admin_user = false` in your tfvars
+2. Ensure `gitops_cluster_token` is set (SA token is the sole auth method)
+3. Run `terraform apply` -- this removes the htpasswd IDP and cluster-admin group membership
+4. Verify: `oc get oauth cluster -o yaml` should not list htpasswd
+
+> **Note:** Do not remove htpasswd until you have verified the SA token works. Test with `terraform plan` using the SA token first.
+
+### Destroy Workflow (skip_k8s_destroy)
+
+When destroying a cluster, Terraform must not attempt to reach the Kubernetes API to delete individual resources (the API will be gone). Use the `skip_k8s_destroy` pattern:
+
+```bash
+# Step 1: Remove K8s resources from state (cluster still running)
+terraform apply -var="skip_k8s_destroy=true" -var-file=prod.tfvars
+
+# Step 2: Destroy the cluster (no K8s resources left in state)
+terraform destroy -var-file=prod.tfvars
+```
+
+This two-step process ensures clean destruction without API connectivity errors.
 
 ---
 
