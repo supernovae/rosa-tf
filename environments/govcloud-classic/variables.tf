@@ -1478,6 +1478,12 @@ variable "terraform_sa_name" {
   default     = "terraform-operator"
 }
 
+variable "terraform_sa_namespace" {
+  type        = string
+  description = "Namespace for the Terraform operator SA. Dedicated namespace avoids ROSA webhook issues."
+  default     = "rosa-terraform"
+}
+
 variable "skip_k8s_destroy" {
   type        = bool
   description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."

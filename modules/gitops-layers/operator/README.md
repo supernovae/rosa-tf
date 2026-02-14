@@ -32,11 +32,12 @@ All Kubernetes resources are managed via native `kubernetes_*` and `kubectl_mani
 
 ## Terraform Identity
 
-The module creates a dedicated Kubernetes ServiceAccount (`terraform-operator`) in the `kube-system` namespace with a long-lived token. This provides:
+The module creates a dedicated Kubernetes ServiceAccount (`terraform-operator`) in the `rosa-terraform` namespace with a long-lived token. Using a dedicated namespace (not `kube-system`) avoids ROSA's managed admission webhooks that block deletion of resources in system namespaces, enabling full Terraform lifecycle management.
 
 - **Non-human identity** for all Terraform operations
+- **Dedicated namespace** (`rosa-terraform`) -- not in system namespaces, fully manageable by Terraform
 - **Persistent token** stored in Terraform state (encrypted S3 at rest)
-- **Audit trail** via `system:serviceaccount:kube-system:terraform-operator` in API logs
+- **Audit trail** via `system:serviceaccount:rosa-terraform:terraform-operator` in API logs
 - **No OAuth dependency** after initial bootstrap
 
 ### Token Rotation

@@ -281,16 +281,17 @@ Terraform uses a dedicated Kubernetes ServiceAccount (`terraform-operator`) with
 - Configures monitoring and logging infrastructure
 
 **Mitigations:**
-- The SA is bound to `kube-system` (not a user namespace)
+- The SA lives in a dedicated `rosa-terraform` namespace (not `kube-system` or any user namespace), providing clear separation of automation identity from system and workload resources
+- The dedicated namespace avoids ROSA's managed admission webhooks on system namespaces, enabling full Terraform lifecycle management (create, rotate, destroy) without platform workarounds
 - No human identity uses this SA -- it is Terraform-only
 - Token is not cached in-process; it exists only in encrypted Terraform state
-- All operations are logged in OpenShift API server audit logs
+- All operations are logged in OpenShift API server audit logs with identity `system:serviceaccount:rosa-terraform:terraform-operator`
 
 ### AU-3: Audit Evidence
 
 Every Terraform apply generates auditable evidence in the OpenShift API server logs:
 
-- **User identity:** `system:serviceaccount:kube-system:terraform-operator`
+- **User identity:** `system:serviceaccount:rosa-terraform:terraform-operator`
 - **User-Agent:** `Terraform/<version> hashicorp/kubernetes/<version>` (or `kubectl-provider`)
 - **Action:** Create, Update, Patch, Delete for each resource
 - **Resource:** Full API path (e.g., `/apis/operators.coreos.com/v1alpha1/namespaces/openshift-operators/subscriptions`)

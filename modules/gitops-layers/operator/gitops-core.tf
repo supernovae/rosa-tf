@@ -79,7 +79,8 @@ resource "kubectl_manifest" "gitops_subscription" {
 resource "time_sleep" "wait_for_gitops_operator" {
   count = var.skip_k8s_destroy ? 0 : 1
 
-  create_duration = "120s"
+  create_duration  = "120s"
+  destroy_duration = "30s" # Give the operator time to clean up finalizers before namespace deletion
 
   depends_on = [kubectl_manifest.gitops_subscription]
 }
@@ -91,28 +92,37 @@ resource "time_sleep" "wait_for_gitops_operator" {
 # manage resources across all namespaces.
 #------------------------------------------------------------------------------
 
-resource "kubernetes_cluster_role_binding_v1" "argocd_cluster_admin" {
+# ROSA's managed admission webhook blocks deletion of CRBs binding to cluster-admin.
+# prevent_destroy stops Terraform from attempting the delete. The CRB dies with the cluster.
+#
+# Before full cluster destroy:
+#   terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
+resource "kubectl_manifest" "argocd_rbac" {
   count = var.skip_k8s_destroy ? 0 : 1
 
-  metadata {
-    name = "openshift-gitops-cluster-admin"
+  yaml_body = <<-YAML
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: openshift-gitops-argocd-rbac
+      labels:
+        app.kubernetes.io/managed-by: terraform
+        app.kubernetes.io/part-of: rosa-gitops-layers
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: cluster-admin
+    subjects:
+      - kind: ServiceAccount
+        name: openshift-gitops-argocd-application-controller
+        namespace: openshift-gitops
+  YAML
 
-    labels = {
-      "app.kubernetes.io/managed-by" = "terraform"
-      "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
-    }
-  }
+  server_side_apply = true
+  force_conflicts   = true
 
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "ClusterRole"
-    name      = "cluster-admin"
-  }
-
-  subject {
-    kind      = "ServiceAccount"
-    name      = "openshift-gitops-argocd-application-controller"
-    namespace = "openshift-gitops"
+  lifecycle {
+    prevent_destroy = true
   }
 
   depends_on = [time_sleep.wait_for_gitops_operator]
@@ -200,7 +210,7 @@ resource "kubectl_manifest" "argocd_instance" {
 
   depends_on = [
     time_sleep.wait_for_gitops_operator,
-    kubernetes_cluster_role_binding_v1.argocd_cluster_admin,
+    kubectl_manifest.argocd_rbac,
   ]
 }
 

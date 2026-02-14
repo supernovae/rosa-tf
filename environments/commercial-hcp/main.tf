@@ -806,8 +806,9 @@ module "gitops" {
   cluster_name    = var.cluster_name
   cluster_api_url = module.rosa_cluster.api_url
   cluster_token   = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
-  terraform_sa_name = var.terraform_sa_name
-  skip_k8s_destroy  = var.skip_k8s_destroy
+  terraform_sa_name      = var.terraform_sa_name
+  terraform_sa_namespace = var.terraform_sa_namespace
+  skip_k8s_destroy       = var.skip_k8s_destroy
   cluster_type    = local.cluster_type
   aws_region      = var.aws_region
   aws_account_id  = data.aws_caller_identity.current.account_id

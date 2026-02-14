@@ -20,8 +20,13 @@ output "terraform_sa_token" {
 }
 
 output "terraform_sa_name" {
-  description = "Name of the Terraform ServiceAccount in kube-system namespace."
+  description = "Name of the Terraform ServiceAccount."
   value       = var.skip_k8s_destroy ? var.terraform_sa_name : kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
+}
+
+output "terraform_sa_namespace" {
+  description = "Namespace where the Terraform ServiceAccount lives."
+  value       = var.terraform_sa_namespace
 }
 
 output "namespace" {

@@ -26,6 +26,20 @@ variable "terraform_sa_name" {
   default     = "terraform-operator"
 }
 
+variable "terraform_sa_namespace" {
+  type        = string
+  description = <<-EOT
+    Namespace for the Terraform operator ServiceAccount, Secret, and token.
+    
+    Uses a dedicated namespace (not kube-system) to avoid ROSA's managed
+    admission webhooks that block deletion of resources in system namespaces.
+    This allows full Terraform lifecycle management: create, rotate, destroy.
+    
+    Audit identity: system:serviceaccount:<namespace>:<sa-name>
+  EOT
+  default     = "rosa-terraform"
+}
+
 variable "skip_k8s_destroy" {
   type        = bool
   description = <<-EOT

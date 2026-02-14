@@ -396,16 +396,30 @@ cd environments/<environment>  # e.g., commercial-hcp, govcloud-classic
 
 #### Step 2: Run Destroy
 
+**If GitOps layers were applied (Phase 2)**, remove the two ROSA-protected CRBs from
+state, then destroy with both tfvars:
+
 ```bash
-# Standard destroy - use only the cluster tfvars (install_gitops = false by default)
-# This skips GitOps authentication, avoiding cluster connectivity issues
-terraform destroy -var-file="cluster-dev.tfvars"
+# Remove CRBs from state (ROSA webhook blocks deletion of CRBs binding to cluster-admin).
+# These are cluster-scoped and have lifecycle { prevent_destroy = true }.
+# The SA, Secret, namespace, and all other resources are fully deletable.
+terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
+terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
+
+# Destroy everything (both tfvars so K8s provider has the real API URL)
+terraform destroy -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
-> **Why use only the cluster tfvars?** The cluster tfvars has `install_gitops = false`,
-> so the kubernetes provider uses a dummy localhost host and no K8s resources are in scope.
-> GitOps resources live inside the cluster and are automatically destroyed with the cluster.
-> This avoids connectivity issues (especially for private clusters or when VPN is down).
+**If GitOps was never applied**, use only the cluster tfvars:
+
+```bash
+terraform destroy -var-file=cluster-dev.tfvars
+```
+
+> **Why only CRBs?** The Terraform SA and token live in a dedicated `rosa-terraform`
+> namespace (not `kube-system`), so they are fully manageable by Terraform. Only the
+> two ClusterRoleBindings are blocked by ROSA's `clusterrolebindings-validation`
+> webhook because they bind to `cluster-admin`. These CRBs die with the cluster.
 
 #### Step 3: Clean Up Retained S3 Buckets
 
@@ -449,15 +463,25 @@ aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*your-cluster-name*"
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Token is empty` | GitOps trying to auth | Use only cluster tfvars (no gitops overlay) |
-| `connection refused` | Cluster API unreachable | Use only cluster tfvars (no gitops overlay) |
+| `prevent_destroy` on CRBs | ROSA webhook blocks CRB deletion | `terraform state rm` the two CRBs before destroy |
+| `connection refused` to `localhost:443` | GitOps in state but only cluster tfvars used | Use both tfvars on destroy, or `state rm` the CRBs first |
+| Namespace stuck `Active` | Operator finalizers still reconciling | Re-run destroy; the 30s destroy_duration usually resolves this |
 | VPC deletion fails | Resources still attached | Wait 5 min, retry; check for orphaned ENIs |
 
-#### Quick One-Liner
+#### Quick Reference
 
 ```bash
-# Using only the cluster tfvars (install_gitops = false) handles everything
-terraform destroy -var-file="cluster-dev.tfvars"
+# GitOps was applied -- full destroy
+terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
+terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
+terraform destroy -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+
+# GitOps was never applied -- cluster only
+terraform destroy -var-file=cluster-dev.tfvars
+
+# Cluster is dead -- remove all K8s state, then nuke
+terraform state rm 'module.gitops[0]'
+terraform destroy -var-file=cluster-dev.tfvars
 ```
 
 ### Timing Expectations
@@ -581,7 +605,7 @@ After the initial cluster bootstrap, Terraform creates a Kubernetes ServiceAccou
 Once `gitops_cluster_token` is set, Terraform uses the SA token directly:
 - No OAuth flow, no htpasswd dependency
 - Token is persistent (does not expire unless manually rotated)
-- Identity appears in cluster audit logs as `system:serviceaccount:kube-system:terraform-operator`
+- Identity appears in cluster audit logs as `system:serviceaccount:rosa-terraform:terraform-operator`
 
 ### Rotating the SA Token
 
@@ -610,24 +634,26 @@ After bootstrap, the htpasswd IDP can be removed to reduce the cluster's attack 
 
 ### Destroy Workflow
 
-With the two-phase tfvars approach, destruction is simple:
+**Full destroy** (GitOps was applied):
 
 ```bash
-# Destroy using only the cluster tfvars (install_gitops = false)
-# All K8s resources are skipped because the kubernetes provider uses dummy localhost
+# Remove ROSA-protected CRBs from state (prevent_destroy = true)
+terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
+terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
+
+# Destroy with both tfvars (K8s provider needs the real API URL)
+terraform destroy -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
+```
+
+**Cluster-only destroy** (GitOps was never applied):
+
+```bash
 terraform destroy -var-file=cluster-prod.tfvars
 ```
 
-For advanced cases where you need to explicitly remove K8s resources from state before destroying (e.g., during debugging), use `skip_k8s_destroy`:
-
-```bash
-# Step 1: Remove K8s resources from state (cluster still running)
-terraform apply -var="skip_k8s_destroy=true" \
-  -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
-
-# Step 2: Destroy the cluster (no K8s resources left in state)
-terraform destroy -var-file=cluster-prod.tfvars
-```
+> **Note:** The SA, Secret, and `rosa-terraform` namespace are fully deletable since
+> they live outside ROSA's protected system namespaces. Only the two CRBs (which bind
+> to `cluster-admin`) need `state rm` due to ROSA's managed webhook.
 
 ---
 
@@ -1329,10 +1355,8 @@ curl -sk "${OAUTH_URL}/healthz"
 | HCP version drift | Machine pools must be n-2 of CP | Upgrade control plane first, then pools |
 | OAuth reconcile | Login fails immediately after IDP create | Wait 2-5 minutes |
 | GovCloud quotas | VPC limit is 5 by default | Request increase via AWS Support |
-| **Private + GitOps** | **GitOps fails on first apply** | **Two-phase deployment required - see above** |
-| GitOps private cluster | GitOps install requires OAuth access | Connect to VPN before `terraform apply` |
-| GitOps HTTP 403 | OAuth URL auto-derivation failed | Set `gitops_oauth_url` explicitly |
-| GitOps HCP external auth | htpasswd IDP not available | Set `gitops_cluster_token` with manual token |
+| Destroy `prevent_destroy` on CRBs | ROSA webhook blocks CRB deletion (cluster-admin) | `terraform state rm` the two CRBs before destroy |
+| GitOps private cluster | K8s API unreachable without VPN | Connect to VPN before Phase 2 `terraform apply` |
 | VPC destroy stuck | NAT/ENI blocking VPC deletion | Delete NAT gateway manually, see troubleshooting |
 
 ---
