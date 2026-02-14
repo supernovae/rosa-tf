@@ -69,9 +69,9 @@ output "layers_repo" {
   }
 }
 
-output "applicationset_deployed" {
-  description = "Whether a custom GitOps ApplicationSet was deployed."
-  value       = local.has_custom_gitops_repo && local.appset_layer_elements != ""
+output "external_repo_deployed" {
+  description = "Whether a custom GitOps Application was deployed for the external repo."
+  value       = local.has_custom_gitops_repo
 }
 
 output "install_instructions" {

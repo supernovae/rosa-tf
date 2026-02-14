@@ -522,25 +522,6 @@ variable "openshift_version" {
 }
 
 #------------------------------------------------------------------------------
-# Installation Method (internal - do not expose to users)
-#
-# Core layers are always installed via "direct" API calls from Terraform.
-# An ArgoCD ApplicationSet is automatically created when gitops_repo_url
-# is provided for additional custom resources.
-#------------------------------------------------------------------------------
-
-variable "layers_install_method" {
-  type        = string
-  description = "Internal: layer installation method. Always 'direct' - do not override."
-  default     = "direct"
-
-  validation {
-    condition     = contains(["direct", "applicationset"], var.layers_install_method)
-    error_message = "layers_install_method must be one of: direct, applicationset"
-  }
-}
-
-#------------------------------------------------------------------------------
 # Advanced Configuration
 #------------------------------------------------------------------------------
 
