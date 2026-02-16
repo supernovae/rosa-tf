@@ -17,17 +17,6 @@ description = "OpenShift OAuth Token"
 regex = '''sha256~[A-Za-z0-9_-]{43}'''
 tags = ["token", "openshift"]
 
-[[rules]]
-id = "aws-account-id"
-description = "AWS Account ID (12 digits)"
-regex = '''\b[0-9]{12}\b'''
-tags = ["aws", "account"]
-# Only flag if it looks like it's being used as a secret
-allowlist = { regexTarget = "match", regexes = [
-  '''account.*=.*[0-9]{12}''',
-  '''arn:aws(-[a-z]+)?:''',
-]}
-
 #------------------------------------------------------------------------------
 # Allowlist - Files and Patterns to Ignore
 #------------------------------------------------------------------------------
@@ -44,7 +33,7 @@ paths = [
   '''package-lock\.json$''',
 ]
 
-# Patterns that are safe (example tokens, placeholders)
+# Patterns that are safe (example tokens, placeholders, demo AWS account IDs)
 regexes = [
   '''<your-.*>''',
   '''YOUR_.*_HERE''',
@@ -52,4 +41,8 @@ regexes = [
   '''example\.com''',
   '''xxx+''',
   '''sha256~[xX]+''',
+  # Placeholder AWS account ID used in example ARNs throughout tfvars and variable defaults
+  '''123456789012''',
+  # Placeholder KMS key UUID used in example ARNs
+  '''12345678-1234-1234-1234-123456789012''',
 ]
