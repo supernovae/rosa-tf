@@ -50,16 +50,15 @@ output "oidc_endpoint_url" {
 output "admin_username" {
   description = "Cluster admin username."
   value       = var.create_admin_user ? var.admin_username : null
-  # Ensure htpasswd IDP is configured and OAuth server has reconciled
-  depends_on = [time_sleep.htpasswd_ready]
+  # With two-phase deployment, OAuth has settled by the time Phase 2 runs.
+  depends_on = [rhcs_group_membership.cluster_admin]
 }
 
 output "admin_password" {
   description = "Cluster admin password."
   value       = var.create_admin_user ? random_password.admin[0].result : null
   sensitive   = true
-  # Ensure htpasswd IDP is configured and OAuth server has reconciled
-  depends_on = [time_sleep.htpasswd_ready]
+  depends_on  = [rhcs_group_membership.cluster_admin]
 }
 
 output "ccs_enabled" {

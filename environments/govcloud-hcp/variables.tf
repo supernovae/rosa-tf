@@ -763,7 +763,7 @@ variable "gitops_repo_url" {
     Git repository URL for ADDITIONAL custom resources to deploy via ArgoCD.
     This does NOT replace the built-in layers (monitoring, OADP, etc.) which
     are always managed by Terraform. Use this for your own static manifests
-    (projects, quotas, RBAC, apps). When provided, an ArgoCD ApplicationSet
+    (projects, quotas, RBAC, apps). When provided, an ArgoCD Application
     is created to sync from this repo.
   EOT
   default     = null
@@ -1378,4 +1378,22 @@ variable "compute_security_group_rules" {
     ingress = []
     egress  = []
   }
+}
+
+variable "terraform_sa_name" {
+  type        = string
+  description = "Name of the Kubernetes ServiceAccount for Terraform cluster management."
+  default     = "terraform-operator"
+}
+
+variable "terraform_sa_namespace" {
+  type        = string
+  description = "Namespace for the Terraform operator SA. Dedicated namespace avoids ROSA webhook issues."
+  default     = "rosa-terraform"
+}
+
+variable "skip_k8s_destroy" {
+  type        = bool
+  description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."
+  default     = false
 }

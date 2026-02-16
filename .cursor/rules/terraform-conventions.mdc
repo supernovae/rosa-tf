@@ -1,0 +1,74 @@
+---
+description: Project-wide Terraform coding conventions and patterns
+alwaysApply: true
+---
+
+# Terraform Conventions
+
+Standards enforced across this entire codebase.
+
+## Enable/Disable Pattern
+
+Use `count` (not `for_each`) for boolean enable/disable:
+
+```hcl
+resource "some_resource" "example" {
+  count = var.enable_feature ? 1 : 0
+  # ...
+}
+```
+
+When referencing counted resources: `some_resource.example[0].attribute`
+
+## Kubernetes Lifecycle Safety
+
+All Kubernetes-provider resources in the GitOps layers MUST use `skip_k8s_destroy` gating:
+
+```hcl
+count = !var.skip_k8s_destroy && var.enable_layer_<name> ? 1 : 0
+```
+
+This prevents `terraform destroy` from failing when the cluster API is unreachable during teardown.
+
+## Providers for Kubernetes
+
+- **Never** use `local-exec` provisioners or `null_resource` for Kubernetes API operations
+- Use `kubernetes_namespace_v1`, `kubernetes_secret_v1`, `kubernetes_config_map_v1` for core resources
+- Use `kubectl_manifest` (alekc/kubectl) for CRD-based resources (Subscriptions, OperatorGroups, CRs)
+- `kubectl_manifest` must set `server_side_apply = true` and `force_conflicts = true`
+
+## Templates
+
+- YAML templates live in `gitops-layers/layers/<layer-name>/` with `.yaml.tftpl` extension
+- Use `templatefile()` for dynamic YAML, `file()` for static YAML
+- Reference the shared path: `local.layers_path` (defined in `operator/main.tf`)
+- Template variables are defined in `locals {}` at the top of each `layer-*.tf` file
+
+## Sensitive Data
+
+- Mark all tokens, passwords, and credentials with `sensitive = true` on both variables and outputs
+- Never pass secrets as shell arguments; prefer environment variables if a provisioner is unavoidable
+- State must be on encrypted S3 with restricted IAM access
+
+## Dependencies
+
+- Use explicit `depends_on` for ordering between resources, especially operator install -> CR creation
+- Use `time_sleep` resources to wait for operator readiness (typically 90-120s)
+- Prefer `depends_on` over implicit dependencies for clarity
+
+## Lifecycle Blocks
+
+Use `ignore_changes` to suppress drift from OpenShift operators:
+
+```hcl
+lifecycle {
+  ignore_changes = [metadata[0].annotations, metadata[0].labels]
+}
+```
+
+## Naming
+
+- Layer files: `layer-<name>.tf`
+- Layer enable variables: `enable_layer_<name>`
+- Resource names: `<layer>_<purpose>` (e.g., `monitoring_loki_subscription`)
+- Template locals: `<layer>_<template>` (e.g., `oadp_dpa`)

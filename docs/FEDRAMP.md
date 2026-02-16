@@ -9,6 +9,7 @@ This guide covers how to deploy and operate this ROSA Terraform framework in a F
 - [Disable Terraform Telemetry](#disable-terraform-telemetry)
 - [Security Scanning](#security-scanning)
 - [Vendor Terraform Providers](#vendor-terraform-providers)
+- [Terraform Identity and Security Controls](#terraform-identity-and-security-controls)
 - [FedRAMP Configuration Checklist](#fedramp-configuration-checklist)
 - [Related Documentation](#related-documentation)
 
@@ -263,6 +264,98 @@ When upgrading provider versions:
 3. Transfer updated providers to the air-gapped environment
 4. Run `terraform init -upgrade` to update lock files
 5. Commit updated `.terraform.lock.hcl` files
+
+---
+
+## Terraform Identity and Security Controls
+
+This section documents how the Terraform framework satisfies specific NIST 800-53 controls for FedRAMP High authorization.
+
+### AC-6: Least Privilege
+
+Terraform uses a dedicated Kubernetes ServiceAccount (`terraform-operator`) with `cluster-admin` privileges. While cluster-admin is broad, it is the minimum required because Terraform:
+
+- Installs operators across multiple namespaces (OLM subscriptions)
+- Creates CRDs and custom resources (ArgoCD, LokiStack, DPA)
+- Manages cluster-scoped RBAC bindings
+- Configures monitoring and logging infrastructure
+
+**Mitigations:**
+- The SA lives in a dedicated `rosa-terraform` namespace (not `kube-system` or any user namespace), providing clear separation of automation identity from system and workload resources
+- The dedicated namespace avoids ROSA's managed admission webhooks on system namespaces, enabling full Terraform lifecycle management (create, rotate, destroy) without platform workarounds
+- No human identity uses this SA -- it is Terraform-only
+- Token is not cached in-process; it exists only in encrypted Terraform state
+- All operations are logged in OpenShift API server audit logs with identity `system:serviceaccount:rosa-terraform:terraform-operator`
+
+### AU-3: Audit Evidence
+
+Every Terraform apply generates auditable evidence in the OpenShift API server logs:
+
+- **User identity:** `system:serviceaccount:rosa-terraform:terraform-operator`
+- **User-Agent:** `Terraform/<version> hashicorp/kubernetes/<version>` (or `kubectl-provider`)
+- **Action:** Create, Update, Patch, Delete for each resource
+- **Resource:** Full API path (e.g., `/apis/operators.coreos.com/v1alpha1/namespaces/openshift-operators/subscriptions`)
+
+To enable detailed request body logging (recommended for FedRAMP):
+
+```yaml
+apiVersion: config.openshift.io/v1
+kind: APIServer
+metadata:
+  name: cluster
+spec:
+  audit:
+    profile: WriteRequestBodies
+```
+
+Additionally, the SHA256 hash of each applied template is deterministic and can serve as a configuration baseline:
+
+```bash
+# Generate audit evidence for applied configuration
+terraform show -json | jq '.values.root_module.child_modules[].resources[] | select(.type | startswith("kubectl_manifest")) | {type, name, values: (.values.yaml_body | @base64d | sha256)}'
+```
+
+### SC-28: Protection of Information at Rest
+
+Terraform state contains the ServiceAccount token (marked `sensitive = true`). State MUST be stored on encrypted S3:
+
+```hcl
+backend "s3" {
+  bucket         = "your-terraform-state-bucket"
+  key            = "rosa/terraform.tfstate"
+  region         = "us-gov-west-1"
+  encrypt        = true              # SSE-S3 minimum
+  kms_key_id     = "alias/tf-state"  # SSE-KMS recommended
+  dynamodb_table = "terraform-locks"
+}
+```
+
+**Requirements:**
+- S3 bucket: `aws:kms` or `AES256` server-side encryption
+- S3 bucket policy: Restrict `s3:GetObject` to authorized IAM roles
+- DynamoDB lock table: Encrypted at rest
+- No local state files in production
+
+### CM-3: Configuration Change Control
+
+All infrastructure changes flow through Terraform:
+
+1. Code changes are reviewed via pull request
+2. `terraform plan` shows the diff before apply
+3. `terraform apply` executes with full audit logging
+4. State is versioned (S3 versioning recommended)
+5. Rollback: `terraform apply` with previous code version
+
+No manual `oc` or `kubectl` commands are needed for managed resources. The Terraform state is the source of truth for all GitOps layer configuration.
+
+### Credential Lifecycle
+
+| Credential | Scope | Storage | Rotation |
+|---|---|---|---|
+| SA token | cluster-admin (K8s) | Terraform state (encrypted S3) | `terraform apply -replace` |
+| htpasswd admin | cluster-admin (OAuth) | RHCS API (encrypted) | `terraform apply` with new password |
+| RHCS token/credentials | OCM API | Environment variables | Per organizational policy |
+| AWS credentials | IAM | Environment variables or instance profile | Per organizational policy |
 
 ---
 

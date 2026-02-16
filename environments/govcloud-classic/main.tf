@@ -14,6 +14,13 @@ provider "aws" {
       Compliance  = "fedramp-high"
     }
   }
+
+  # ROSA installer manages kubernetes.io/cluster/* tags on subnets and
+  # security groups. Ignore them so Phase 2 (and subsequent) applies
+  # don't produce unnecessary modifications.
+  ignore_tags {
+    key_prefixes = ["kubernetes.io/cluster/"]
+  }
 }
 
 # RHCS Provider for GovCloud (FedRAMP)
@@ -35,28 +42,32 @@ provider "rhcs" {
   client_id = "console-dot"
 }
 
-# Kubernetes provider for GitOps module
-# 
-# IMPORTANT: For the GitOps module to work, the cluster API must be accessible.
-# For private clusters, you have two options:
+# Kubernetes provider for native resource management (GitOps layers).
 #
-# Option 1: Two-phase deployment (recommended for private clusters)
-#   1. First: terraform apply WITHOUT install_gitops=true
-#   2. Connect to cluster via VPN or jump host
-#   3. Then: terraform apply WITH install_gitops=true
+# Authentication priority:
+#   1. gitops_cluster_token (SA token from previous bootstrap) -- no OAuth needed
+#   2. cluster_auth module (OAuth bootstrap) -- first run only
 #
-# Option 2: VPN active during terraform apply
-#   Connect to VPN before running terraform apply with install_gitops=true
-#
-# Option 3: Manual installation
-#   Set install_gitops=false and use the generated install script:
-#   ./modules/gitops-layers/operator/manifests/install-gitops.sh
-#
-# NOTE: GitOps module uses curl-based API calls instead of kubernetes provider
-# This avoids plan-time connectivity requirements and allows:
-# - Day 0: Plan succeeds even before cluster exists
-# - Day 2: Apply works when cluster is reachable (VPN/bastion required for GovCloud)
-# See modules/gitops-layers/operator/README.md for details
+# For GovCloud private clusters:
+#   Phase 1: Deploy cluster + VPN (install_gitops = false)
+#   Phase 2: Connect VPN, set install_gitops = true, bootstrap SA
+#   Phase 3+: SA token in gitops_cluster_token, VPN still needed for API access
+provider "kubernetes" {
+  host     = local.effective_k8s_host
+  token    = local.effective_k8s_token
+  insecure = true
+
+  # Suppress kubeconfig file loading -- use explicit host/token only
+  config_paths   = []
+  config_context = ""
+}
+
+provider "kubectl" {
+  host             = local.effective_k8s_host
+  token            = local.effective_k8s_token
+  load_config_file = false
+  insecure         = true
+}
 
 #------------------------------------------------------------------------------
 # Validation Checks
@@ -152,6 +163,19 @@ locals {
   # Cluster type - single source of truth for all modules
   # Classic clusters have SRE-managed openshift-monitoring namespace
   cluster_type = "classic"
+
+  # Kubernetes provider host: cluster API when gitops enabled, dummy otherwise.
+  # With two-phase deployment, Phase 1 always has install_gitops=false (localhost)
+  # and Phase 2 always has the cluster in state (api_url is known).
+  effective_k8s_host = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+
+  # Kubernetes provider token: SA token (steady state) or OAuth token (bootstrap)
+  # Priority: gitops_cluster_token (from previous run) > cluster_auth OAuth > empty
+  effective_k8s_token = (
+    var.gitops_cluster_token != null
+    ? var.gitops_cluster_token
+    : try(module.cluster_auth[0].token, "")
+  )
 
   # Partition detection for GovCloud validation
   partition   = data.aws_partition.current.partition
@@ -737,12 +761,15 @@ module "gitops" {
     module.gitops_resources
   ]
 
-  cluster_name    = var.cluster_name
-  cluster_api_url = module.rosa_cluster.api_url
-  cluster_token   = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
-  cluster_type    = local.cluster_type
-  aws_region      = var.aws_region
-  aws_account_id  = data.aws_caller_identity.current.account_id
+  cluster_name           = var.cluster_name
+  cluster_api_url        = module.rosa_cluster.api_url
+  cluster_token          = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
+  terraform_sa_name      = var.terraform_sa_name
+  terraform_sa_namespace = var.terraform_sa_namespace
+  skip_k8s_destroy       = var.skip_k8s_destroy
+  cluster_type           = local.cluster_type
+  aws_region             = var.aws_region
+  aws_account_id         = data.aws_caller_identity.current.account_id
 
   gitops_repo_url      = coalesce(var.gitops_repo_url, "https://github.com/supernovae/rosa-tf.git")
   gitops_repo_path     = coalesce(var.gitops_repo_path, "gitops-layers/layers")

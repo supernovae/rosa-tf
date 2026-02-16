@@ -13,6 +13,47 @@
 # Required Variables
 #------------------------------------------------------------------------------
 
+variable "terraform_sa_name" {
+  type        = string
+  description = <<-EOT
+    Name of the Kubernetes ServiceAccount created for Terraform.
+    This SA is used for all subsequent Terraform runs after bootstrap.
+    The token is stored in Terraform state (must be encrypted at rest).
+    
+    To rotate the token:
+      terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+  EOT
+  default     = "terraform-operator"
+}
+
+variable "terraform_sa_namespace" {
+  type        = string
+  description = <<-EOT
+    Namespace for the Terraform operator ServiceAccount, Secret, and token.
+    
+    Uses a dedicated namespace (not kube-system) to avoid ROSA's managed
+    admission webhooks that block deletion of resources in system namespaces.
+    This allows full Terraform lifecycle management: create, rotate, destroy.
+    
+    Audit identity: system:serviceaccount:<namespace>:<sa-name>
+  EOT
+  default     = "rosa-terraform"
+}
+
+variable "skip_k8s_destroy" {
+  type        = bool
+  description = <<-EOT
+    When true, removes all Kubernetes resources from Terraform state without
+    attempting to delete them from the cluster. Use before destroying a cluster:
+      1. terraform apply -var="skip_k8s_destroy=true"
+      2. terraform destroy
+    
+    This prevents Terraform from failing when trying to reach a cluster API
+    that no longer exists during destroy.
+  EOT
+  default     = false
+}
+
 variable "cluster_name" {
   type        = string
   description = "Name of the ROSA cluster."
@@ -82,7 +123,7 @@ variable "gitops_repo_url" {
     - Any other manifests you want ArgoCD to manage
     
     The repository should contain kustomize-compatible YAML manifests.
-    ArgoCD will sync from this repo using the ApplicationSet pattern.
+    ArgoCD will sync from this repo using a single Application resource.
   EOT
   default     = "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
 }
@@ -376,6 +417,20 @@ variable "certmanager_acme_email" {
   default     = ""
 }
 
+variable "certmanager_use_staging_issuer" {
+  type        = bool
+  description = <<-EOT
+    Use Let's Encrypt staging issuer for certificates instead of production.
+    
+    Staging certificates are NOT trusted by browsers but have much higher
+    rate limits (30,000 certs per week vs 50 per week). Use this for
+    dev/test environments to avoid hitting production rate limits.
+    
+    Default: false (production Let's Encrypt)
+  EOT
+  default     = false
+}
+
 variable "certmanager_certificate_domains" {
   type = list(object({
     name        = string
@@ -418,6 +473,17 @@ variable "certmanager_enable_routes_integration" {
     Default: true (enabled when cert-manager layer is active)
   EOT
   default     = true
+}
+
+variable "certmanager_routes_image" {
+  type        = string
+  description = <<-EOT
+    Container image for the cert-manager OpenShift Routes integration controller.
+    
+    Override this for GovCloud or air-gapped environments to point to an
+    approved registry mirror. Pin to a specific tag for reproducibility.
+  EOT
+  default     = "ghcr.io/cert-manager/cert-manager-openshift-routes:v0.6.1"
 }
 
 #------------------------------------------------------------------------------
@@ -494,34 +560,3 @@ variable "openshift_version" {
   default     = "4.20"
 }
 
-#------------------------------------------------------------------------------
-# Installation Method (internal - do not expose to users)
-#
-# Core layers are always installed via "direct" API calls from Terraform.
-# An ArgoCD ApplicationSet is automatically created when gitops_repo_url
-# is provided for additional custom resources.
-#------------------------------------------------------------------------------
-
-variable "layers_install_method" {
-  type        = string
-  description = "Internal: layer installation method. Always 'direct' - do not override."
-  default     = "direct"
-
-  validation {
-    condition     = contains(["direct", "applicationset"], var.layers_install_method)
-    error_message = "layers_install_method must be one of: direct, applicationset"
-  }
-}
-
-#------------------------------------------------------------------------------
-# Advanced Configuration
-#------------------------------------------------------------------------------
-
-variable "additional_config_data" {
-  type        = map(string)
-  description = <<-EOT
-    Additional key-value pairs to add to the rosa-gitops-config ConfigMap.
-    Use this to pass custom configuration to your GitOps layers.
-  EOT
-  default     = {}
-}

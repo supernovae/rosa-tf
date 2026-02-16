@@ -13,8 +13,8 @@
 # challenge to reach Let's Encrypt ACME servers. It CANNOT be used on
 # zero-egress clusters. Use cert_mode=provided for air-gapped environments.
 #
-# The cert-manager operator and configuration are deployed via the operator
-# module using the rosa-gitops-config ConfigMap for values.
+# The cert-manager operator and configuration are deployed by the operator
+# module using native kubernetes/kubectl providers with templatefile().
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------

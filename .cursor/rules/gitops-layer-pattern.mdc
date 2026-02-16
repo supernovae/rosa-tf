@@ -1,0 +1,95 @@
+---
+description: Pattern for creating new GitOps layer files using native kubernetes/kubectl providers
+globs: modules/gitops-layers/operator/layer-*.tf
+alwaysApply: false
+---
+
+# GitOps Layer Pattern
+
+Every layer file in `modules/gitops-layers/operator/` follows a consistent structure. Use this pattern when adding a new layer.
+
+## Resource Gating
+
+All resources MUST be gated with `skip_k8s_destroy` and the layer enable flag:
+
+```hcl
+count = !var.skip_k8s_destroy && var.enable_layer_<name> ? 1 : 0
+```
+
+## Resource Types
+
+| K8s Resource | Terraform Resource | When to Use |
+|---|---|---|
+| Namespace | `kubernetes_namespace_v1` | Standard K8s namespaces |
+| Secret | `kubernetes_secret_v1` | Secrets with `string_data` |
+| ConfigMap | `kubernetes_config_map_v1` | ConfigMaps with `data` |
+| CRD instances | `kubectl_manifest` | Subscriptions, OperatorGroups, CRs |
+
+For `kubectl_manifest`, always set:
+```hcl
+server_side_apply = true
+force_conflicts   = true
+```
+
+## Dependency Chain
+
+Follow this order with explicit `depends_on`:
+```
+time_sleep.wait_for_argocd_ready  (from gitops-core.tf)
+  -> kubernetes_namespace_v1      (namespace)
+  -> kubectl_manifest             (OperatorGroup)
+  -> kubectl_manifest             (Subscription)
+  -> time_sleep                   (wait 90-120s for operator)
+  -> kubectl_manifest             (Custom Resource)
+```
+
+## Labeling
+
+All resources must include:
+```yaml
+labels:
+  app.kubernetes.io/managed-by: terraform
+  app.kubernetes.io/part-of: rosa-gitops-layers
+  app.kubernetes.io/component: <layer-name>
+```
+
+## Minimal Layer Skeleton
+
+```hcl
+locals {
+  # Templates for this layer (if any)
+  <name>_subscription = templatefile("${local.layers_path}/<name>/subscription.yaml.tftpl", {
+    operator_channel = local.operator_channels.<name>
+  })
+}
+
+resource "kubernetes_namespace_v1" "<name>" {
+  count = !var.skip_k8s_destroy && var.enable_layer_<name> ? 1 : 0
+  metadata {
+    name = "openshift-<name>"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
+      "app.kubernetes.io/component"  = "<name>"
+    }
+  }
+  lifecycle { ignore_changes = [metadata[0].annotations] }
+  depends_on = [time_sleep.wait_for_argocd_ready]
+}
+
+resource "kubectl_manifest" "<name>_subscription" {
+  count             = !var.skip_k8s_destroy && var.enable_layer_<name> ? 1 : 0
+  yaml_body         = local.<name>_subscription
+  server_side_apply = true
+  force_conflicts   = true
+  depends_on        = [kubernetes_namespace_v1.<name>]
+}
+```
+
+## Checklist: Adding a New Layer
+
+1. Create `layer-<name>.tf` in `modules/gitops-layers/operator/`
+2. Add `enable_layer_<name>` variable to `operator/variables.tf`
+3. Wire through all 4 environments (see `gitops-variables` rule)
+4. Add YAML templates in `gitops-layers/layers/<name>/`
+5. Add operator channel to `operator_channels` map in `main.tf` if version-specific

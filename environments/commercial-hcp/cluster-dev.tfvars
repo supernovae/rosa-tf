@@ -1,13 +1,12 @@
 #------------------------------------------------------------------------------
-# ROSA HCP - Commercial AWS - Development Environment
+# ROSA HCP - Commercial AWS - Development Environment (Cluster Only)
 #
 # Cost-optimized single-AZ configuration for development and testing.
 # Estimated monthly cost: ~$500-700 (vs ~$1500+ for prod)
 #
-# Usage:
-#   terraform init
-#   terraform plan -var-file="dev.tfvars"
-#   terraform apply -var-file="dev.tfvars"
+# Two-phase workflow:
+#   Phase 1: terraform apply -var-file="cluster-dev.tfvars"
+#   Phase 2: terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -255,54 +254,10 @@ create_client_vpn = false
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Install ArgoCD and optional operators/layers
+# Set install_gitops = false for Phase 1. Use gitops-dev.tfvars overlay for Phase 2.
 #------------------------------------------------------------------------------
 
-install_gitops              = false # Set to true after cluster is ready (Stage 2)
-enable_layer_terminal       = false # Web Terminal operator
-enable_layer_oadp           = false # Backup/restore (requires S3 bucket)
-enable_layer_virtualization = false # Requires bare metal nodes
-enable_layer_monitoring     = false # Prometheus + Loki logging stack
-enable_layer_certmanager    = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_loki_size      = "1x.extra-small" # Dev: extra-small, Prod: 1x.small or larger
-monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
-# monitoring_prometheus_storage_size = "50Gi"  # Default: 100Gi
-
-# NOTE: S3 buckets (Loki logs, OADP backups) are NOT deleted on terraform destroy
-# to prevent accidental data loss. After destroying the cluster, manually delete
-# buckets via: aws s3 rb s3://BUCKET_NAME --force
-
-# Additional GitOps configuration (optional)
-# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD ApplicationSet alongside the built-in layers.
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
-
-# Override OAuth URL if auto-detection fails
-# gitops_oauth_url = "https://oauth-openshift.apps.<cluster>.<domain>"
-
-# Or provide your own token for external auth
-# gitops_cluster_token = "<your-token-here>"
+install_gitops = false
 
 #------------------------------------------------------------------------------
 # Debug / Timing
@@ -318,4 +273,3 @@ tags = {
   Environment = "dev"
   CostCenter  = "development"
 }
-

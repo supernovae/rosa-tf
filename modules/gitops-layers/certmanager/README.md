@@ -65,6 +65,27 @@ When using `cert_mode=provided` (zero-egress):
 - Monitor certificate expiry dates
 - Renew certificates before they expire
 
+### Staging vs Production Issuer
+
+Both ClusterIssuers are always created. By default, certificates use **production** Let's Encrypt. For dev/test environments, set `certmanager_use_staging_issuer = true` to use the **staging** issuer instead.
+
+| | Production | Staging |
+|---|---|---|
+| **Issuer** | `letsencrypt-production` | `letsencrypt-staging` |
+| **Browser trusted** | Yes | No (Fake LE Intermediate X1) |
+| **Rate limit** | 50 certs/week per domain set | 30,000 certs/week |
+| **Use case** | Production, user-facing | Dev, test, CI/CD |
+
+```hcl
+# Dev/test -- avoid rate limits during iteration
+certmanager_use_staging_issuer = true
+
+# Production -- real certificates (default)
+certmanager_use_staging_issuer = false
+```
+
+> **Tip:** If you hit `429 rateLimited` errors from Let's Encrypt during development, switch to staging. The ACME flow is identical -- only the trust chain differs.
+
 ## DNS01 Challenge Flow
 
 1. cert-manager requests a certificate from Let's Encrypt
@@ -107,9 +128,27 @@ When a custom domain is configured, the cert-manager layer automatically creates
 1. **IngressController** (`custom-apps`) -- scoped to your domain via `spec.domain`
 2. **NLB** -- separate load balancer (private or public, configurable)
 3. **Wildcard TLS certificate** -- issued by Let's Encrypt, auto-renewed by cert-manager
-4. **Route53 wildcard CNAME** -- `*.yourdomain.com` pointing to the custom NLB
+4. **Route53 wildcard CNAME** -- `*.yourdomain.com` pointing to the custom NLB (upsert)
+
+### DNS Record Behavior
+
+The Route53 wildcard CNAME (`*.apps.<domain>`) is created using **upsert** semantics
+(`allow_overwrite = true`). This means:
+
+- If the record **does not exist**, it is created pointing to the custom IngressController's NLB.
+- If the record **already exists** (e.g., ROSA pre-creates `*.apps.<domain>` for its default ingress), Terraform takes ownership and **updates it** to point to the custom NLB instead.
+
+This is the expected behavior when the custom ingress domain matches the cluster's default
+apps domain. The custom IngressController replaces the default ROSA ingress for that domain,
+serving routes with a valid Let's Encrypt wildcard certificate instead of the default
+self-signed certificate.
+
+On `terraform destroy`, Terraform removes the record. If the cluster is still running,
+ROSA's ingress operator will recreate the default record on its own.
 
 ### Traffic Isolation
+
+When a **separate custom domain** is used (different from the ROSA apps domain):
 
 ```
 Default ROSA Ingress (untouched):
@@ -119,6 +158,19 @@ Default ROSA Ingress (untouched):
 Custom Ingress (cert-manager layer):
   *.yourdomain.com
   -> user workload routes only (scoped by domain + optional selectors)
+```
+
+When the **custom domain matches the ROSA apps domain** (e.g., `apps.example.com`):
+
+```
+Custom Ingress (replaces default for this domain):
+  *.apps.example.com
+  -> all routes on this domain, now served with Let's Encrypt TLS
+  -> Route53 CNAME is upserted to point to the custom NLB
+
+Default ROSA Ingress (still active):
+  *.apps.cluster-name.xxxx.openshiftapps.com
+  -> console, oauth, monitoring (via the cluster's built-in domain)
 ```
 
 ### Configuration
@@ -272,6 +324,7 @@ certmanager_certificate_domains = [
 | `certmanager_hosted_zone_domain` | Domain for the hosted zone | `string` | `""` | When creating |
 | `certmanager_create_hosted_zone` | Create a new hosted zone | `bool` | `false` | No |
 | `certmanager_acme_email` | Let's Encrypt registration email | `string` | `""` | Yes (when enabled) |
+| `certmanager_use_staging_issuer` | Use staging LE (untrusted, high rate limits) | `bool` | `false` | No |
 | `certmanager_certificate_domains` | Certificate resources to create | `list(object)` | `[]` | No |
 | `certmanager_enable_routes_integration` | Install Routes integration | `bool` | `true` | No |
 | `certmanager_ingress_enabled` | Create a custom IngressController | `bool` | `true` | No |

@@ -15,8 +15,8 @@
 # is retained (not deleted). This avoids BucketNotEmpty errors and preserves
 # backup data. Users must manually delete the bucket when ready.
 #
-# The OADP operator and configuration are deployed via GitOps using the
-# rosa-gitops-config ConfigMap for values.
+# The OADP operator and configuration are deployed by the operator module
+# using native kubernetes/kubectl providers with templatefile().
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------

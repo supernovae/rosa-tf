@@ -10,7 +10,14 @@ terraform {
       source  = "terraform-redhat/rhcs"
       version = ">= 1.6.7"
     }
-    # Note: kubernetes provider not needed - gitops module uses curl-based API calls
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.35.0"
+    }
+    kubectl = {
+      source  = "alekc/kubectl"
+      version = ">= 2.1.0"
+    }
     external = {
       source  = "hashicorp/external"
       version = ">= 2.0"

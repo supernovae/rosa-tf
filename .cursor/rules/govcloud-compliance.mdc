@@ -1,0 +1,43 @@
+---
+description: GovCloud and FedRAMP High compliance requirements for all changes
+alwaysApply: true
+---
+
+# GovCloud / FedRAMP Compliance
+
+This codebase supports both AWS Commercial and AWS GovCloud (FedRAMP High). Every change must respect these constraints.
+
+## Sensitive Data
+
+- All tokens, passwords, and credentials MUST use `sensitive = true` on variables and outputs
+- Never interpolate secrets into `local-exec` command strings (use `environment {}` block if unavoidable)
+- Terraform state contains the SA token -- state MUST be on encrypted S3 with IAM access controls
+- Never log or echo secrets in provisioner output
+
+## Authentication
+
+- **Commercial**: RHCS uses `client_id` + `client_secret` at `api.openshift.com`
+- **GovCloud**: RHCS uses `token` + `token_url` at `api.openshiftusgov.com` / `sso.openshiftusgov.com`
+- Kubernetes auth uses the `terraform-operator` ServiceAccount token (no human credentials in steady state)
+- The htpasswd IDP is bootstrap-only; production clusters may remove it (`create_admin_user = false`)
+
+## GovCloud Defaults
+
+- FIPS mode: always enabled (mandatory, cannot be disabled)
+- Private clusters only (no public API endpoints)
+- Customer-managed KMS encryption recommended
+- etcd encryption available for data-at-rest protection
+- VPN or bastion required for API access
+
+## Audit Trail
+
+- All K8s resources managed by Terraform MUST include the label `app.kubernetes.io/managed-by: terraform`
+- The Terraform SA identity in API audit logs: `system:serviceaccount:kube-system:terraform-operator`
+- User-Agent in audit logs: `Terraform/<version>` or `kubectl-provider`
+- See `docs/FEDRAMP.md` for NIST 800-53 control mappings (AC-6, AU-3, SC-28, CM-3)
+
+## Air-Gapped / Restricted Networks
+
+- Terraform providers must be vendored for air-gapped environments (`terraform providers mirror`)
+- No external URL fetches in provisioners (all manifests must be local files or inline)
+- Container images should reference approved registries only

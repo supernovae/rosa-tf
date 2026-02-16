@@ -10,10 +10,9 @@
 # - AWS managed IAM policies (auto-updated by AWS)
 # - Private subnets only required
 #
-# Usage:
-#   terraform init
-#   terraform plan -var-file="dev.tfvars"    # Development
-#   terraform plan -var-file="prod.tfvars"   # Production
+# Two-phase deployment:
+#   Phase 1 (cluster):  terraform apply -var-file="cluster-dev.tfvars"
+#   Phase 2 (layers):   terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -30,6 +29,13 @@ provider "aws" {
       ManagedBy   = "terraform"
       ClusterName = var.cluster_name
     }
+  }
+
+  # ROSA installer manages kubernetes.io/cluster/* tags on subnets and
+  # security groups. Ignore them so Phase 2 (and subsequent) applies
+  # don't produce unnecessary modifications.
+  ignore_tags {
+    key_prefixes = ["kubernetes.io/cluster/"]
   }
 }
 
@@ -49,6 +55,33 @@ provider "rhcs" {
   url           = "https://api.openshift.com"
   client_id     = var.rhcs_client_id
   client_secret = var.rhcs_client_secret
+}
+
+# Kubernetes provider for native resource management (GitOps layers).
+#
+# Authentication priority:
+#   1. gitops_cluster_token (SA token from previous bootstrap) -- no OAuth needed
+#   2. cluster_auth module (OAuth bootstrap) -- first run only
+#
+# The provider is configured conditionally: when install_gitops = false,
+# the provider exists but has no valid token, which is fine because no
+# kubernetes resources are created (all gated by count).
+provider "kubernetes" {
+  host     = local.effective_k8s_host
+  token    = local.effective_k8s_token
+  insecure = true
+
+  # Suppress all kubeconfig file loading so the provider only uses
+  # the explicit host/token above (not ~/.kube/config or KUBECONFIG env).
+  config_paths   = []
+  config_context = ""
+}
+
+provider "kubectl" {
+  host             = local.effective_k8s_host
+  token            = local.effective_k8s_token
+  load_config_file = false
+  insecure         = true
 }
 
 #------------------------------------------------------------------------------
@@ -143,6 +176,19 @@ locals {
   # Cluster type - single source of truth for all modules
   # HCP clusters have full control over openshift-monitoring namespace
   cluster_type = "hcp"
+
+  # Kubernetes provider host: cluster API when gitops enabled, dummy otherwise.
+  # With two-phase deployment, Phase 1 always has install_gitops=false (localhost)
+  # and Phase 2 always has the cluster in state (api_url is known).
+  effective_k8s_host = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+
+  # Kubernetes provider token: SA token (steady state) or OAuth token (bootstrap)
+  # Priority: gitops_cluster_token (from previous run) > cluster_auth OAuth > empty
+  effective_k8s_token = (
+    var.gitops_cluster_token != null
+    ? var.gitops_cluster_token
+    : try(module.cluster_auth[0].token, "")
+  )
 
   account_id = data.aws_caller_identity.current.account_id
   partition  = data.aws_partition.current.partition
@@ -739,7 +785,7 @@ module "cluster_auth" {
 # Module: GitOps (Optional)
 #
 # Installs OpenShift GitOps (ArgoCD) and configures the GitOps Layers framework.
-# Uses curl-based API calls with OAuth token from cluster_auth module.
+# Uses native kubernetes/kubectl providers for cluster resource management.
 #
 # NOTE: GitOps will only succeed if:
 # 1. Cluster is reachable from Terraform runner
@@ -757,12 +803,15 @@ module "gitops" {
     module.gitops_resources
   ]
 
-  cluster_name    = var.cluster_name
-  cluster_api_url = module.rosa_cluster.api_url
-  cluster_token   = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
-  cluster_type    = local.cluster_type
-  aws_region      = var.aws_region
-  aws_account_id  = data.aws_caller_identity.current.account_id
+  cluster_name           = var.cluster_name
+  cluster_api_url        = module.rosa_cluster.api_url
+  cluster_token          = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
+  terraform_sa_name      = var.terraform_sa_name
+  terraform_sa_namespace = var.terraform_sa_namespace
+  skip_k8s_destroy       = var.skip_k8s_destroy
+  cluster_type           = local.cluster_type
+  aws_region             = var.aws_region
+  aws_account_id         = data.aws_caller_identity.current.account_id
 
   gitops_repo_url      = coalesce(var.gitops_repo_url, "https://github.com/supernovae/rosa-tf.git")
   gitops_repo_path     = coalesce(var.gitops_repo_path, "gitops-layers/layers")

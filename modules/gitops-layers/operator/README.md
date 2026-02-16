@@ -1,10 +1,11 @@
 # GitOps Operator Module
 
-This module installs the OpenShift GitOps operator (ArgoCD) on ROSA clusters and configures the GitOps Layers framework for Day 2 operations.
+This module installs the OpenShift GitOps operator (ArgoCD) on ROSA clusters and configures the GitOps Layers framework for Day 2 operations using **native Terraform providers** (`hashicorp/kubernetes` and `alekc/kubectl`).
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Terraform Identity](#terraform-identity)
 - [Network Connectivity Requirements](#network-connectivity-requirements)
 - [Authentication Requirements](#authentication-requirements)
 - [Day 0 vs Day 2 Operations](#day-0-vs-day-2-operations)
@@ -15,16 +16,49 @@ This module installs the OpenShift GitOps operator (ArgoCD) on ROSA clusters and
 - [Variables](#variables)
 - [Outputs](#outputs)
 - [Idempotency and Re-run Behavior](#idempotency-and-re-run-behavior)
+- [Destroy Workflow](#destroy-workflow)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
 This module provides:
 
-1. **OpenShift GitOps Operator** - Installs ArgoCD for GitOps-based cluster management
-2. **ConfigMap Bridge** - Stores cluster metadata and layer configuration for reference
+1. **Terraform Operator Identity** - ServiceAccount with cluster-admin for Terraform operations
+2. **OpenShift GitOps Operator** - Installs ArgoCD for GitOps-based cluster management
 3. **ArgoCD Instance** - Pre-configured ArgoCD with OpenShift OAuth integration
 4. **Core Layers** - Terraform-managed operators with environment-specific configuration
+
+All Kubernetes resources are managed via native `kubernetes_*` and `kubectl_manifest` resources. No shell scripts or `curl` commands are used.
+
+## Terraform Identity
+
+The module creates a dedicated Kubernetes ServiceAccount (`terraform-operator`) in the `rosa-terraform` namespace with a long-lived token. Using a dedicated namespace (not `kube-system`) avoids ROSA's managed admission webhooks that block deletion of resources in system namespaces, enabling full Terraform lifecycle management.
+
+- **Non-human identity** for all Terraform operations
+- **Dedicated namespace** (`rosa-terraform`) -- not in system namespaces, fully manageable by Terraform
+- **Persistent token** stored in Terraform state (encrypted S3 at rest)
+- **Audit trail** via `system:serviceaccount:rosa-terraform:terraform-operator` in API logs
+- **No OAuth dependency** after initial bootstrap
+
+### Token Rotation
+
+```bash
+terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
+terraform output -raw terraform_sa_token  # copy to gitops_cluster_token in tfvars
+```
+
+### File Structure
+
+| File | Purpose |
+|------|---------|
+| `identity.tf` | ServiceAccount, ClusterRoleBinding, token Secret |
+| `gitops-core.tf` | ArgoCD operator, instance, external repo Application |
+| `layer-terminal.tf` | Web Terminal operator |
+| `layer-oadp.tf` | OADP (backup/restore) operator and configuration |
+| `layer-virtualization.tf` | OpenShift Virtualization operator |
+| `layer-monitoring.tf` | Prometheus, Loki, Cluster Logging, COO |
+| `layer-certmanager.tf` | cert-manager, ClusterIssuers, DNS records |
+| `main.tf` | Shared locals (operator channels, paths) |
 
 ## Architecture: Hybrid GitOps
 
@@ -37,7 +71,6 @@ This module uses a **hybrid approach** that combines Terraform and ArgoCD:
 │  • Creates AWS infrastructure (S3 buckets, IAM roles)           │
 │  • Installs operators (Loki, OADP, Virtualization, etc.)        │
 │  • Deploys CRs with environment values (LokiStack, DPA)         │
-│  • Creates ConfigMap bridge with cluster metadata               │
 └─────────────────────────────────────────────────────────────────┘
                                │
                                ▼
@@ -66,21 +99,6 @@ These values cannot be known until Terraform creates the infrastructure.
 - Static YAML manifests that don't need Terraform values
 - GitOps-native with automatic sync
 - Version controlled in your own repository
-
-### ConfigMap Bridge
-
-The `rosa-gitops-config` ConfigMap stores values for reference:
-
-```yaml
-data:
-  cluster_name: "my-cluster"
-  aws_region: "us-gov-west-1"
-  monitoring_bucket_name: "my-cluster-123456-loki-logs"
-  monitoring_role_arn: "arn:aws-us-gov:iam::123456:role/my-cluster-loki"
-  # ... other values
-```
-
-Your ArgoCD applications can read these values if needed (e.g., for Kustomize replacements).
 
 ## Operator Channel Selection
 
@@ -278,19 +296,15 @@ Even if you enable both `create_client_vpn = true` and `install_gitops = true`, 
 
 ```bash
 # ═══════════════════════════════════════════════════════════════════
-# PHASE 1: Deploy cluster and VPN (GitOps disabled)
+# PHASE 1: Deploy cluster and VPN (GitOps disabled in cluster tfvars)
 # ═══════════════════════════════════════════════════════════════════
 
-# In your tfvars:
-#   install_gitops    = false    # Disabled for Phase 1
-#   create_client_vpn = true     # Create VPN infrastructure
-
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars
 # Cluster: 45-60 min (Classic) or 15-20 min (HCP)
-# VPN: 15-20 min
+# VPN: 15-20 min (if create_client_vpn = true)
 
 # ═══════════════════════════════════════════════════════════════════
-# CONNECT TO VPN (required before Phase 2)
+# CONNECT TO VPN (required before Phase 2 for private clusters)
 # ═══════════════════════════════════════════════════════════════════
 
 # Download VPN configuration
@@ -306,13 +320,10 @@ sudo openvpn --config vpn-config.ovpn
 curl -sk https://$(terraform output -raw cluster_api_url)/healthz
 
 # ═══════════════════════════════════════════════════════════════════
-# PHASE 2: Install GitOps (while connected to VPN)
+# PHASE 2: Apply GitOps layers (stacked tfvars override install_gitops)
 # ═══════════════════════════════════════════════════════════════════
 
-# Update your tfvars:
-#   install_gitops = true    # Now enabled
-
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 # GitOps installation: 2-5 min
 ```
 
@@ -409,60 +420,58 @@ If any condition fails, GitOps is skipped gracefully and can be installed on sub
 
 ## Prerequisites
 
-### 1. Cluster with htpasswd IDP
+### 1. Kubernetes and kubectl Providers
 
-The ROSA cluster must have:
-
-```hcl
-# In cluster module
-resource "rhcs_identity_provider" "htpasswd" {
-  cluster = rhcs_cluster_rosa_classic.this.id
-  name    = "htpasswd"
-  htpasswd = {
-    users = [{
-      username = "cluster-admin"
-      password = random_password.admin.result
-    }]
-  }
-}
-
-resource "rhcs_group_membership" "cluster_admin" {
-  cluster = rhcs_cluster_rosa_classic.this.id
-  group   = "cluster-admins"
-  user    = "cluster-admin"
-}
-```
-
-### 2. cluster-auth Module
-
-Configure authentication in your environment:
-
-```hcl
-module "cluster_auth" {
-  source = "../../modules/utility/cluster-auth"
-  count  = var.install_gitops ? 1 : 0
-
-  enabled  = var.install_gitops
-  api_url  = module.rosa_cluster.api_url
-  username = module.rosa_cluster.admin_username
-  password = module.rosa_cluster.admin_password
-}
-```
-
-### 3. Kubernetes Provider Configuration
-
-Configure the provider with the obtained token:
+The environment must configure `kubernetes` and `kubectl` providers. With the two-phase deployment, `install_gitops = false` in Phase 1 causes the provider to use a dummy `localhost` host (no K8s resources are created). In Phase 2, the cluster is already in state so `api_url` is known:
 
 ```hcl
 provider "kubernetes" {
-  host  = var.install_gitops ? module.cluster_auth[0].host : ""
-  token = var.install_gitops ? module.cluster_auth[0].token : ""
-
-  # Skip TLS verification for self-signed certificates
-  # For production, configure proper CA certificate
+  host     = local.effective_k8s_host
+  token    = local.effective_k8s_token
   insecure = true
+
+  # Suppress all kubeconfig file loading
+  config_path    = "/dev/null"
+  config_paths   = []
+  config_context = ""
+}
+
+provider "kubectl" {
+  host             = local.effective_k8s_host
+  token            = local.effective_k8s_token
+  load_config_file = false
+  insecure         = true
+}
+
+locals {
+  # Phase 1: install_gitops=false -> localhost (no K8s calls)
+  # Phase 2: install_gitops=true  -> cluster API (known from state)
+  effective_k8s_host = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+
+  # SA token (steady state) or OAuth token (bootstrap)
+  effective_k8s_token = (
+    var.gitops_cluster_token != null
+    ? var.gitops_cluster_token
+    : try(module.cluster_auth[0].token, "")
+  )
 }
 ```
+
+### 2. Two-Phase Deployment
+
+```bash
+# Phase 1: Create cluster (install_gitops = false in cluster tfvars)
+terraform apply -var-file=cluster-dev.tfvars
+
+# Phase 2: Apply GitOps layers (stacked tfvars override install_gitops -> true)
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+```
+
+For the initial Phase 2, `cluster_auth` provides an OAuth token using htpasswd admin credentials. After bootstrap, set `gitops_cluster_token` in the gitops tfvars to the SA token and the OAuth flow is no longer needed.
+
+### 3. Network Connectivity
+
+The Terraform runner must be able to reach the cluster API. For private clusters, this requires VPN or bastion host connectivity.
 
 ## Usage
 
@@ -565,30 +574,22 @@ module "gitops" {
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `gitops_repo_url` | string | (default repo) | Git repo URL for your additional custom resources (projects, quotas, RBAC). When provided, an ArgoCD ApplicationSet is created. |
+| `gitops_repo_url` | string | (default repo) | Git repo URL for your additional custom resources (projects, quotas, RBAC). When provided, an ArgoCD Application is created. |
 | `gitops_repo_revision` | string | `"main"` | Git branch/tag/commit |
 | `gitops_repo_path` | string | `"layers"` | Path within repo to manifests |
 
 **Note:** Core layers (monitoring, OADP, virtualization, cert-manager) are always installed via Terraform because they require environment-specific values (S3 buckets, IAM roles, Route53 zones). The `gitops_repo_url` is for your **additional** static resources that ArgoCD will sync.
-
-### Advanced
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `additional_config_data` | map(string) | `{}` | Additional ConfigMap key-value pairs |
 
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
 | `namespace` | Namespace where GitOps is installed (`openshift-gitops`) |
-| `configmap_name` | Name of the ConfigMap bridge (`rosa-gitops-config`) |
-| `configmap_namespace` | Namespace of the ConfigMap bridge |
 | `argocd_url` | Command to get ArgoCD console URL |
 | `argocd_admin_password` | Command to get ArgoCD admin password |
 | `layers_enabled` | Map of enabled layers (terminal, oadp, virtualization, monitoring) |
 | `layers_repo` | GitOps layers repository configuration |
-| `applicationset_deployed` | Whether ApplicationSet was deployed |
+| `external_repo_deployed` | Whether external repo Application was deployed |
 | `install_instructions` | Instructions for accessing GitOps |
 
 ## Idempotency and Re-run Behavior
@@ -597,60 +598,42 @@ This module is designed to be **safe to re-run**. Running `terraform apply` mult
 
 ### How It Works
 
-Resources use **stable triggers** based on content, not execution order:
+All resources are managed via native Terraform providers with standard state tracking:
 
-| Resource Type | Trigger | Re-runs when... |
-|--------------|---------|-----------------|
-| Connectivity check | Every apply | Always (quick validation) |
-| Core GitOps (namespace, subscription, rbac, argocd) | Cluster URL | Never after initial creation |
-| ConfigMap bridge | Content hash | Layer toggles or metadata changes |
-| Layer operators (Terminal, OADP, Virtualization) | YAML hash | Layer YAML content changes |
-| CRD readiness checks | Cluster URL | Never after initial creation |
+| Resource Type | Behavior | Re-runs when... |
+|--------------|----------|-----------------|
+| Core GitOps (namespace, subscription, rbac, argocd) | In state | YAML content changes |
+| Layer operators (Terminal, OADP, Virtualization, etc.) | In state | Template variables or YAML changes |
+| External repo Application | In state | Repo URL, revision, or path changes |
 
 ### Expected Behavior
 
 **First apply (new cluster):**
 ```
-null_resource.validate_connection: Creating...
-null_resource.create_namespace: Creating...
-null_resource.create_subscription: Creating...
-time_sleep.wait_for_operator: Creating...
+kubernetes_namespace_v1.openshift_gitops: Creating...
+kubectl_manifest.gitops_subscription: Creating...
+time_sleep.wait_for_gitops_operator: Creating...
 ... (all resources created)
 ```
 
 **Subsequent applies (no changes):**
 ```
-null_resource.validate_connection: Creating...    # Always runs - connectivity check
-null_resource.validate_connection: Creation complete after 1s
-
-Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
 ```
 
-**When you change a layer toggle:**
+**When you enable a new layer:**
 ```
-null_resource.validate_connection: Creating...
-null_resource.create_configmap: Destroying... [id=...]
-null_resource.create_configmap: Creating...      # ConfigMap content changed
+kubernetes_namespace_v1.monitoring: Creating...
+kubectl_manifest.monitoring_loki_subscription: Creating...
+... (layer resources created)
 ```
 
 ### Why This Matters
 
-- **Fast re-runs**: Only connectivity validation runs on each apply (~1-2 seconds)
+- **Fast re-runs**: No changes when state matches cluster (~2-5 seconds for plan)
 - **Safe operations**: Accidentally running `terraform apply` won't disrupt existing operators
-- **Predictable changes**: Resources only update when their actual content changes
-- **Proper ordering**: `depends_on` ensures correct sequencing even with stable triggers
-
-### Script Idempotency
-
-The underlying installation script handles already-existing resources gracefully:
-
-```
->>> Creating Namespace
-HTTP Status: 409
-OK (already exists)
-```
-
-HTTP 409 (Conflict) is treated as success - the resource already exists, which is the desired state.
+- **Predictable changes**: Resources only update when their Terraform definition changes
+- **Proper ordering**: `depends_on` ensures correct sequencing between resources
 
 ## Troubleshooting
 
@@ -735,22 +718,16 @@ When destroying a cluster, the GitOps module requires OAuth authentication to th
 - VPN connectivity is not available (private clusters)
 - Network path to cluster doesn't exist from Terraform runner
 
-**Solution:** Disable GitOps and all layers during destroy:
+**Solution:** Destroy using only the cluster tfvars (which has `install_gitops = false`):
 
 ```bash
-terraform destroy \
-  -var-file="dev.tfvars" \
-  -var="install_gitops=false" \
-  -var="enable_layer_monitoring=false" \
-  -var="enable_layer_oadp=false" \
-  -var="enable_layer_terminal=false" \
-  -var="enable_layer_virtualization=false"
+terraform destroy -var-file="cluster-dev.tfvars"
 ```
 
 **Why this works:**
-- GitOps resources (operators, ArgoCD, LokiStack) live inside the cluster
-- They are automatically destroyed when the cluster is deleted
-- Disabling the module skips the authentication that would fail
+- The cluster tfvars has `install_gitops = false`, so the kubernetes provider uses a dummy localhost host
+- GitOps resources (operators, ArgoCD, LokiStack) live inside the cluster and are automatically destroyed with it
+- No K8s resources are in scope, so no cluster authentication is needed
 - All AWS resources (VPC, IAM, etc.) are still properly cleaned up
 
 ### Private/PrivateLink Clusters

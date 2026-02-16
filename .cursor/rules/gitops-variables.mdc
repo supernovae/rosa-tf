@@ -12,29 +12,34 @@ When adding a new variable to the GitOps layers (e.g., a new layer config, node 
 
 ```
 User tfvars
-  -> environments/*/variables.tf     (define the variable with type, description, default)
-  -> environments/*/main.tf          (pass to module "gitops_resources" and/or module "gitops")
-  -> modules/gitops-layers/operator/variables.tf   (accept in operator module)
-  -> modules/gitops-layers/resources/variables.tf  (accept in resources module, if AWS infra)
-  -> modules/gitops-layers/operator/main.tf        (use in templatefile() or null_resource)
-  -> gitops-layers/layers/*/*.yaml.tftpl           (use in YAML template as ${var_name})
+  -> environments/*/variables.tf                    (define variable with type, description, default)
+  -> environments/*/main.tf                         (pass to module "gitops" block)
+  -> modules/gitops-layers/operator/variables.tf    (accept in operator module)
+  -> modules/gitops-layers/operator/layer-*.tf      (use in locals{} templatefile() or resource)
+  -> gitops-layers/layers/*/*.yaml.tftpl            (use in YAML template as ${var_name})
+```
+
+For AWS infrastructure variables (S3 buckets, IAM roles):
+```
+  -> modules/gitops-layers/resources/variables.tf   (accept in resources module)
+  -> modules/gitops-layers/monitoring/ or oadp/     (use in AWS resource definitions)
 ```
 
 ## Checklist: Adding a New GitOps Variable
 
 1. **Module variable**: Add to `modules/gitops-layers/operator/variables.tf` (or `resources/variables.tf` if it creates AWS infrastructure)
 2. **Shared variable** (optional): Add to `modules/gitops-layers/shared/layer-variables.tf` if shared across sub-modules
-3. **Environment variables**: Add identical variable blocks to ALL 4 environments:
+3. **Environment variables**: Add identical variable blocks to ALL 4 cluster environments:
    - `environments/commercial-classic/variables.tf`
    - `environments/commercial-hcp/variables.tf`
    - `environments/govcloud-classic/variables.tf`
    - `environments/govcloud-hcp/variables.tf`
-4. **Environment passthrough**: Add `var_name = var.var_name` to the appropriate module block in ALL 4 environments:
+4. **Environment passthrough**: Add `var_name = var.var_name` to `module "gitops"` in ALL 4:
    - `environments/commercial-classic/main.tf`
    - `environments/commercial-hcp/main.tf`
    - `environments/govcloud-classic/main.tf`
    - `environments/govcloud-hcp/main.tf`
-5. **Template** (if used in YAML): Add to the `templatefile()` call in `modules/gitops-layers/operator/main.tf` and use `${var_name}` in the `.yaml.tftpl` template
+5. **Layer file**: Add to the `locals {}` block and `templatefile()` call in the appropriate `modules/gitops-layers/operator/layer-<name>.tf` file. Use `${var_name}` in the `.yaml.tftpl` template.
 6. **Examples**: Update `examples/*.tfvars` if the variable is user-facing
 
 ## Key Discriminators
@@ -45,13 +50,30 @@ Only two values differ between environments:
 
 All other GitOps variables are identical passthrough from `var.*` to module inputs.
 
-## Module Structure
+## Operator Module File Structure
+
+```
+modules/gitops-layers/operator/
+  main.tf                  <- Shared locals (operator_channels, layers_path)
+  identity.tf              <- Terraform SA, ClusterRoleBinding, token Secret
+  gitops-core.tf           <- ArgoCD operator, instance, external repo Application
+  layer-terminal.tf        <- Web Terminal operator
+  layer-oadp.tf            <- OADP operator, DPA, backup schedule
+  layer-virtualization.tf  <- Virtualization operator, HyperConverged
+  layer-monitoring.tf      <- Prometheus, Loki, Logging, COO, UIPlugin
+  layer-certmanager.tf     <- cert-manager, ClusterIssuers, IngressController, DNS
+  variables.tf             <- All module input variables
+  outputs.tf               <- Module outputs (SA token, layer status)
+  versions.tf              <- Required providers (kubernetes, kubectl, aws, etc.)
+```
+
+## Supporting Modules
 
 ```
 modules/gitops-layers/
-  operator/     <- Installs operators + applies K8s manifests (main GitOps logic)
   resources/    <- Creates AWS infra (S3 buckets, IAM roles) for layers
   shared/       <- Shared variable definitions across sub-modules
   monitoring/   <- S3 + IAM for Loki (called by resources/)
   oadp/         <- S3 + IAM for OADP (called by resources/)
+  certmanager/  <- Route53 hosted zone + IAM for cert-manager (called by resources/)
 ```

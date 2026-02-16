@@ -10,6 +10,14 @@ terraform {
       source  = "terraform-redhat/rhcs"
       version = ">= 1.6.3"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.35.0"
+    }
+    kubectl = {
+      source  = "alekc/kubectl"
+      version = ">= 2.1.0"
+    }
     random = {
       source  = "hashicorp/random"
       version = ">= 3.0"

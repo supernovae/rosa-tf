@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# ROSA Classic GovCloud - Development Environment
+# ROSA Classic GovCloud - Development Environment (Cluster Phase)
 #------------------------------------------------------------------------------
 # Single-AZ deployment optimized for cost and development workflows.
 #
@@ -14,10 +14,16 @@
 # - Fewer worker nodes
 # - Smaller instance types (optional)
 #
+# TWO-PHASE WORKFLOW:
+#   Phase 1 (cluster only):
+#     terraform apply -var-file="cluster-dev.tfvars"
+#   Phase 2 (with GitOps, after VPN connected):
+#     terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
+#
 # Usage:
 #   cd environments/govcloud-classic
-#   terraform plan -var-file=dev.tfvars
-#   terraform apply -var-file=dev.tfvars
+#   terraform plan -var-file="cluster-dev.tfvars"
+#   terraform apply -var-file="cluster-dev.tfvars"
 #
 # Prerequisites:
 #   export TF_VAR_ocm_token="your-token-from-console.openshiftusgov.com"
@@ -147,59 +153,11 @@ create_jumphost   = true
 create_client_vpn = false
 
 #------------------------------------------------------------------------------
-# Optional Features (disabled for dev simplicity)
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
 # GitOps Configuration
-# Install ArgoCD and optional operators/layers
-#
-# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR GOVCLOUD:
-# All GovCloud clusters are private - GitOps requires VPN connectivity.
-#
-# Phase 1: Deploy cluster + VPN with install_gitops = false
-# Phase 2: Connect to VPN, then set install_gitops = true and re-apply
-#
-# See: docs/OPERATIONS.md "Two-Phase Deployment for Private Clusters"
+# Phase 1: Cluster only. Phase 2: Use gitops-dev.tfvars overlay.
 #------------------------------------------------------------------------------
 
-install_gitops           = false # Phase 1: false, Phase 2: true (after VPN connect)
-enable_layer_terminal    = false # Web Terminal operator
-enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring  = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-# enable_layer_virtualization = false # Requires bare metal nodes
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_retention_days = 7 # Dev: 7 days, Prod: 30 days
-
-# Additional GitOps configuration (optional)
-# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD ApplicationSet alongside the built-in layers.
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
-
-# Override OAuth URL if auto-detection fails (GovCloud 4.16 may differ)
-# gitops_oauth_url = "https://oauth-openshift.apps.<cluster>.<domain>"
+install_gitops = false # Use gitops-dev.tfvars overlay for Phase 2
 
 #------------------------------------------------------------------------------
 # Machine Pools (Optional)

@@ -1,19 +1,19 @@
 #------------------------------------------------------------------------------
-# ROSA Classic Commercial - Development Environment
+# ROSA Classic Commercial - Production Environment (Cluster Only)
 #------------------------------------------------------------------------------
-# Single-AZ public cluster optimized for cost and development workflows.
+# Multi-AZ private cluster with full security and high availability.
 #
 # Characteristics:
-# - Public cluster (direct API/console access from internet)
-# - Single AZ (no HA, lower cost)
-# - No KMS encryption (AWS-managed encryption still active)
-# - No jump host or VPN needed (public access)
-# - FIPS disabled (unless required)
+# - Private cluster (most secure, API accessible only from VPC)
+# - Multi-AZ for high availability
+# - KMS encryption for cluster and infrastructure
+# - FIPS optional (enable for regulated workloads)
+# - Jump host for secure access
+# - VPC flow logs enabled
 #
-# Usage:
-#   cd environments/commercial-classic
-#   terraform plan -var-file=dev.tfvars
-#   terraform apply -var-file=dev.tfvars
+# Two-phase workflow:
+#   Phase 1: terraform apply -var-file="cluster-prod.tfvars"
+#   Phase 2: terraform apply -var-file="cluster-prod.tfvars" -var-file="gitops-prod.tfvars"
 #
 # Prerequisites:
 #   export TF_VAR_rhcs_client_id="your-client-id"
@@ -25,8 +25,8 @@
 # Cluster Identity
 #------------------------------------------------------------------------------
 
-cluster_name = "dev-classic" # Change this for your cluster
-environment  = "dev"
+cluster_name = "prod-classic" # Change this for your cluster
+environment  = "prod"
 
 #------------------------------------------------------------------------------
 # Region
@@ -35,46 +35,50 @@ environment  = "dev"
 aws_region = "us-east-1" # Change to your preferred region
 
 #------------------------------------------------------------------------------
-# Topology: Single-AZ, Public
+# Topology: Multi-AZ, Private
 #------------------------------------------------------------------------------
 
-multi_az = false # Single AZ, single NAT
+multi_az = true # 3 AZs, NAT per AZ for HA
 
-# Public cluster (simplest for dev - easier testing without jump host/VPN)
-private_cluster = false
+# Private cluster (recommended for production - secure by default)
+private_cluster = true
 
-# Auto-select first available AZ
+# Auto-select 3 AZs
 availability_zones = null
 
 #------------------------------------------------------------------------------
-# Security / Encryption: Minimal for Dev
+# Security / Encryption: Production-grade
 #
 # Two separate keys for blast radius containment:
 # - cluster_kms_*: For ROSA workers and etcd ONLY
 # - infra_kms_*: For jump host, CloudWatch, S3/OADP, VPN ONLY
 #
-# Mode options (same for both keys):
-#   "provider_managed" (DEFAULT) - Uses AWS managed aws/ebs key, no KMS costs
-#   "create" - Terraform creates customer-managed KMS key
-#   "existing" - Use your own KMS key ARN
+# Production RECOMMENDATION: Use customer-managed KMS keys for:
+# - Full audit trail of key usage in CloudTrail
+# - Custom key rotation policies
+# - etcd encryption at rest
+# - Compliance requirements (PCI-DSS, HIPAA, etc.)
 #------------------------------------------------------------------------------
 
-fips             = false              # FIPS not needed for dev
-cluster_kms_mode = "provider_managed" # Use AWS default for ROSA
-infra_kms_mode   = "provider_managed" # Use AWS default for infrastructure
-etcd_encryption  = false              # Only applies with custom cluster KMS
+fips = false # Set to true for FedRAMP/HIPAA/PCI
+
+# KMS encryption (separate keys for cluster and infrastructure)
+cluster_kms_mode        = "create" # Customer-managed KMS for ROSA
+infra_kms_mode          = "create" # Customer-managed KMS for infrastructure
+etcd_encryption         = false    # Encrypt etcd with cluster KMS
+kms_key_deletion_window = 30
 
 #------------------------------------------------------------------------------
-# Compute: Smaller footprint
+# Compute: Production sizing
 #------------------------------------------------------------------------------
 
 compute_machine_type = "m5.xlarge"
-worker_node_count    = 2 # Minimum for single-AZ
+worker_node_count    = 3 # 1 per AZ minimum
 worker_disk_size     = 300
 
 #------------------------------------------------------------------------------
 # Cluster Autoscaler (Optional)
-# Configures cluster-wide autoscaling behavior
+# Configures cluster-wide autoscaling behavior for production workloads
 #
 # IMPORTANT: autoscaler_max_nodes_total MUST be >= worker_node_count
 # The autoscaler cannot allow fewer nodes than currently deployed.
@@ -84,20 +88,20 @@ worker_disk_size     = 300
 #   - Set higher than worker_node_count to allow scale-up headroom
 #------------------------------------------------------------------------------
 
-cluster_autoscaler_enabled = false # Set to true for autoscaling
+cluster_autoscaler_enabled = false # Set to true for production autoscaling
 
-# Autoscaler settings (when cluster_autoscaler_enabled = true):
-# autoscaler_max_nodes_total                  = 10    # Must be >= worker_node_count (2)
-# autoscaler_scale_down_enabled               = true  # Enable scale down of idle nodes
+# Production autoscaler settings (when cluster_autoscaler_enabled = true):
+# autoscaler_max_nodes_total                  = 50    # Must be >= worker_node_count (3)
+# autoscaler_scale_down_enabled               = true  # Enable scale down during off-peak
 # autoscaler_scale_down_utilization_threshold = "0.5" # Scale down if < 50% utilized
-# autoscaler_scale_down_delay_after_add       = "10m" # Wait before considering new nodes
-# autoscaler_scale_down_unneeded_time         = "10m" # How long node must be idle
+# autoscaler_scale_down_delay_after_add       = "10m" # Stabilization period after scale up
+# autoscaler_scale_down_unneeded_time         = "10m" # Grace period before scale down
 
 #------------------------------------------------------------------------------
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10"
+openshift_version = "4.21.0"
 channel_group     = "stable"
 
 #------------------------------------------------------------------------------
@@ -107,8 +111,9 @@ channel_group     = "stable"
 vpc_cidr    = "10.0.0.0/16"
 egress_type = "nat"
 
-# Disable flow logs for dev
-enable_vpc_flow_logs = false
+# Enable flow logs for compliance
+enable_vpc_flow_logs     = true
+flow_logs_retention_days = 90
 
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)
@@ -126,9 +131,6 @@ create_ecr = false # Set to true to create ECR repository
 # 1. Managed (default): Red Hat hosts OIDC, created per-cluster
 # 2. Pre-created: Use existing managed OIDC config ID
 # 3. Unmanaged: Customer hosts OIDC in their AWS account
-#
-# Note: External authentication (external OIDC IdP for users) is HCP-only.
-# Classic uses built-in OAuth server with configurable identity providers.
 #------------------------------------------------------------------------------
 
 # Default: create new managed OIDC per-cluster (simplest, recommended)
@@ -147,76 +149,64 @@ managed_oidc       = true
 # installer_role_arn_for_oidc = "arn:aws:iam::123456789:role/Installer-Role"
 
 #------------------------------------------------------------------------------
-# Access: Public cluster needs no jump host
+# Access: Jump host for private cluster
 #------------------------------------------------------------------------------
 
-create_admin_user = true
-create_jumphost   = false # Not needed for public cluster
-create_client_vpn = false # Not needed for public cluster
+# htpasswd admin user -- required for initial bootstrap (creates OAuth token).
+# After bootstrap, Terraform uses the SA token (gitops_cluster_token).
+# To harden: set to false and run terraform apply to remove htpasswd IDP.
+# See docs/OPERATIONS.md for the full credential lifecycle.
+create_admin_user      = true
+create_jumphost        = true
+jumphost_instance_type = "t3.micro"
+
+# Consider VPN for better UX
+create_client_vpn = false # Enable if needed (~$116/month)
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Install ArgoCD and optional operators/layers
+# Set install_gitops = false for Phase 1. Use gitops-prod.tfvars overlay for Phase 2.
+#
+# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR PRIVATE CLUSTERS:
+# This cluster is private - GitOps requires VPN/network connectivity.
+# Phase 1: Deploy cluster + VPN with install_gitops = false
+# Phase 2: Connect to VPN, then apply gitops-prod.tfvars overlay
+# See: docs/OPERATIONS.md "Two-Phase Deployment for Private Clusters"
 #------------------------------------------------------------------------------
 
-install_gitops           = false # Set to true after cluster is ready (Stage 2)
-enable_layer_terminal    = false # Web Terminal operator
-enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring  = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-# enable_layer_virtualization = false # Requires bare metal nodes
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_retention_days = 7 # Dev: 7 days, Prod: 30 days
-
-# Additional GitOps configuration (optional)
-# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD ApplicationSet alongside the built-in layers.
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
+install_gitops = false
 
 #------------------------------------------------------------------------------
 # Optional Features
 #------------------------------------------------------------------------------
 
-
 #------------------------------------------------------------------------------
-# Machine Pools (Optional)
+# Machine Pools (optional - disabled by default)
 #
 # Generic list - define any pool type by configuration.
+# Production pools should use autoscaling for resilience.
 # Classic supports spot instances for cost optimization.
 # See docs/MACHINE-POOLS.md for detailed guidance.
 #------------------------------------------------------------------------------
 
 machine_pools = []
 
-# Example configurations (uncomment to enable):
+# Production examples (uncomment to enable):
 #
 # machine_pools = [
-#   # GPU Spot Pool - cost-effective ML/batch workloads (up to 90% savings)
+#   # General worker pool with autoscaling
+#   # {
+#   #   name          = "workers"
+#   #   instance_type = "m5.xlarge"
+#   #   autoscaling   = { enabled = true, min = 2, max = 6 }
+#   # },
+#   #
+#   # GPU Spot Pool - cost-effective ML/batch (up to 90% savings)
 #   # {
 #   #   name          = "gpu-spot"
 #   #   instance_type = "g4dn.xlarge"
-#   #   spot          = { enabled = true, max_price = "0.50" }
-#   #   autoscaling   = { enabled = true, min = 0, max = 3 }
+#   #   spot          = { enabled = true }
+#   #   autoscaling   = { enabled = true, min = 0, max = 4 }
 #   #   multi_az      = false
 #   #   labels = {
 #   #     "node-role.kubernetes.io/gpu" = ""
@@ -228,20 +218,11 @@ machine_pools = []
 #   #   ]
 #   # },
 #   #
-#   # GPU Pool (on-demand) - for critical GPU workloads
-#   # {
-#   #   name          = "gpu"
-#   #   instance_type = "g4dn.xlarge"
-#   #   replicas      = 1
-#   #   labels        = { "node-role.kubernetes.io/gpu" = "" }
-#   #   taints        = [{ key = "nvidia.com/gpu", value = "true", schedule_type = "NoSchedule" }]
-#   # },
-#   #
-#   # ARM/Graviton Pool - cost optimization (up to 40% savings)
+#   # ARM/Graviton Pool - production cost optimization
 #   # {
 #   #   name          = "graviton"
-#   #   instance_type = "m6g.xlarge"
-#   #   autoscaling   = { enabled = true, min = 1, max = 5 }
+#   #   instance_type = "m7g.xlarge"
+#   #   autoscaling   = { enabled = true, min = 2, max = 10 }
 #   #   labels        = { "kubernetes.io/arch" = "arm64" }
 #   # },
 #   #
@@ -249,7 +230,7 @@ machine_pools = []
 #   # {
 #   #   name          = "metal"
 #   #   instance_type = "m5.metal"
-#   #   replicas      = 2
+#   #   replicas      = 3
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints        = [{ key = "node-role.kubernetes.io/metal", value = "true", schedule_type = "NoSchedule" }]
 #   # },
@@ -259,14 +240,14 @@ machine_pools = []
 # Debug / Timing
 #------------------------------------------------------------------------------
 
-enable_timing = true # Show deployment duration in outputs
+enable_timing = false # Set to true to see deployment duration
 
 #------------------------------------------------------------------------------
 # Tags
 #------------------------------------------------------------------------------
 
 tags = {
-  Environment = "development"
+  Environment = "production"
   Project     = "rosa-commercial"
-  CostCenter  = "dev"
+  CostCenter  = "prod"
 }

@@ -1,16 +1,26 @@
 #------------------------------------------------------------------------------
-# ROSA HCP - AWS GovCloud - Production Environment
+# ROSA HCP - AWS GovCloud - Production Environment (Cluster Phase)
 #
 # Highly available multi-AZ configuration for production FedRAMP workloads.
 # All GovCloud security requirements are ENFORCED (FIPS, private, KMS).
 #
 # Estimated monthly cost: ~$1500-2000+
 #
+# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR GOVCLOUD:
+# All GovCloud clusters are private - GitOps requires VPN connectivity.
+# Phase 1: Deploy cluster (and VPN if needed). Phase 2: Connect VPN, apply gitops overlay.
+#
+# TWO-PHASE WORKFLOW:
+#   Phase 1 (cluster only):
+#     terraform apply -var-file="cluster-prod.tfvars"
+#   Phase 2 (with GitOps, after VPN connected):
+#     terraform apply -var-file="cluster-prod.tfvars" -var-file="gitops-prod.tfvars"
+#
 # Usage:
 #   export TF_VAR_ocm_token="your-token-from-console.openshiftusgov.com"
 #   terraform init
-#   terraform plan -var-file="prod.tfvars"
-#   terraform apply -var-file="prod.tfvars"
+#   terraform plan -var-file="cluster-prod.tfvars"
+#   terraform apply -var-file="cluster-prod.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -129,6 +139,11 @@ external_auth_providers_enabled = false
 
 #------------------------------------------------------------------------------
 # Admin User
+#
+# htpasswd admin user -- required for initial bootstrap (creates OAuth token).
+# After bootstrap, Terraform uses the SA token (gitops_cluster_token).
+# To harden: set to false and run terraform apply to remove htpasswd IDP.
+# See docs/OPERATIONS.md for the full credential lifecycle.
 #------------------------------------------------------------------------------
 
 create_admin_user = true
@@ -243,50 +258,10 @@ create_client_vpn = false
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Install ArgoCD and optional operators/layers
-#
-# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR GOVCLOUD:
-# All GovCloud clusters are private - GitOps requires VPN connectivity.
-#
-# Phase 1: Deploy cluster + VPN with install_gitops = false
-# Phase 2: Connect to VPN, then set install_gitops = true and re-apply
-#
-# See: docs/OPERATIONS.md "Two-Phase Deployment for Private Clusters"
+# Phase 1: Cluster only. Phase 2: Use gitops-prod.tfvars overlay.
 #------------------------------------------------------------------------------
 
-install_gitops           = false # Phase 1: false, Phase 2: true (after VPN connect)
-enable_layer_terminal    = false # Web Terminal operator
-enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring  = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-# enable_layer_virtualization = false # Requires bare metal nodes
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_retention_days = 30 # Prod: 30 days
-
-# Additional GitOps configuration (optional)
-# Provide a Git repo URL to deploy custom resources (projects, quotas, RBAC)
-# via ArgoCD ApplicationSet alongside the built-in layers.
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
+install_gitops = false # Use gitops-prod.tfvars overlay for Phase 2
 
 #------------------------------------------------------------------------------
 # Debug / Timing
