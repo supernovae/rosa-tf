@@ -396,17 +396,10 @@ cd environments/<environment>  # e.g., commercial-hcp, govcloud-classic
 
 #### Step 2: Run Destroy
 
-**If GitOps layers were applied (Phase 2)**, remove the two ROSA-protected CRBs from
-state, then destroy with both tfvars:
+**If GitOps layers were applied (Phase 2)**, destroy with both tfvars so the
+Kubernetes provider has the real API URL:
 
 ```bash
-# Remove CRBs from state (ROSA webhook blocks deletion of CRBs binding to cluster-admin).
-# These are cluster-scoped and have lifecycle { prevent_destroy = true }.
-# The SA, Secret, namespace, and all other resources are fully deletable.
-terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
-terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
-
-# Destroy everything (both tfvars so K8s provider has the real API URL)
 terraform destroy -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
@@ -416,10 +409,12 @@ terraform destroy -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 terraform destroy -var-file=cluster-dev.tfvars
 ```
 
-> **Why only CRBs?** The Terraform SA and token live in a dedicated `rosa-terraform`
-> namespace (not `kube-system`), so they are fully manageable by Terraform. Only the
-> two ClusterRoleBindings are blocked by ROSA's `clusterrolebindings-validation`
-> webhook because they bind to `cluster-admin`. These CRBs die with the cluster.
+> **Why no manual state cleanup?** All GitOps resources (SA, CRBs, namespaces) are
+> fully deletable. The Terraform SA lives in a dedicated `rosa-terraform` namespace
+> (not a ROSA-protected namespace). The ArgoCD CRB binds to `openshift-gitops` which
+> is in ROSA's webhook exception list. Additionally, Terraform authenticates as a
+> `system:` prefixed user which bypasses the webhook entirely.
+> See: [webhook source](https://github.com/openshift/managed-cluster-validating-webhooks/blob/master/pkg/webhooks/clusterrolebinding/clusterrolebinding.go)
 
 #### Step 3: Clean Up Retained S3 Buckets
 
@@ -463,23 +458,20 @@ aws ec2 describe-vpcs --filters "Name=tag:Name,Values=*your-cluster-name*"
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `prevent_destroy` on CRBs | ROSA webhook blocks CRB deletion | `terraform state rm` the two CRBs before destroy |
-| `connection refused` to `localhost:443` | GitOps in state but only cluster tfvars used | Use both tfvars on destroy, or `state rm` the CRBs first |
-| Namespace stuck `Active` | Operator finalizers still reconciling | Re-run destroy; the 30s destroy_duration usually resolves this |
+| `connection refused` to `localhost:443` | GitOps in state but only cluster tfvars used | Use both tfvars on destroy |
+| Namespace stuck `Active` | OLM finalizers on CSV/OperatorGroup after operator subscription removed | Uses `kubectl_manifest` for namespace (not `kubernetes_namespace_v1`) which handles delete gracefully. If stuck, `terraform state rm 'module.gitops[0]'` then re-run. |
 | VPC deletion fails | Resources still attached | Wait 5 min, retry; check for orphaned ENIs |
 
 #### Quick Reference
 
 ```bash
-# GitOps was applied -- full destroy
-terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
-terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
+# GitOps was applied -- full destroy (both tfvars for K8s provider API URL)
 terraform destroy -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 
 # GitOps was never applied -- cluster only
 terraform destroy -var-file=cluster-dev.tfvars
 
-# Cluster is dead -- remove all K8s state, then nuke
+# Cluster is dead / API unreachable -- remove all K8s state, then nuke
 terraform state rm 'module.gitops[0]'
 terraform destroy -var-file=cluster-dev.tfvars
 ```
@@ -637,10 +629,6 @@ After bootstrap, the htpasswd IDP can be removed to reduce the cluster's attack 
 **Full destroy** (GitOps was applied):
 
 ```bash
-# Remove ROSA-protected CRBs from state (prevent_destroy = true)
-terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
-terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
-
 # Destroy with both tfvars (K8s provider needs the real API URL)
 terraform destroy -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 ```
@@ -651,9 +639,10 @@ terraform destroy -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 terraform destroy -var-file=cluster-prod.tfvars
 ```
 
-> **Note:** The SA, Secret, and `rosa-terraform` namespace are fully deletable since
-> they live outside ROSA's protected system namespaces. Only the two CRBs (which bind
-> to `cluster-admin`) need `state rm` due to ROSA's managed webhook.
+> **Note:** All GitOps resources (SA, CRBs, namespaces) are fully deletable. No
+> manual `state rm` steps are needed. If the cluster API is unreachable (already
+> terminated), use `terraform state rm 'module.gitops[0]'` to remove all GitOps
+> resources from state before destroying the remaining infrastructure.
 
 ---
 
@@ -1355,7 +1344,7 @@ curl -sk "${OAUTH_URL}/healthz"
 | HCP version drift | Machine pools must be n-2 of CP | Upgrade control plane first, then pools |
 | OAuth reconcile | Login fails immediately after IDP create | Wait 2-5 minutes |
 | GovCloud quotas | VPC limit is 5 by default | Request increase via AWS Support |
-| Destroy `prevent_destroy` on CRBs | ROSA webhook blocks CRB deletion (cluster-admin) | `terraform state rm` the two CRBs before destroy |
+| CRB webhook denial (legacy) | SA was in kube-system (now fixed in rosa-terraform) | Upgrade to latest module; rosa-terraform bypasses webhook |
 | GitOps private cluster | K8s API unreachable without VPN | Connect to VPN before Phase 2 `terraform apply` |
 | VPC destroy stuck | NAT/ENI blocking VPC deletion | Delete NAT gateway manually, see troubleshooting |
 

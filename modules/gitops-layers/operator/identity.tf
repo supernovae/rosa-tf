@@ -21,12 +21,12 @@
 #   5. htpasswd IDP can optionally be removed (create_admin_user = false)
 #
 # DESTROY FLOW:
-#   The SA, Secret, and namespace are fully deletable (no ROSA webhook issues).
-#   CRBs (cluster-scoped, binding to cluster-admin) may still be blocked by
-#   ROSA's clusterrolebindings-validation webhook. Before full cluster destroy:
-#     terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
-#     terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
-#     terraform destroy -var-file=cluster-*.tfvars -var-file=gitops-*.tfvars
+#   All resources (SA, Secret, namespace, CRBs) are fully deletable.
+#   ROSA's clusterrolebindings-validation webhook allows deletion because:
+#     - rosa-terraform namespace does NOT match the protected regex (^openshift-.*|kube-system)
+#     - openshift-gitops IS in the webhook's exception list
+#     - system: prefixed users (our SA) bypass the webhook entirely
+#   See: https://github.com/openshift/managed-cluster-validating-webhooks/blob/master/pkg/webhooks/clusterrolebinding/clusterrolebinding.go
 #
 # LEAST PRIVILEGE NOTE:
 #   The SA requires cluster-admin because it installs operators, creates
@@ -89,12 +89,12 @@ resource "kubernetes_service_account_v1" "terraform_operator" {
 # ClusterRoleBinding: grants the SA cluster-admin.
 #
 # CRBs are cluster-scoped. ROSA's clusterrolebindings-validation webhook
-# may block deletion of CRBs binding to cluster-admin. prevent_destroy
-# stops Terraform from attempting the delete. The CRB never needs rotation
-# -- only the SA token does.
+# allows deletion of this CRB because the subject SA is in rosa-terraform,
+# which does NOT match the protected namespace regex (^openshift-.*|kube-system).
+# Additionally, Terraform authenticates as system:serviceaccount:rosa-terraform:*
+# which bypasses the webhook entirely (all system: users are allowed).
 #
-# Before full cluster destroy:
-#   terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
+# The CRB never needs rotation -- only the SA token does.
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "terraform_operator_crb" {
@@ -121,10 +121,6 @@ resource "kubectl_manifest" "terraform_operator_crb" {
 
   server_side_apply = true
   force_conflicts   = true
-
-  lifecycle {
-    prevent_destroy = true
-  }
 
   depends_on = [kubernetes_service_account_v1.terraform_operator]
 }
