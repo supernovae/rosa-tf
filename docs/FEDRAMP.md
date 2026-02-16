@@ -63,7 +63,7 @@ cd rosa-tf
 git checkout $(git describe --tags --abbrev=0)
 
 # Or pin a specific version explicitly
-git clone --branch v1.1.0 https://git.your-org.example.com/platform/rosa-tf.git
+git clone --branch v1.2.0 https://git.your-org.example.com/platform/rosa-tf.git
 ```
 
 This ensures reproducibility and allows your change management process to approve specific versions.
