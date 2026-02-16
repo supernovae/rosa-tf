@@ -40,11 +40,11 @@ locals {
     })
   ]
   certmanager_ingress_controller = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? templatefile("${local.layers_path}/certmanager/ingress-controller.yaml.tftpl", {
-    custom_domain          = var.certmanager_ingress_domain
-    replicas               = var.certmanager_ingress_replicas
-    visibility             = local.certmanager_ingress_scope
-    cert_secret_name       = var.certmanager_ingress_cert_secret_name
-    route_selector_yaml    = join("\n", [for k, v in var.certmanager_ingress_route_selector : "      ${k}: \"${v}\""])
+    custom_domain           = var.certmanager_ingress_domain
+    replicas                = var.certmanager_ingress_replicas
+    visibility              = local.certmanager_ingress_scope
+    cert_secret_name        = var.certmanager_ingress_cert_secret_name
+    route_selector_yaml     = join("\n", [for k, v in var.certmanager_ingress_route_selector : "      ${k}: \"${v}\""])
     namespace_selector_yaml = join("\n", [for k, v in var.certmanager_ingress_namespace_selector : "      ${k}: \"${v}\""])
   }) : ""
 }

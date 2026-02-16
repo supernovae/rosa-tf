@@ -36,10 +36,10 @@ resource "kubernetes_namespace_v1" "oadp" {
     name = "openshift-adp"
 
     labels = {
-      "openshift.io/cluster-monitoring"  = "true"
-      "app.kubernetes.io/managed-by"     = "terraform"
-      "app.kubernetes.io/part-of"        = "rosa-gitops-layers"
-      "app.kubernetes.io/component"      = "oadp"
+      "openshift.io/cluster-monitoring" = "true"
+      "app.kubernetes.io/managed-by"    = "terraform"
+      "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
+      "app.kubernetes.io/component"     = "oadp"
     }
   }
 

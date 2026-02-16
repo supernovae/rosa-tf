@@ -22,7 +22,7 @@ locals {
     prometheus_retention_hours = var.monitoring_retention_days * 24
     prometheus_retention_days  = var.monitoring_retention_days
     prometheus_storage_size    = var.monitoring_prometheus_storage_size
-    storage_class_name        = var.monitoring_storage_class
+    storage_class_name         = var.monitoring_storage_class
   })
   monitoring_logforwarder = templatefile("${local.layers_path}/monitoring/clusterlogforwarder-observability.yaml.tftpl", {
     cluster_name = var.cluster_name

@@ -24,9 +24,9 @@ resource "kubernetes_namespace_v1" "openshift_gitops" {
     name = "openshift-gitops"
 
     labels = {
-      "openshift.io/cluster-monitoring"  = "true"
-      "app.kubernetes.io/managed-by"     = "terraform"
-      "app.kubernetes.io/part-of"        = "rosa-gitops-layers"
+      "openshift.io/cluster-monitoring" = "true"
+      "app.kubernetes.io/managed-by"    = "terraform"
+      "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
     }
   }
 
