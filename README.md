@@ -375,16 +375,10 @@ aws ec2 export-client-vpn-client-configuration \
 
 ### Destroy a Cluster
 
-If GitOps layers were applied (Phase 2), remove the two ROSA-protected CRBs from state, then destroy with both tfvars:
+If GitOps layers were applied (Phase 2), destroy with both tfvars so the Kubernetes provider has the real API URL:
 
 ```bash
 cd environments/<environment>
-
-# Remove CRBs from state (ROSA webhook blocks cluster-admin CRB deletion)
-terraform state rm 'module.gitops[0].kubectl_manifest.terraform_operator_crb[0]'
-terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
-
-# Destroy everything
 terraform destroy -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
@@ -394,7 +388,7 @@ If GitOps was **never applied**, destroy with just the cluster tfvars:
 terraform destroy -var-file=cluster-dev.tfvars
 ```
 
-> **Note:** The SA, token, and `rosa-terraform` namespace are fully deletable. Only the two CRBs (binding to `cluster-admin`) need `state rm` due to ROSA's managed webhook. To remove individual layers while keeping the cluster, disable them in the gitops tfvars and re-apply. See [Operations Guide](docs/OPERATIONS.md) for details.
+> **Note:** All GitOps resources (SA, CRBs, namespaces) are fully deletable -- no manual `state rm` steps needed. The `rosa-terraform` namespace and `openshift-gitops` are both allowed by ROSA's webhook. To remove individual layers while keeping the cluster, disable them in the gitops tfvars and re-apply. See [Operations Guide](docs/OPERATIONS.md) for details.
 
 ## Features
 

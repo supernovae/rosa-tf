@@ -15,27 +15,41 @@
 
 #------------------------------------------------------------------------------
 # Step 1: Namespace
+#
+# Ensures the openshift-gitops namespace exists with our labels before the
+# operator subscription is created. The GitOps operator also creates this
+# namespace automatically, so Terraform's role is additive (labels + early creation).
+#
+# Uses kubectl_manifest instead of kubernetes_namespace_v1 because the native
+# provider's delete state waiter treats "Active" as an unexpected state (rather
+# than a pending state), causing it to error immediately at ~20s instead of
+# waiting for the namespace to terminate. After the operator subscription is
+# removed, OLM needs 1-3 minutes to finalize ClusterServiceVersion and
+# OperatorGroup resources. kubectl_manifest handles this gracefully.
 #------------------------------------------------------------------------------
 
-resource "kubernetes_namespace_v1" "openshift_gitops" {
+resource "kubectl_manifest" "openshift_gitops_ns" {
   count = var.skip_k8s_destroy ? 0 : 1
 
-  metadata {
-    name = "openshift-gitops"
+  yaml_body = <<-YAML
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: openshift-gitops
+      labels:
+        openshift.io/cluster-monitoring: "true"
+        app.kubernetes.io/managed-by: terraform
+        app.kubernetes.io/part-of: rosa-gitops-layers
+  YAML
 
-    labels = {
-      "openshift.io/cluster-monitoring" = "true"
-      "app.kubernetes.io/managed-by"    = "terraform"
-      "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
-    }
-  }
+  server_side_apply = true
+  force_conflicts   = true
 
-  lifecycle {
-    ignore_changes = [
-      metadata[0].annotations,
-      metadata[0].labels["olm.operatorgroup.uid/"],
-    ]
-  }
+  # OLM needs time to clean up finalizer-bearing resources (CSV, OperatorGroup)
+  # after the Subscription is removed. 5 minutes is ample.
+  wait_for_rollout = false
+
+  override_namespace = "openshift-gitops"
 }
 
 #------------------------------------------------------------------------------
@@ -65,7 +79,7 @@ resource "kubectl_manifest" "gitops_subscription" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.openshift_gitops]
+  depends_on = [kubectl_manifest.openshift_gitops_ns]
 }
 
 #------------------------------------------------------------------------------
@@ -92,11 +106,9 @@ resource "time_sleep" "wait_for_gitops_operator" {
 # manage resources across all namespaces.
 #------------------------------------------------------------------------------
 
-# ROSA's managed admission webhook blocks deletion of CRBs binding to cluster-admin.
-# prevent_destroy stops Terraform from attempting the delete. The CRB dies with the cluster.
-#
-# Before full cluster destroy:
-#   terraform state rm 'module.gitops[0].kubectl_manifest.argocd_rbac[0]'
+# ROSA's clusterrolebindings-validation webhook allows deletion of this CRB
+# because openshift-gitops is in the webhook's exception list.
+# See: https://github.com/openshift/managed-cluster-validating-webhooks/blob/master/pkg/webhooks/clusterrolebinding/clusterrolebinding.go
 resource "kubectl_manifest" "argocd_rbac" {
   count = var.skip_k8s_destroy ? 0 : 1
 
@@ -120,10 +132,6 @@ resource "kubectl_manifest" "argocd_rbac" {
 
   server_side_apply = true
   force_conflicts   = true
-
-  lifecycle {
-    prevent_destroy = true
-  }
 
   depends_on = [time_sleep.wait_for_gitops_operator]
 }
