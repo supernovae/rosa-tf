@@ -64,7 +64,7 @@ multi_az = false
 #------------------------------------------------------------------------------
 
 private_cluster      = true
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 2
 
 #------------------------------------------------------------------------------

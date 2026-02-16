@@ -80,7 +80,7 @@ HCP control plane is managed by Red Hat - you only pay for worker nodes plus fee
 
 | Component | Base (2 workers) |
 |-----------|------------------|
-| EC2 Workers (2x m5.xlarge) | ~$320/mo |
+| EC2 Workers (2x m6i.xlarge) | ~$320/mo |
 | OpenShift Fee (workers) | ~$250/mo |
 | HCP Control Plane Fee | ~$180/mo |
 | NAT Gateway | ~$36/mo |
@@ -187,7 +187,7 @@ machine_pools = [
   # Additional workers with autoscaling
   {
     name          = "workers"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     autoscaling   = { enabled = true, min = 2, max = 10 }
   },
   
@@ -251,7 +251,7 @@ autoscaler_max_nodes_total = 100
 machine_pools = [
   {
     name          = "workers"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     autoscaling   = { enabled = true, min = 3, max = 20 }
   }
 ]

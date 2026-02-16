@@ -92,7 +92,7 @@ host_prefix  = 23
 #------------------------------------------------------------------------------
 
 private_cluster      = true # Typically matches first cluster's config
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 2 # Smaller for dev/test second cluster
 
 #------------------------------------------------------------------------------

@@ -393,7 +393,7 @@ variable "existing_public_subnet_ids" {
 variable "compute_machine_type" {
   type        = string
   description = "EC2 instance type for worker nodes."
-  default     = "m5.xlarge"
+  default     = "m6i.xlarge"
 }
 
 variable "worker_node_count" {
@@ -1090,7 +1090,7 @@ variable "machine_pools" {
     Examples in docs/MACHINE-POOLS.md:
     - GPU pools (NVIDIA g4dn, p3)
     - GPU Spot pools (cost-effective ML/batch workloads)
-    - Bare metal pools (m5.metal for OpenShift Virtualization)
+    - Bare metal pools (m6i.metal for OpenShift Virtualization)
     - ARM/Graviton pools (m6g, m7g for cost optimization)
     - High memory pools (r5, x2idn)
   EOT

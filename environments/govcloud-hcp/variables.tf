@@ -289,7 +289,7 @@ variable "host_prefix" {
 variable "compute_machine_type" {
   type        = string
   description = "EC2 instance type for worker nodes."
-  default     = "m5.xlarge"
+  default     = "m6i.xlarge"
 }
 
 variable "worker_node_count" {
@@ -593,7 +593,7 @@ variable "machine_pools" {
     
     Examples in docs/MACHINE-POOLS.md:
     - GPU pools (NVIDIA)
-    - Bare metal pools (m5.metal for OpenShift Virtualization)
+    - Bare metal pools (m6i.metal for OpenShift Virtualization)
     - ARM/Graviton pools (m6g, m7g - check GovCloud availability)
     - High memory pools (r5, x2idn)
     
@@ -862,7 +862,7 @@ variable "monitoring_loki_size" {
     - 1x.medium: Medium production (~8 vCPU, 16GB per component)
     
     IMPORTANT: 1x.small and larger require significant cluster resources.
-    For dev environments with m5.xlarge nodes, use 1x.extra-small.
+    For dev environments with m6i.xlarge nodes, use 1x.extra-small.
   EOT
   default     = "1x.extra-small"
 }

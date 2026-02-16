@@ -41,7 +41,7 @@ multi_az = false # Single AZ, single NAT
 #------------------------------------------------------------------------------
 
 private_cluster      = false
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 2
 
 #------------------------------------------------------------------------------
@@ -194,7 +194,7 @@ machine_pools = []
 #   # Bare Metal Pool - for OpenShift Virtualization (when enable_layer_virtualization = true)
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m5.metal"  # or c5.metal, m5zn.metal
+#   #   instance_type = "m6i.metal"  # or c5.metal, m5zn.metal
 #   #   replicas      = 2
 #   #   labels = {
 #   #     "node-role.kubernetes.io/metal" = ""
@@ -239,7 +239,7 @@ machine_pools = []
 # machine_pools = [
 #   {
 #     name          = "workers"
-#     instance_type = "m5.xlarge"
+#     instance_type = "m6i.xlarge"
 #     autoscaling   = { enabled = true, min = 2, max = 10 }
 #   }
 # ]

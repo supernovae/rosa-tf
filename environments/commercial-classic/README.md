@@ -145,7 +145,7 @@ ROSA Classic runs all nodes (control plane, infra, workers) in your AWS account.
 | NAT Gateway | ~$32/mo | ~$96/mo |
 | **Total Estimate** | **~$1,330/mo** | **~$1,820/mo** |
 
-*EC2: m5.xlarge ~$140/mo, r5.xlarge ~$182/mo. OpenShift fee ~$0.171/hr per 4 vCPUs (workers only, not CP/infra).*
+*EC2: m6i.xlarge ~$140/mo, r5.xlarge ~$182/mo. OpenShift fee ~$0.171/hr per 4 vCPUs (workers only, not CP/infra).*
 
 **Cost Savings Options:**
 - **EC2 Reserved Instances**: Save up to 40-60% on EC2 costs with 1 or 3-year commitments
@@ -238,7 +238,7 @@ autoscaler_max_nodes_total = 100
 machine_pools = [
   {
     name          = "workers"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     autoscaling   = { enabled = true, min = 3, max = 20 }
   }
 ]

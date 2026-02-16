@@ -48,9 +48,9 @@ The `monitoring_loki_size` parameter controls resource allocation for all Loki c
 | Size | Use Case | Resources per Component | Minimum Cluster |
 |------|----------|------------------------|-----------------|
 | `1x.demo` | Demo/testing only | Minimal | 2 nodes |
-| `1x.extra-small` | Development (default) | ~2 vCPU, 4GB | 4 m5.xlarge nodes |
-| `1x.small` | Small production | ~4 vCPU, 8GB | 6+ m5.xlarge nodes |
-| `1x.medium` | Medium production | ~8 vCPU, 16GB | 8+ m5.2xlarge nodes |
+| `1x.extra-small` | Development (default) | ~2 vCPU, 4GB | 4 m6i.xlarge nodes |
+| `1x.small` | Small production | ~4 vCPU, 8GB | 6+ m6i.xlarge nodes |
+| `1x.medium` | Medium production | ~8 vCPU, 16GB | 8+ m6i.2xlarge nodes |
 
 ### Configuration
 

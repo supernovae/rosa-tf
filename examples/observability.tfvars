@@ -44,7 +44,7 @@ multi_az = false # Set true for production HA
 #------------------------------------------------------------------------------
 
 private_cluster      = false # Set true for private clusters
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3
 
 #------------------------------------------------------------------------------

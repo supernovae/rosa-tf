@@ -67,7 +67,7 @@ etcd_encryption  = false              # Only applies with custom cluster KMS
 # Compute: Smaller footprint
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 2 # Minimum for single-AZ
 worker_disk_size     = 300
 
@@ -214,7 +214,7 @@ machine_pools = []
 #   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m5.metal"
+#   #   instance_type = "m6i.metal"
 #   #   replicas      = 2
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints        = [{ key = "node-role.kubernetes.io/metal", value = "true", schedule_type = "NoSchedule" }]

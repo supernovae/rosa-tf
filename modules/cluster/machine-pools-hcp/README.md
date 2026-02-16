@@ -28,7 +28,7 @@ module "machine_pools" {
   machine_pools = [
     {
       name          = "compute"
-      instance_type = "m5.xlarge"
+      instance_type = "m6i.xlarge"
       replicas      = 3
     },
     {
@@ -54,7 +54,7 @@ Each machine pool can optionally have ECR policy attached for pulling images fro
 machine_pools = [
   {
     name              = "app-pool"
-    instance_type     = "m5.xlarge"
+    instance_type     = "m6i.xlarge"
     replicas          = 2
     attach_ecr_policy = true  # Enables ECR access for this pool
   }
@@ -135,7 +135,7 @@ machine_pools = [
   # General compute with autoscaling
   {
     name          = "compute"
-    instance_type = "m5.2xlarge"
+    instance_type = "m6i.2xlarge"
     labels        = { "workload-type" = "general" }
     autoscaling = {
       enabled = true

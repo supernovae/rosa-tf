@@ -45,7 +45,7 @@ module "oadp" {
 #   machine_pools = [
 #     {
 #       name          = "virt"
-#       instance_type = "m5.metal"
+#       instance_type = "m6i.metal"
 #       replicas      = 2
 #       labels        = { "node-role.kubernetes.io/virtualization" = "" }
 #       taints        = [{ key = "virtualization", value = "true", schedule_type = "NoSchedule" }]

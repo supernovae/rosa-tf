@@ -5,11 +5,11 @@
 # COPY this file to your environment and customize cluster_name, region, etc.
 #
 # What's different from dev.tfvars:
-#   - Bare metal machine pool (m5.metal) with taints
+#   - Bare metal machine pool (m6i.metal) with taints
 #   - virt_node_selector and virt_tolerations configured
 #   - enable_layer_virtualization = true
 #
-# Note: m5.metal instances are expensive (~$4.60/hour each)
+# Note: m6i.metal instances are expensive (~$4.60/hour each)
 #
 # Usage:
 #   cp examples/ocpvirtualization.tfvars environments/commercial-hcp/my-cluster.tfvars
@@ -45,7 +45,7 @@ multi_az = false # Set true for production HA
 #------------------------------------------------------------------------------
 
 private_cluster      = false # Set true for private clusters
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3
 
 #------------------------------------------------------------------------------
@@ -93,8 +93,8 @@ admin_username    = "cluster-admin"
 machine_pools = [
   {
     name          = "virt"
-    instance_type = "m5.metal" # Bare metal required for hardware virtualization
-    replicas      = 2          # Minimum 2 for live migration
+    instance_type = "m6i.metal" # Bare metal required for hardware virtualization
+    replicas      = 2           # Minimum 2 for live migration
     labels = {
       "node-role.kubernetes.io/virtualization" = ""
     }

@@ -50,8 +50,8 @@ availability_zones = null
 # Compute: Smaller footprint for dev
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m5.xlarge" # Or m5.large for smaller dev
-worker_node_count    = 2           # Minimum for single-AZ
+compute_machine_type = "m6i.xlarge" # Or m6i.large for smaller dev
+worker_node_count    = 2            # Minimum for single-AZ
 worker_disk_size     = 150
 
 #------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ machine_pools = []
 #   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m5.metal"
+#   #   instance_type = "m6i.metal"
 #   #   replicas      = 2
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints        = [{ key = "node-role.kubernetes.io/metal", value = "true", schedule_type = "NoSchedule" }]

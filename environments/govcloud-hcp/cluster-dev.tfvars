@@ -66,7 +66,7 @@ infra_kms_mode   = "create" # Terraform creates infrastructure KMS key
 # Note: FIPS, private, KMS are MANDATORY - not configurable
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m5.4xlarge"
+compute_machine_type = "m6i.4xlarge"
 worker_node_count    = 4
 
 #------------------------------------------------------------------------------
@@ -179,7 +179,7 @@ machine_pools = []
 #   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m5.metal"
+#   #   instance_type = "m6i.metal"
 #   #   replicas      = 2
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints = [{
@@ -212,7 +212,7 @@ machine_pools = []
 # machine_pools = [
 #   {
 #     name          = "workers"
-#     instance_type = "m5.xlarge"
+#     instance_type = "m6i.xlarge"
 #     autoscaling   = { enabled = true, min = 2, max = 10 }
 #   }
 # ]

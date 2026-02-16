@@ -307,7 +307,7 @@ variable "monitoring_loki_size" {
     - 1x.small: Small production (~4 vCPU, 8GB per component)
     - 1x.medium: Medium production (~8 vCPU, 16GB per component)
     
-    IMPORTANT: 1x.small requires significant cluster resources (6+ m5.xlarge nodes).
+    IMPORTANT: 1x.small requires significant cluster resources (6+ m6i.xlarge nodes).
     For dev environments, use 1x.extra-small.
   EOT
   default     = "1x.extra-small"
