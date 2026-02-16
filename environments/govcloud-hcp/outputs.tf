@@ -23,12 +23,12 @@ output "cluster_state" {
 
 output "cluster_api_url" {
   description = "URL of the OpenShift API server."
-  value       = module.rosa_cluster.api_url
+  value       = local.effective_api_url
 }
 
 output "cluster_console_url" {
   description = "URL of the OpenShift web console."
-  value       = module.rosa_cluster.console_url
+  value       = local.effective_console_url
 }
 
 output "cluster_version" {
@@ -267,8 +267,8 @@ output "cluster_summary" {
     multi_az          = local.effective_multi_az
     worker_nodes      = var.worker_node_count
     openshift_version = var.openshift_version
-    api_url           = module.rosa_cluster.api_url
-    console_url       = module.rosa_cluster.console_url
+    api_url           = local.effective_api_url
+    console_url       = local.effective_console_url
     managed_policies  = true
     etcd_encrypted    = true
   }
@@ -285,11 +285,11 @@ output "quickstart_commands" {
     ${var.create_jumphost ? "aws ssm start-session --target ${module.jumphost[0].instance_id} --region ${var.aws_region}" : "# Jump host not created - enable with create_jumphost = true"}
     
     # From jump host, login to cluster
-    oc login ${module.rosa_cluster.api_url} -u ${module.rosa_cluster.admin_username} -p $(terraform output -raw cluster_admin_password)
+    oc login ${local.effective_api_url} -u ${module.rosa_cluster.admin_username} -p $(terraform output -raw cluster_admin_password)
     
     # GovCloud Console
     # Note: Access requires VPN or jump host due to private cluster
-    # Console URL: ${module.rosa_cluster.console_url}
+    # Console URL: ${local.effective_console_url}
     
     ${var.create_client_vpn ? "# Download VPN config\naws ec2 export-client-vpn-client-configuration --client-vpn-endpoint-id ${module.client_vpn[0].vpn_endpoint_id} --output text > vpn-config.ovpn" : "# VPN not created - enable with create_client_vpn = true"}
     

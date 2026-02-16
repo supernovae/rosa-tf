@@ -9,12 +9,12 @@ output "cluster_id" {
 
 output "cluster_api_url" {
   description = "URL of the OpenShift API server."
-  value       = module.rosa_cluster.api_url
+  value       = local.effective_api_url
 }
 
 output "cluster_console_url" {
   description = "URL of the OpenShift web console."
-  value       = module.rosa_cluster.console_url
+  value       = local.effective_console_url
 }
 
 output "cluster_domain" {
@@ -340,8 +340,8 @@ output "connection_info" {
     ROSA Classic Cluster: ${var.cluster_name}
     ================================================================================
     
-    Cluster API:     ${module.rosa_cluster.api_url}
-    Console URL:     ${module.rosa_cluster.console_url}
+    Cluster API:     ${local.effective_api_url}
+    Console URL:     ${local.effective_console_url}
     Cluster Domain:  ${module.rosa_cluster.domain}
     
     ${var.create_jumphost ? "Jump Host ID:    ${module.jumphost[0].instance_id}" : "Jump Host:       Not created"}
