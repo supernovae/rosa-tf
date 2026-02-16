@@ -368,3 +368,32 @@ output "s3_buckets_requiring_manual_cleanup" {
   EOT
   value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].s3_buckets_requiring_manual_cleanup : []
 }
+
+#------------------------------------------------------------------------------
+# Cert-Manager DNS Delegation
+#
+# When certmanager_create_hosted_zone = true, these outputs provide the
+# information needed to delegate DNS from your domain registrar.
+# See modules/gitops-layers/certmanager/README.md for the full walkthrough.
+#------------------------------------------------------------------------------
+
+output "certmanager_hosted_zone_nameservers" {
+  description = <<-EOT
+    Route53 nameservers for the cert-manager hosted zone.
+    
+    After first apply, update your domain registrar to use these nameservers.
+    Once DNS propagates, cert-manager will issue certificates automatically.
+    
+    See: modules/gitops-layers/certmanager/README.md#dns-delegation
+  EOT
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_nameservers : []
+}
+
+output "certmanager_dnssec_ds_record" {
+  description = <<-EOT
+    DNSSEC DS record to add to your domain registrar (optional).
+    Completes the DNSSEC chain of trust. Not required for cert-manager
+    to work, but recommended for DNS spoofing protection.
+  EOT
+  value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_dnssec_ds_record : ""
+}
