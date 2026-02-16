@@ -163,18 +163,20 @@ In air-gapped or restricted networks, `terraform init` cannot reach the public T
 
 All modules in this framework use **local paths** (no external registry modules). Only the Terraform **providers** need to be mirrored:
 
-| Provider | Source | Pinned Version |
-|----------|--------|----------------|
-| aws | `hashicorp/aws` | 6.28.0+ |
-| rhcs | `terraform-redhat/rhcs` | 1.7.2 |
-| external | `hashicorp/external` | 2.3.5 |
-| null | `hashicorp/null` | 3.2.4 |
-| time | `hashicorp/time` | 0.13.1 |
-| random | `hashicorp/random` | 3.8.1 |
-| tls | `hashicorp/tls` | 4.2.1 |
-| local | `hashicorp/local` | 2.6.2 |
+| Provider | Source | Min Lock Version | Used For |
+|----------|--------|------------------|----------|
+| aws | `hashicorp/aws` | 6.28.0 | VPC, IAM, Route53, S3, KMS |
+| rhcs | `terraform-redhat/rhcs` | 1.7.2 | ROSA cluster lifecycle via OCM API |
+| kubernetes | `hashicorp/kubernetes` | 3.0.1 | Namespaces, ServiceAccounts, Secrets, ConfigMaps |
+| kubectl | `alekc/kubectl` | 2.1.3 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
+| external | `hashicorp/external` | 2.3.5 | OAuth token retrieval (bootstrap only) |
+| null | `hashicorp/null` | 3.2.4 | Validation preconditions |
+| time | `hashicorp/time` | 0.13.1 | Operator readiness waits |
+| random | `hashicorp/random` | 3.8.1 | Password generation, unique suffixes |
+| tls | `hashicorp/tls` | 4.2.0 | VPN certificate generation |
+| local | `hashicorp/local` | 2.6.2 | VPN config file output |
 
-> **Note:** Pinned versions are from the committed `.terraform.lock.hcl` files. These lock files contain cryptographic hashes for integrity verification and should be preserved in your fork.
+> **Note:** Versions shown are the minimum found across committed `.terraform.lock.hcl` files. Lock files contain cryptographic hashes for integrity verification and should be preserved in your fork. Individual environments may pin newer patch versions -- always run `terraform providers` to see the exact versions for your environment.
 
 ### Step 1: Mirror Providers (Internet-Connected Machine)
 
@@ -195,9 +197,12 @@ This creates a directory structure like:
 ```
 provider-mirror/
 ├── registry.terraform.io/
+│   ├── alekc/
+│   │   └── kubectl/
 │   ├── hashicorp/
 │   │   ├── aws/
 │   │   ├── external/
+│   │   ├── kubernetes/
 │   │   ├── local/
 │   │   ├── null/
 │   │   ├── random/
@@ -264,6 +269,41 @@ When upgrading provider versions:
 3. Transfer updated providers to the air-gapped environment
 4. Run `terraform init -upgrade` to update lock files
 5. Commit updated `.terraform.lock.hcl` files
+
+### Verifying Your Provider Inventory
+
+Use these commands to audit which providers and versions are in use. This is useful after upgrades or when preparing a vendor mirror for a new environment.
+
+**List providers for a specific environment:**
+
+```bash
+cd environments/govcloud-classic
+terraform providers
+```
+
+**Audit pinned versions across all environments from lock files:**
+
+```bash
+# Extract provider versions from all lock files
+for lockfile in environments/*/.terraform.lock.hcl; do
+  echo "=== $(dirname "$lockfile") ==="
+  grep -A1 'provider "' "$lockfile" | grep -E 'provider|version' | paste - - | \
+    sed 's/.*provider "//;s/".*//' | while read -r provider; do
+      version=$(grep -A2 "provider \"$provider\"" "$lockfile" | grep 'version' | head -1 | sed 's/.*= "//;s/"//')
+      printf "  %-40s %s\n" "$provider" "$version"
+    done
+done
+```
+
+**Quick check -- compare lock file providers to this table:**
+
+```bash
+# List all unique providers from lock files
+grep 'provider "' environments/*/.terraform.lock.hcl | \
+  sed 's/.*provider "//;s/".*//' | sort -u
+```
+
+If the output includes providers not listed in the table above, update the table and re-run `terraform providers mirror` to include them in your vendor mirror.
 
 ---
 

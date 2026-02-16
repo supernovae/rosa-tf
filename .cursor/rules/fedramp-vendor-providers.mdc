@@ -1,0 +1,48 @@
+---
+description: Keep FedRAMP vendor provider table in sync with actual provider usage
+globs: docs/FEDRAMP.md, **/versions.tf, **/.terraform.lock.hcl
+alwaysApply: false
+---
+
+# FedRAMP Vendor Provider Table
+
+The "Vendor Terraform Providers" section in `docs/FEDRAMP.md` contains a table of all providers that must be mirrored for air-gapped/FedRAMP deployments. This table MUST stay current.
+
+## When to Update
+
+Update the table and mirror directory tree in `docs/FEDRAMP.md` whenever:
+
+- A new provider is added to any `versions.tf` file
+- A provider is removed from all `versions.tf` files
+- A provider version is bumped in `.terraform.lock.hcl` files (update the min version)
+- The `alekc/kubectl` or `hashicorp/kubernetes` providers are modified (these were added during the GitOps refactor and are easy to forget)
+
+## Table Location
+
+The provider table is in `docs/FEDRAMP.md` under the heading `### Required Providers`. It has these columns:
+
+| Provider | Source | Min Lock Version | Used For |
+
+The "Min Lock Version" should reflect the **lowest** version pinned across any committed `.terraform.lock.hcl` file.
+
+## Mirror Directory Tree
+
+Immediately below the mirror command in `docs/FEDRAMP.md`, there is an example directory tree showing the expected vendor layout. When adding or removing providers, update this tree to match.
+
+## Key Providers to Track
+
+- `hashicorp/aws` -- used in nearly every module
+- `terraform-redhat/rhcs` -- ROSA cluster management, version varies between classic (>= 1.6.7) and HCP (>= 1.6.3)
+- `hashicorp/kubernetes` -- GitOps layers (namespaces, service accounts, secrets)
+- `alekc/kubectl` -- GitOps layers (CRD-based manifests: Subscriptions, ArgoCD, LokiStack)
+- `hashicorp/external` -- OAuth token retrieval script (cluster-auth bootstrap)
+
+## Verification
+
+After changes, remind the user to verify with:
+
+```bash
+grep 'provider "' environments/*/.terraform.lock.hcl | sed 's/.*provider "//;s/".*//' | sort -u
+```
+
+The output should match the providers listed in the FEDRAMP.md table.
