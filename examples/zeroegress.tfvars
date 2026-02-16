@@ -62,7 +62,7 @@ private_cluster = true # <-- Required for zero egress
 # Cluster Configuration
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3
 
 #------------------------------------------------------------------------------

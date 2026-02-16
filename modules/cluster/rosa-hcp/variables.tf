@@ -152,7 +152,7 @@ variable "skip_version_drift_check" {
 variable "compute_machine_type" {
   type        = string
   description = "EC2 instance type for default machine pool."
-  default     = "m5.xlarge"
+  default     = "m6i.xlarge"
 }
 
 variable "replicas" {

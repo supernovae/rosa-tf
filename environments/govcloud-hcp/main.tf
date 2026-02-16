@@ -132,7 +132,7 @@ data "aws_availability_zones" "available" {
 data "aws_ec2_instance_type_offerings" "available" {
   filter {
     name   = "instance-type"
-    values = ["m5.xlarge"] # Standard ROSA worker type
+    values = ["m6i.xlarge"] # Standard ROSA worker type
   }
 
   filter {

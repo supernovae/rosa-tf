@@ -37,7 +37,7 @@ Pools are defined using the `machine_pools` variable -- a list of pool objects. 
 machine_pools = [
   {
     name          = "batch-workers"
-    instance_type = "m5.2xlarge"
+    instance_type = "m6i.2xlarge"
     autoscaling   = { enabled = true, min = 2, max = 10 }
     labels        = { "workload-type" = "batch", "team" = "data-engineering" }
     taints        = [{ key = "workload-type", value = "batch", schedule_type = "NoSchedule" }]
@@ -70,7 +70,7 @@ machine_pools = [
 machine_pools = [
   {
     name          = "virt"
-    instance_type = "m5.metal"
+    instance_type = "m6i.metal"
     replicas      = 2
     labels        = { "node-role.kubernetes.io/virtualization" = "" }
     taints        = [{ key = "virtualization", value = "true", schedule_type = "NoSchedule" }]

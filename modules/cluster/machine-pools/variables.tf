@@ -27,7 +27,7 @@ variable "cluster_id" {
 #     },
 #     {
 #       name          = "metal"
-#       instance_type = "m5.metal"
+#       instance_type = "m6i.metal"
 #       replicas      = 2
 #       labels        = { "node-role.kubernetes.io/metal" = "" }
 #     }

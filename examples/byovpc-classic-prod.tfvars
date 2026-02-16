@@ -76,7 +76,7 @@ host_prefix  = 23
 
 private_cluster      = true  # Private API/ingress for production
 fips                 = false # Set true if FedRAMP required
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3 # Minimum 3 for multi-AZ HA (1 per AZ)
 worker_disk_size     = 300
 multi_az             = true # Ignored in BYO-VPC (inferred from 3 subnets)

@@ -102,7 +102,7 @@ ECR access is **NOT managed at the account role level** for HCP. Instead:
 machine_pools = [
   {
     name              = "app-pool"
-    instance_type     = "m5.xlarge"
+    instance_type     = "m6i.xlarge"
     replicas          = 2
     attach_ecr_policy = true  # Attach ECR policy to this pool only
   }

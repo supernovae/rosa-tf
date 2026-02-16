@@ -42,7 +42,7 @@ multi_az = true # 3 AZs, NAT per AZ for HA
 #------------------------------------------------------------------------------
 
 private_cluster      = true
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3
 
 #------------------------------------------------------------------------------
@@ -151,7 +151,7 @@ machine_pools = []
 #   # General worker pool with autoscaling
 #   # {
 #   #   name          = "workers"
-#   #   instance_type = "m5.xlarge"
+#   #   instance_type = "m6i.xlarge"
 #   #   autoscaling   = { enabled = true, min = 2, max = 6 }
 #   # },
 #   #
@@ -182,7 +182,7 @@ machine_pools = []
 #   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m5.metal"
+#   #   instance_type = "m6i.metal"
 #   #   replicas      = 3
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints = [{
@@ -227,7 +227,7 @@ autoscaler_max_nodes_total = 100
 # machine_pools = [
 #   {
 #     name          = "workers"
-#     instance_type = "m5.xlarge"
+#     instance_type = "m6i.xlarge"
 #     autoscaling   = { enabled = true, min = 3, max = 20 }
 #   }
 # ]

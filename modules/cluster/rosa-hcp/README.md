@@ -41,7 +41,7 @@ module "rosa_cluster" {
   channel_group     = "stable"
 
   # Compute
-  compute_machine_type = "m5.xlarge"
+  compute_machine_type = "m6i.xlarge"
   replicas             = 3
 
   # Security
@@ -74,7 +74,7 @@ module "rosa_cluster" {
 | operator_role_prefix | Operator role prefix | string | n/a | yes |
 | openshift_version | OpenShift version | string | n/a | yes |
 | channel_group | Update channel | string | "stable" | no |
-| compute_machine_type | Instance type | string | "m5.xlarge" | no |
+| compute_machine_type | Instance type | string | "m6i.xlarge" | no |
 | replicas | Worker count | number | 2 | no |
 | private_cluster | Private cluster | bool | false | no |
 | etcd_encryption | Enable etcd encryption | bool | true | no |

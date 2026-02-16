@@ -72,7 +72,7 @@ kms_key_deletion_window = 30
 # Compute: Production sizing
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m5.xlarge"
+compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3 # 1 per AZ minimum
 worker_disk_size     = 300
 
@@ -197,7 +197,7 @@ machine_pools = []
 #   # General worker pool with autoscaling
 #   # {
 #   #   name          = "workers"
-#   #   instance_type = "m5.xlarge"
+#   #   instance_type = "m6i.xlarge"
 #   #   autoscaling   = { enabled = true, min = 2, max = 6 }
 #   # },
 #   #
@@ -229,7 +229,7 @@ machine_pools = []
 #   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m5.metal"
+#   #   instance_type = "m6i.metal"
 #   #   replicas      = 3
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints        = [{ key = "node-role.kubernetes.io/metal", value = "true", schedule_type = "NoSchedule" }]

@@ -58,7 +58,7 @@ Bare metal nodes for OpenShift Virtualization (KubeVirt).
 machine_pools = [
   {
     name          = "virt"
-    instance_type = "m5.metal"
+    instance_type = "m6i.metal"
     replicas      = 2
     labels        = { "node-role.kubernetes.io/virtualization" = "" }
     taints        = [{ key = "virtualization", value = "true", schedule_type = "NoSchedule" }]
@@ -195,14 +195,14 @@ To have both monitoring AND virtualization on dedicated nodes:
 machine_pools = [
   {
     name          = "monitoring"
-    instance_type = "m5.4xlarge"
+    instance_type = "m6i.4xlarge"
     replicas      = 3
     labels        = { "node-role.kubernetes.io/monitoring" = "" }
     taints        = [{ key = "workload", value = "monitoring", schedule_type = "NoSchedule" }]
   },
   {
     name          = "virt"
-    instance_type = "m5.metal"
+    instance_type = "m6i.metal"
     replicas      = 2
     labels        = { "node-role.kubernetes.io/virtualization" = "" }
     taints        = [{ key = "virtualization", value = "true", schedule_type = "NoSchedule" }]
@@ -237,10 +237,10 @@ create_client_vpn = true
 
 | Configuration | Instance Types | Monthly Cost (approx) |
 |--------------|----------------|----------------------|
-| Base cluster (3 workers) | 3x m5.xlarge | ~$500 |
-| Zero egress (no NAT) | 3x m5.xlarge | ~$400 (no NAT costs) |
-| + Monitoring pool | 3x m5.4xlarge | +$1,500 |
-| + Virtualization pool | 2x m5.metal | +$6,700 |
+| Base cluster (3 workers) | 3x m6i.xlarge | ~$500 |
+| Zero egress (no NAT) | 3x m6i.xlarge | ~$400 (no NAT costs) |
+| + Monitoring pool | 3x m6i.4xlarge | +$1,500 |
+| + Virtualization pool | 2x m6i.metal | +$6,700 |
 | + VPN (Client VPN) | per connection | ~$75 + $0.10/hr |
 
 ## Zero Egress Notes

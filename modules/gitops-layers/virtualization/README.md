@@ -10,7 +10,7 @@ Add a bare metal machine pool in your tfvars:
 machine_pools = [
   {
     name          = "virt"
-    instance_type = "m5.metal"    # Bare metal required
+    instance_type = "m6i.metal"    # Bare metal required
     replicas      = 2
     labels = {
       "node-role.kubernetes.io/virtualization" = ""
@@ -41,7 +41,7 @@ See `examples/ocpvirtualization.tfvars` for a complete working example.
 
 | Type | vCPU | Memory | Monthly Cost (approx) |
 |------|------|--------|----------------------|
-| m5.metal | 96 | 384 GB | ~$3,350 |
+| m6i.metal | 96 | 384 GB | ~$3,350 |
 | m5zn.metal | 48 | 192 GB | ~$2,400 |
 | r5.metal | 96 | 768 GB | ~$4,800 |
 | c5.metal | 96 | 192 GB | ~$3,100 |

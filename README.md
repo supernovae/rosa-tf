@@ -481,23 +481,23 @@ Classic clusters run control plane and infrastructure nodes in your account:
 
 | Configuration | Control Plane | Infra Nodes | Workers | Total Nodes |
 |---------------|---------------|-------------|---------|-------------|
-| Single-AZ (dev) | 3x m5.xlarge | 2x r5.xlarge | 2x m5.xlarge | **7 nodes** |
-| Multi-AZ (prod) | 3x m5.xlarge | 3x r5.xlarge | 3x m5.xlarge | **9 nodes** |
+| Single-AZ (dev) | 3x m6i.xlarge | 2x r5.xlarge | 2x m6i.xlarge | **7 nodes** |
+| Multi-AZ (prod) | 3x m6i.xlarge | 3x r5.xlarge | 3x m6i.xlarge | **9 nodes** |
 
 **Classic Single-AZ Cost Breakdown (~$1,100/mo):**
 | Component | Instances | Cost |
 |-----------|-----------|------|
-| Control Plane | 3x m5.xlarge | ~$420/mo |
+| Control Plane | 3x m6i.xlarge | ~$420/mo |
 | Infra Nodes | 2x r5.xlarge | ~$370/mo |
-| Workers | 2x m5.xlarge | ~$280/mo |
+| Workers | 2x m6i.xlarge | ~$280/mo |
 | NAT Gateway | 1x | ~$35/mo |
 
 **Classic Multi-AZ Cost Breakdown (~$1,500/mo):**
 | Component | Instances | Cost |
 |-----------|-----------|------|
-| Control Plane | 3x m5.xlarge | ~$420/mo |
+| Control Plane | 3x m6i.xlarge | ~$420/mo |
 | Infra Nodes | 3x r5.xlarge | ~$550/mo |
-| Workers | 3x m5.xlarge | ~$420/mo |
+| Workers | 3x m6i.xlarge | ~$420/mo |
 | NAT Gateways | 3x (1 per AZ) | ~$100/mo |
 
 ### ROSA HCP Architecture
@@ -507,14 +507,14 @@ HCP control plane is always multi-AZ (managed by Red Hat). You only pay for work
 | Component | Default |
 |-----------|---------|
 | Control Plane | Red Hat managed (multi-AZ) |
-| Workers | 2x m5.xlarge |
+| Workers | 2x m6i.xlarge |
 | Total in Account | **2 nodes** |
 
 **HCP Default Cost Breakdown (~$440/mo):**
 | Component | Cost |
 |-----------|------|
 | HCP Control Plane Fee | ~$125/mo |
-| Workers (2x m5.xlarge) | ~$280/mo |
+| Workers (2x m6i.xlarge) | ~$280/mo |
 | NAT Gateway | ~$35/mo |
 
 > **Note:** Scale workers based on workload needs. Add NAT gateways for multi-AZ VPC (~$65/mo more).

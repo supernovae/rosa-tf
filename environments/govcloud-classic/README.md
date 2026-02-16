@@ -153,7 +153,7 @@ Common customizations:
 
 ```hcl
 # Larger workers for production workloads
-compute_machine_type = "m5.2xlarge"
+compute_machine_type = "m6i.2xlarge"
 worker_node_count    = 6
 
 # Custom VPC CIDR (for peering/TGW integration)
@@ -220,7 +220,7 @@ autoscaler_max_nodes_total = 100
 machine_pools = [
   {
     name          = "workers"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     autoscaling   = { enabled = true, min = 3, max = 20 }
   }
 ]

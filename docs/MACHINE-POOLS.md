@@ -10,7 +10,7 @@ Machine pools are configured using a generic list in your `tfvars` file. Each po
 machine_pools = [
   {
     name          = "pool-name"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     replicas      = 2
     # ... additional configuration
   }
@@ -166,7 +166,7 @@ Required for running VMs using OpenShift Virtualization (KubeVirt).
 ```hcl
 {
   name          = "metal"
-  instance_type = "m5.metal"       # Or c5.metal, m5zn.metal
+  instance_type = "m6i.metal"       # Or c5.metal, m5zn.metal
   replicas      = 3                # Minimum 3 for production
   labels = {
     "node-role.kubernetes.io/metal" = ""
@@ -184,7 +184,7 @@ Required for running VMs using OpenShift Virtualization (KubeVirt).
 When using `enable_layer_virtualization = true`, ensure you have a bare metal pool configured.
 
 **Available bare metal instances:**
-- `m5.metal` - General purpose (96 vCPU, 384 GB RAM)
+- `m6i.metal` - General purpose (96 vCPU, 384 GB RAM)
 - `c5.metal` - Compute optimized (96 vCPU, 192 GB RAM)
 - `m5zn.metal` - High frequency (48 vCPU, 192 GB RAM)
 - `r5.metal` - Memory optimized (96 vCPU, 768 GB RAM)
@@ -251,7 +251,7 @@ Additional capacity with automatic scaling based on demand.
 ```hcl
 {
   name          = "workers"
-  instance_type = "m5.xlarge"
+  instance_type = "m6i.xlarge"
   autoscaling   = { enabled = true, min = 2, max = 10 }
 }
 ```
@@ -281,7 +281,7 @@ Additional capacity with automatic scaling based on demand.
 ```hcl
 {
   name = "dedicated-team-a"
-  instance_type = "m5.xlarge"
+  instance_type = "m6i.xlarge"
   replicas = 3
   labels = {
     "team" = "team-a"

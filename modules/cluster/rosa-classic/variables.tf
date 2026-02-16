@@ -93,7 +93,7 @@ variable "host_prefix" {
 variable "compute_machine_type" {
   type        = string
   description = "EC2 instance type for worker nodes."
-  default     = "m5.xlarge"
+  default     = "m6i.xlarge"
 }
 
 variable "worker_node_count" {

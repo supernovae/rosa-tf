@@ -194,7 +194,7 @@ machine_pools = [
   # Autoscaling Pool
   {
     name        = "workers"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     autoscaling = { enabled = true, min = 2, max = 10 }
   }
 ]
@@ -241,7 +241,7 @@ autoscaler_max_nodes_total = 100
 machine_pools = [
   {
     name          = "workers"
-    instance_type = "m5.xlarge"
+    instance_type = "m6i.xlarge"
     autoscaling   = { enabled = true, min = 3, max = 20 }
   }
 ]
@@ -290,13 +290,13 @@ HCP control plane is managed by Red Hat - you only pay for worker nodes plus fee
 
 | Component | Base (2 workers) |
 |-----------|------------------|
-| EC2 Workers (2x m5.xlarge) | ~$280/mo |
+| EC2 Workers (2x m6i.xlarge) | ~$280/mo |
 | OpenShift Fee (workers) | ~$250/mo |
 | HCP Control Plane Fee | ~$180/mo |
 | NAT Gateway | ~$32/mo |
 | **Total Estimate** | **~$740/mo** |
 
-*EC2: m5.xlarge ~$140/mo. OpenShift fee ~$0.171/hr per 4 vCPUs. HCP CP fee ~$0.25/hr. Scales with workers.*
+*EC2: m6i.xlarge ~$140/mo. OpenShift fee ~$0.171/hr per 4 vCPUs. HCP CP fee ~$0.25/hr. Scales with workers.*
 
 **Cost Savings Options:**
 - **EC2 Reserved Instances**: Save up to 40-60% on worker EC2 costs with 1 or 3-year commitments
@@ -331,7 +331,7 @@ aws_region   = "eu-west-1"
 # Your specific configuration
 multi_az           = true
 worker_node_count  = 4
-compute_machine_type = "m5.2xlarge"
+compute_machine_type = "m6i.2xlarge"
 ```
 
 Apply:
