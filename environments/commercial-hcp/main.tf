@@ -70,11 +70,6 @@ provider "kubernetes" {
   host     = local.effective_k8s_host
   token    = local.effective_k8s_token
   insecure = true
-
-  # Suppress all kubeconfig file loading so the provider only uses
-  # the explicit host/token above (not ~/.kube/config or KUBECONFIG env).
-  config_paths   = []
-  config_context = ""
 }
 
 provider "kubectl" {
@@ -177,15 +172,16 @@ locals {
   # HCP clusters have full control over openshift-monitoring namespace
   cluster_type = "hcp"
 
-  # RHCS provider may leave api_url/console_url empty in some versions.
-  # Derive from the domain (always populated) as a safety net.
+  # Derive API/console URLs from the cluster domain (always populated).
+  # The RHCS provider may leave api_url/console_url empty in some versions.
+  # Deriving from domain is deterministic and reliable.
   # ROSA API URLs follow the pattern: https://api.<domain>:6443
-  effective_api_url     = coalesce(module.rosa_cluster.api_url, "https://api.${module.rosa_cluster.domain}:6443")
-  effective_console_url = coalesce(module.rosa_cluster.console_url, "https://console-openshift-console.apps.${module.rosa_cluster.domain}")
+  effective_api_url     = "https://api.${module.rosa_cluster.domain}:6443"
+  effective_console_url = "https://console-openshift-console.apps.${module.rosa_cluster.domain}"
 
   # Kubernetes provider host: cluster API when gitops enabled, dummy otherwise.
   # With two-phase deployment, Phase 1 always has install_gitops=false (localhost)
-  # and Phase 2 always has the cluster in state (api_url is known).
+  # and Phase 2 always has the cluster in state (domain is known).
   effective_k8s_host = var.install_gitops ? local.effective_api_url : "https://localhost"
 
   # Kubernetes provider token: SA token (steady state) or OAuth token (bootstrap)
