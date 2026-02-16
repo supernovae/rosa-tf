@@ -35,7 +35,7 @@ cd rosa-tf
 git checkout $(git describe --tags --abbrev=0)
 ```
 
-> **Tip:** Pin to a tagged release for stability. Check [Releases](https://github.com/supernovae/rosa-tf/releases) for the latest version. Use `git tag -l` to list available tags, or pin a specific version with `git checkout v1.2.0`.
+> **Tip:** Pin to a tagged release for stability. Check [Releases](https://github.com/supernovae/rosa-tf/releases) for the latest version. Use `git tag -l` to list available tags, or pin a specific version with `git checkout v1.1.0`.
 
 ## Quick Start
 
