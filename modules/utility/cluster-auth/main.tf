@@ -1,19 +1,24 @@
 #------------------------------------------------------------------------------
-# Cluster Auth Module
+# Cluster Auth Module -- Bootstrap Only
 #
-# Obtains an OAuth bearer token for OpenShift cluster authentication.
-# Supports multiple authentication methods:
+# Obtains an OAuth bearer token for the initial GitOps bootstrap (Phase 2).
+# This token is used ONCE to create the Terraform operator ServiceAccount
+# and its long-lived token. After bootstrap, subsequent Terraform runs
+# authenticate with the SA token (gitops_cluster_token) and this module
+# is no longer invoked.
 #
-# 1. htpasswd IDP (default): Uses username/password to get OAuth token
-# 2. User-provided token: Directly use a pre-obtained token
-# 3. Custom OAuth URL: Override for HCP external auth or older versions
+# Authentication methods (in priority order):
+#   1. User-provided token (gitops_cluster_token) -- skips OAuth entirely
+#   2. htpasswd IDP credentials -- uses OAuth ROPC flow to get bearer token
+#   3. Custom OAuth URL override -- for non-standard configurations
 #
-# IMPORTANT: This module requires:
-# 1. The cluster to be fully provisioned and accessible
-# 2. Either htpasswd IDP credentials OR a pre-provided token
-# 3. curl to be available on the system running Terraform
+# Once the SA token exists in state, the htpasswd IDP can be safely removed
+# or replaced with a production IDP (LDAP, OIDC, etc.) without affecting
+# Terraform operations. See OPERATIONS.md for token rotation guidance.
 #
-# The token obtained is short-lived and will be refreshed on each Terraform run.
+# Requirements:
+#   - Cluster must be fully provisioned and API-accessible
+#   - curl must be available on the system running Terraform
 #------------------------------------------------------------------------------
 
 locals {

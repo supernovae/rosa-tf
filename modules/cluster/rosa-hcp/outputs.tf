@@ -25,12 +25,12 @@ output "cluster_state" {
 
 output "api_url" {
   description = "API server URL."
-  value       = rhcs_cluster_rosa_hcp.this.api_url
+  value       = coalesce(data.rhcs_cluster_rosa_hcp.info.api_url, rhcs_cluster_rosa_hcp.this.api_url, "")
 }
 
 output "console_url" {
   description = "OpenShift console URL."
-  value       = rhcs_cluster_rosa_hcp.this.console_url
+  value       = coalesce(data.rhcs_cluster_rosa_hcp.info.console_url, rhcs_cluster_rosa_hcp.this.console_url, "")
 }
 
 output "domain" {
@@ -164,8 +164,8 @@ output "cluster_summary" {
     cluster_id                      = rhcs_cluster_rosa_hcp.this.id
     cluster_name                    = rhcs_cluster_rosa_hcp.this.name
     openshift_version               = rhcs_cluster_rosa_hcp.this.current_version
-    api_url                         = rhcs_cluster_rosa_hcp.this.api_url
-    console_url                     = rhcs_cluster_rosa_hcp.this.console_url
+    api_url                         = coalesce(data.rhcs_cluster_rosa_hcp.info.api_url, rhcs_cluster_rosa_hcp.this.api_url, "")
+    console_url                     = coalesce(data.rhcs_cluster_rosa_hcp.info.console_url, rhcs_cluster_rosa_hcp.this.console_url, "")
     private                         = rhcs_cluster_rosa_hcp.this.private
     zero_egress                     = var.zero_egress
     external_auth_providers_enabled = var.external_auth_providers_enabled

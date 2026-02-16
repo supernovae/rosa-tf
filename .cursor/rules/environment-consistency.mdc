@@ -53,8 +53,9 @@ The cluster tfvars MUST NOT duplicate gitops settings. The cluster tfvars MUST s
 - `outputs.tf`: Same output definitions
 - Module calls: Same variables passed to `module "gitops"`, `module "gitops_resources"`, etc.
 - Provider blocks: `kubernetes {}` and `kubectl {}` use the same `effective_k8s_host`/`effective_k8s_token` pattern
-- `effective_k8s_host` local: `var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"`
+- `effective_k8s_host` local: `var.install_gitops ? local.effective_api_url : "https://localhost"`
 - `effective_k8s_token` local: `var.gitops_cluster_token != null ? var.gitops_cluster_token : try(module.cluster_auth[0].token, "")`
+- `kubernetes` provider MUST include `config_path = "/dev/null"` to suppress `~/.kube/config` loading
 
 ## What MUST Be Identical (Tfvars Structure)
 
@@ -63,9 +64,44 @@ The cluster tfvars MUST NOT duplicate gitops settings. The cluster tfvars MUST s
 - `gitops-dev.tfvars` across environments: Same layer enable flags and config structure
 - Comments and section headers should be consistent across environments
 
+## Critical: Classic vs HCP Architecture Differences
+
+ROSA Classic and HCP have fundamental infrastructure differences that MUST be respected when editing environments. Getting these wrong causes silent failures (timeouts, unreachable endpoints).
+
+### API Port
+
+| Cluster Type | API URL Pattern | Port |
+|---|---|---|
+| Classic | `https://api.<domain>:6443` | **6443** |
+| HCP | `https://api.<domain>` | **443** (default HTTPS) |
+
+The `effective_api_url` local MUST use the correct port:
+- Classic: `"https://api.${module.rosa_cluster.domain}:6443"`
+- HCP: `"https://api.${module.rosa_cluster.domain}"` (no port suffix)
+
+**NEVER** hardcode `:6443` for HCP environments. HCP hosted control planes expose the API on port 443.
+
+### OAuth URL Pattern
+
+The `cluster-auth` module auto-discovers the OAuth URL via `.well-known/oauth-authorization-server`. If discovery fails, the fallback patterns differ:
+
+| Cluster Type | OAuth URL Pattern |
+|---|---|
+| Classic | `https://oauth-openshift.apps.<domain>` |
+| HCP | `https://oauth.<domain>` (hosted control plane) |
+
+The `get-token.sh` script probes both patterns automatically. Do NOT assume one pattern works for both.
+
+### Cluster Module Data Sources
+
+Both cluster modules (`rosa-classic` and `rosa-hcp`) use a post-creation data source to re-read cluster attributes after the `cluster_ready` wait. This ensures `api_url` and `console_url` are populated in state:
+- Classic: `data "rhcs_cluster_rosa_classic" "info"`
+- HCP: `data "rhcs_cluster_rosa_hcp" "info"`
+
 ## Allowed Differences
 
 - `locals { cluster_type }`: "classic" or "hcp"
+- `locals { effective_api_url }`: Classic uses `:6443`, HCP uses default HTTPS port (see above)
 - `provider "rhcs"`: Commercial uses `client_id`/`client_secret`; GovCloud uses `token`/`token_url`/`client_id`
 - `provider "aws" { default_tags }`: Different `Project` and optional `Compliance` tag
 - `rhcs` version pin: May differ between classic (>= 1.6.7) and hcp (>= 1.6.3)

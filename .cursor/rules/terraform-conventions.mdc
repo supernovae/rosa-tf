@@ -37,6 +37,27 @@ This prevents `terraform destroy` from failing when the cluster API is unreachab
 - Use `kubectl_manifest` (alekc/kubectl) for CRD-based resources (Subscriptions, OperatorGroups, CRs)
 - `kubectl_manifest` must set `server_side_apply = true` and `force_conflicts = true`
 
+### Kubernetes Provider Configuration
+
+The `kubernetes` provider MUST always include:
+
+```hcl
+provider "kubernetes" {
+  host        = local.effective_k8s_host
+  token       = local.effective_k8s_token
+  insecure    = true
+  config_path = "/dev/null"  # REQUIRED: suppress ~/.kube/config loading
+}
+```
+
+- `config_path = "/dev/null"` prevents the provider from loading the local kubeconfig, which can cause "default cluster has no server defined" errors when the kubeconfig has stale/broken contexts.
+- Do NOT set `config_paths` (plural) alongside `config_path` -- they conflict.
+- The `kubectl` provider uses `load_config_file = false` for the same purpose.
+
+### Bootstrap Authentication (cluster-auth module)
+
+The `cluster-auth` module obtains an OAuth token for the **initial** GitOps bootstrap only. After the first Phase 2 run creates the Terraform operator ServiceAccount, subsequent runs use `gitops_cluster_token` (the SA token) and the OAuth module is not invoked. The htpasswd IDP can then be safely removed or replaced with a production IDP.
+
 ## Templates
 
 - YAML templates live in `gitops-layers/layers/<layer-name>/` with `.yaml.tftpl` extension

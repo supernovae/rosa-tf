@@ -23,12 +23,12 @@ output "cluster_state" {
 
 output "cluster_api_url" {
   description = "URL of the OpenShift API server."
-  value       = module.rosa_cluster.api_url
+  value       = local.effective_api_url
 }
 
 output "cluster_console_url" {
   description = "URL of the OpenShift web console."
-  value       = module.rosa_cluster.console_url
+  value       = local.effective_console_url
 }
 
 output "cluster_version" {
@@ -240,8 +240,8 @@ output "cluster_summary" {
     multi_az          = local.effective_multi_az
     worker_nodes      = var.worker_node_count
     openshift_version = var.openshift_version
-    api_url           = module.rosa_cluster.api_url
-    console_url       = module.rosa_cluster.console_url
+    api_url           = local.effective_api_url
+    console_url       = local.effective_console_url
     managed_policies  = true
     etcd_encrypted    = var.etcd_encryption
     ecr_enabled       = var.create_ecr
@@ -256,10 +256,10 @@ output "quickstart_commands" {
   description = "Quick reference commands for cluster access."
   value       = <<-EOT
     # Login with cluster-admin
-    oc login ${module.rosa_cluster.api_url} -u ${module.rosa_cluster.admin_username} -p $(terraform output -raw cluster_admin_password)
+    oc login ${local.effective_api_url} -u ${module.rosa_cluster.admin_username} -p $(terraform output -raw cluster_admin_password)
     
     # Open console
-    open ${module.rosa_cluster.console_url}
+    open ${local.effective_console_url}
     
     ${var.create_jumphost ? "# Connect via SSM\naws ssm start-session --target ${module.jumphost[0].instance_id}" : "# Jump host not created"}
     

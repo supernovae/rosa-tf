@@ -1,5 +1,9 @@
 #!/bin/bash
-# OAuth token retrieval script for OpenShift
+# OAuth token retrieval for OpenShift -- bootstrap only
+#
+# Used ONCE during GitOps Phase 2 to obtain an OAuth bearer token so Terraform
+# can create the persistent ServiceAccount. After bootstrap, the SA token is
+# used directly and this script is no longer invoked.
 #
 # Input: JSON on stdin with keys: api_url, oauth_url (optional), username, password
 # Output: JSON with keys: token, authenticated, error
@@ -8,15 +12,16 @@
 # - curl must be available
 # - Cluster OAuth server must be reachable from the machine running Terraform
 #
-# OAuth URL Discovery:
-#   Standard OCP 4.x: https://oauth-openshift.apps.<cluster>.<domain>
-#   HCP External Auth: May vary - use: oc get route -n openshift-authentication
-#   Older versions: May have different routing
+# OAuth URL Discovery (automatic via .well-known endpoint):
+#   Classic: https://oauth-openshift.apps.<cluster>.<domain>
+#   HCP:     https://oauth.<cluster>.<domain> (hosted control plane)
+#
+# If .well-known discovery fails, both patterns are probed for connectivity
+# and the reachable one is used. You can also override via oauth_url input.
 #
 # Retry Logic:
-#   The OAuth server may be restarting after IDP configuration changes.
-#   This script retries token retrieval with exponential backoff to handle
-#   temporary unavailability during OAuth server restarts.
+#   Exponential backoff (10s -> 30s cap) for up to ~5 minutes.
+#   Handles temporary OAuth server unavailability during IDP reconciliation.
 #
 # NOTE: We intentionally do NOT use 'set -e' because we need to handle
 # errors gracefully and always output valid JSON to Terraform.
@@ -95,12 +100,13 @@ if [ -n "$OAUTH_URL_OVERRIDE" ]; then
   >&2 echo "Using provided OAuth URL: $OAUTH_URL"
 else
   # Auto-discover OAuth URL from the API's .well-known endpoint
-  # This works for both Classic and HCP:
-  #   Classic: https://oauth-openshift.apps.<cluster>.<domain>
-  #   HCP: https://oauth.<cluster>.<domain>:443
+  # This works for both Classic and HCP when the API is reachable:
+  #   Classic returns: https://oauth-openshift.apps.<cluster>.<domain>
+  #   HCP returns:     https://oauth.<cluster>.<domain>:443 (or similar)
   >&2 echo "Discovering OAuth URL from API..."
   
-  WELLKNOWN_RESPONSE=$(curl -sk --connect-timeout 10 "${API_URL}/.well-known/oauth-authorization-server" 2>/dev/null) || WELLKNOWN_RESPONSE=""
+  # -L follows redirects (HCP may redirect), --max-time caps total transfer
+  WELLKNOWN_RESPONSE=$(curl -skL --connect-timeout 15 --max-time 30 "${API_URL}/.well-known/oauth-authorization-server" 2>/dev/null) || WELLKNOWN_RESPONSE=""
   
   if [ -n "$WELLKNOWN_RESPONSE" ]; then
     >&2 echo "Well-known response received (length: ${#WELLKNOWN_RESPONSE})"
@@ -118,12 +124,33 @@ else
     >&2 echo "No well-known response from API"
   fi
   
-  # Fallback to Classic-style derivation if discovery failed
+  # Fallback: derive from API URL and probe both Classic and HCP patterns
   if [ -z "$OAUTH_URL" ]; then
-    >&2 echo "Discovery failed, falling back to Classic-style OAuth URL derivation..."
+    >&2 echo "Discovery failed, probing OAuth URL patterns..."
     CLUSTER_DOMAIN=$(echo "$API_URL" | sed 's|https://api\.||' | sed 's|:[0-9]*$||' | sed 's|/$||')
-    OAUTH_URL="https://oauth-openshift.apps.${CLUSTER_DOMAIN}"
-    >&2 echo "Derived OAuth URL: $OAUTH_URL"
+
+    # Classic pattern: oauth-openshift.apps.<domain>
+    CLASSIC_OAUTH="https://oauth-openshift.apps.${CLUSTER_DOMAIN}"
+    # HCP pattern: oauth.<domain> (control plane hosted by Red Hat)
+    HCP_OAUTH="https://oauth.${CLUSTER_DOMAIN}"
+
+    >&2 echo "Trying HCP pattern: $HCP_OAUTH"
+    if curl -skL --connect-timeout 5 --max-time 10 -o /dev/null -w '' "$HCP_OAUTH/healthz" 2>/dev/null || \
+       curl -skL --connect-timeout 5 --max-time 10 -o /dev/null -w '' "$HCP_OAUTH" 2>/dev/null; then
+      OAUTH_URL="$HCP_OAUTH"
+      >&2 echo "HCP OAuth reachable: $OAUTH_URL"
+    else
+      >&2 echo "HCP pattern not reachable, trying Classic pattern: $CLASSIC_OAUTH"
+      if curl -skL --connect-timeout 5 --max-time 10 -o /dev/null -w '' "$CLASSIC_OAUTH/healthz" 2>/dev/null || \
+         curl -skL --connect-timeout 5 --max-time 10 -o /dev/null -w '' "$CLASSIC_OAUTH" 2>/dev/null; then
+        OAUTH_URL="$CLASSIC_OAUTH"
+        >&2 echo "Classic OAuth reachable: $OAUTH_URL"
+      else
+        # Neither probed successfully -- default to Classic (original behavior)
+        OAUTH_URL="$CLASSIC_OAUTH"
+        >&2 echo "Neither pattern probed. Defaulting to Classic: $OAUTH_URL"
+      fi
+    fi
   fi
 fi
 
@@ -137,15 +164,17 @@ AUTH_BASE64=$(printf '%s:%s' "$USERNAME" "$PASSWORD" | base64 | tr -d '\n')
 
 # Function to attempt token retrieval
 attempt_token_retrieval() {
-  # Check if OAuth server is reachable
-  if ! curl -sk --connect-timeout 10 "$OAUTH_URL/healthz" > /dev/null 2>&1; then
-    if ! curl -sk --connect-timeout 10 -o /dev/null "$OAUTH_URL" 2>&1; then
+  # Check if OAuth server is reachable (-L follows redirects for HCP)
+  if ! curl -skL --connect-timeout 10 "$OAUTH_URL/healthz" > /dev/null 2>&1; then
+    if ! curl -skL --connect-timeout 10 -o /dev/null "$OAUTH_URL" 2>&1; then
       echo "oauth_not_reachable"
       return 1
     fi
   fi
 
   # Get token using the challenging client flow
+  # NOTE: Do NOT use -L here. The OAuth flow returns 302 with the token in
+  # the Location header. Following the redirect would lose the token.
   RESPONSE=$(curl -sk -i -X GET \
     -H "Authorization: Basic ${AUTH_BASE64}" \
     -H "X-CSRF-Token: 1" \

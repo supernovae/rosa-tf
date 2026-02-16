@@ -67,14 +67,10 @@ provider "rhcs" {
 # the provider exists but has no valid token, which is fine because no
 # kubernetes resources are created (all gated by count).
 provider "kubernetes" {
-  host     = local.effective_k8s_host
-  token    = local.effective_k8s_token
-  insecure = true
-
-  # Suppress all kubeconfig file loading so the provider only uses
-  # the explicit host/token above (not ~/.kube/config or KUBECONFIG env).
-  config_paths   = []
-  config_context = ""
+  host        = local.effective_k8s_host
+  token       = local.effective_k8s_token
+  insecure    = true
+  config_path = "/dev/null" # Suppress ~/.kube/config -- explicit host/token only
 }
 
 provider "kubectl" {
@@ -177,10 +173,17 @@ locals {
   # HCP clusters have full control over openshift-monitoring namespace
   cluster_type = "hcp"
 
+  # Derive API/console URLs from the cluster domain (always populated).
+  # The RHCS provider may leave api_url/console_url empty in some versions.
+  # Deriving from domain is deterministic and reliable.
+  # HCP API uses port 443 (standard HTTPS), Classic uses port 6443.
+  effective_api_url     = "https://api.${module.rosa_cluster.domain}"
+  effective_console_url = "https://console-openshift-console.apps.${module.rosa_cluster.domain}"
+
   # Kubernetes provider host: cluster API when gitops enabled, dummy otherwise.
   # With two-phase deployment, Phase 1 always has install_gitops=false (localhost)
-  # and Phase 2 always has the cluster in state (api_url is known).
-  effective_k8s_host = var.install_gitops ? module.rosa_cluster.api_url : "https://localhost"
+  # and Phase 2 always has the cluster in state (domain is known).
+  effective_k8s_host = var.install_gitops ? local.effective_api_url : "https://localhost"
 
   # Kubernetes provider token: SA token (steady state) or OAuth token (bootstrap)
   # Priority: gitops_cluster_token (from previous run) > cluster_auth OAuth > empty
@@ -625,8 +628,8 @@ module "jumphost" {
   subnet_id           = local.effective_private_subnet_ids[0]
   instance_type       = var.jumphost_instance_type
   ami_id              = var.jumphost_ami_id
-  cluster_api_url     = module.rosa_cluster.api_url
-  cluster_console_url = module.rosa_cluster.console_url
+  cluster_api_url     = local.effective_api_url
+  cluster_console_url = local.effective_console_url
   cluster_domain      = module.rosa_cluster.domain
 
   # Infrastructure KMS key for jump host encryption (null = use AWS default)
@@ -774,7 +777,7 @@ module "cluster_auth" {
   depends_on = [module.rosa_cluster]
 
   enabled       = var.install_gitops
-  api_url       = module.rosa_cluster.api_url
+  api_url       = local.effective_api_url
   oauth_url     = var.gitops_oauth_url != null ? var.gitops_oauth_url : ""
   cluster_token = var.gitops_cluster_token != null ? var.gitops_cluster_token : ""
   username      = module.rosa_cluster.admin_username
@@ -804,7 +807,7 @@ module "gitops" {
   ]
 
   cluster_name           = var.cluster_name
-  cluster_api_url        = module.rosa_cluster.api_url
+  cluster_api_url        = local.effective_api_url
   cluster_token          = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
   terraform_sa_name      = var.terraform_sa_name
   terraform_sa_namespace = var.terraform_sa_namespace
