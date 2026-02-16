@@ -67,9 +67,10 @@ provider "rhcs" {
 # the provider exists but has no valid token, which is fine because no
 # kubernetes resources are created (all gated by count).
 provider "kubernetes" {
-  host     = local.effective_k8s_host
-  token    = local.effective_k8s_token
-  insecure = true
+  host        = local.effective_k8s_host
+  token       = local.effective_k8s_token
+  insecure    = true
+  config_path = "/dev/null" # Suppress ~/.kube/config -- explicit host/token only
 }
 
 provider "kubectl" {
@@ -175,8 +176,8 @@ locals {
   # Derive API/console URLs from the cluster domain (always populated).
   # The RHCS provider may leave api_url/console_url empty in some versions.
   # Deriving from domain is deterministic and reliable.
-  # ROSA API URLs follow the pattern: https://api.<domain>:6443
-  effective_api_url     = "https://api.${module.rosa_cluster.domain}:6443"
+  # HCP API uses port 443 (standard HTTPS), Classic uses port 6443.
+  effective_api_url     = "https://api.${module.rosa_cluster.domain}"
   effective_console_url = "https://console-openshift-console.apps.${module.rosa_cluster.domain}"
 
   # Kubernetes provider host: cluster API when gitops enabled, dummy otherwise.

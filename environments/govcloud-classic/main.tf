@@ -53,9 +53,10 @@ provider "rhcs" {
 #   Phase 2: Connect VPN, set install_gitops = true, bootstrap SA
 #   Phase 3+: SA token in gitops_cluster_token, VPN still needed for API access
 provider "kubernetes" {
-  host     = local.effective_k8s_host
-  token    = local.effective_k8s_token
-  insecure = true
+  host        = local.effective_k8s_host
+  token       = local.effective_k8s_token
+  insecure    = true
+  config_path = "/dev/null" # Suppress ~/.kube/config -- explicit host/token only
 }
 
 provider "kubectl" {

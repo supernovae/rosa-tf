@@ -46,9 +46,10 @@ provider "rhcs" {
 #   1. gitops_cluster_token (SA token from previous bootstrap) -- no OAuth needed
 #   2. cluster_auth module (OAuth bootstrap) -- first run only
 provider "kubernetes" {
-  host     = local.effective_k8s_host
-  token    = local.effective_k8s_token
-  insecure = true
+  host        = local.effective_k8s_host
+  token       = local.effective_k8s_token
+  insecure    = true
+  config_path = "/dev/null" # Suppress ~/.kube/config -- explicit host/token only
 }
 
 provider "kubectl" {

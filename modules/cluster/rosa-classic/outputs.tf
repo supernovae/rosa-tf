@@ -9,12 +9,12 @@ output "cluster_id" {
 
 output "api_url" {
   description = "URL of the OpenShift API server."
-  value       = rhcs_cluster_rosa_classic.this.api_url
+  value       = coalesce(data.rhcs_cluster_rosa_classic.info.api_url, rhcs_cluster_rosa_classic.this.api_url, "")
 }
 
 output "console_url" {
   description = "URL of the OpenShift web console."
-  value       = rhcs_cluster_rosa_classic.this.console_url
+  value       = coalesce(data.rhcs_cluster_rosa_classic.info.console_url, rhcs_cluster_rosa_classic.this.console_url, "")
 }
 
 output "domain" {
@@ -140,8 +140,8 @@ output "cluster_summary" {
     cluster_id               = rhcs_cluster_rosa_classic.this.id
     cluster_name             = var.cluster_name
     openshift_version        = rhcs_cluster_rosa_classic.this.current_version
-    api_url                  = rhcs_cluster_rosa_classic.this.api_url
-    console_url              = rhcs_cluster_rosa_classic.this.console_url
+    api_url                  = coalesce(data.rhcs_cluster_rosa_classic.info.api_url, rhcs_cluster_rosa_classic.this.api_url, "")
+    console_url              = coalesce(data.rhcs_cluster_rosa_classic.info.console_url, rhcs_cluster_rosa_classic.this.console_url, "")
     private                  = rhcs_cluster_rosa_classic.this.private
     fips                     = rhcs_cluster_rosa_classic.this.fips
     multi_az                 = rhcs_cluster_rosa_classic.this.multi_az

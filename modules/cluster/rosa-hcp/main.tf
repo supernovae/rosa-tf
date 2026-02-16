@@ -157,6 +157,20 @@ resource "time_sleep" "cluster_ready" {
 }
 
 #------------------------------------------------------------------------------
+# Re-read cluster attributes after the ready wait.
+#
+# The RHCS provider's Create handler may return before the OCM API has
+# populated api_url and console_url (they arrive shortly after state=ready).
+# This data source forces a fresh Read after the 30s settle window,
+# guaranteeing those computed attributes are captured in state.
+#------------------------------------------------------------------------------
+
+data "rhcs_cluster_rosa_hcp" "info" {
+  id         = rhcs_cluster_rosa_hcp.this.id
+  depends_on = [time_sleep.cluster_ready]
+}
+
+#------------------------------------------------------------------------------
 # Cluster Admin User (htpasswd IDP)
 # Provides initial cluster access
 #------------------------------------------------------------------------------
