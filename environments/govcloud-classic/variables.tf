@@ -681,7 +681,7 @@ variable "enable_layer_terminal" {
     Installs the OpenShift Web Terminal operator for in-console terminal access.
     This layer has no Terraform dependencies.
   EOT
-  default     = true
+  default     = false
 }
 
 variable "enable_layer_oadp" {
