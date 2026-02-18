@@ -147,6 +147,22 @@ virt_tolerations = [
 ]
 
 #------------------------------------------------------------------------------
+# NetApp Storage for Virtualization (Optional)
+#
+# Enable NetApp FSx ONTAP for high-performance VM disks and live migration.
+# The fsx-ontap-iscsi-block StorageClass provides dedicated block storage
+# that outperforms EBS (gp3-csi) for VM workloads. NFS (fsx-ontap-nfs-rwx)
+# enables live migration with RWX access mode.
+#
+# Requires: export TF_VAR_fsx_admin_password="YourSecurePassword123"
+#------------------------------------------------------------------------------
+
+# enable_layer_netapp_storage  = true
+# fsx_deployment_type          = "SINGLE_AZ_1"
+# fsx_storage_capacity_gb      = 1024
+# fsx_throughput_capacity_mbps = 256 # Higher throughput for VM I/O
+
+#------------------------------------------------------------------------------
 # Debug / Timing
 #------------------------------------------------------------------------------
 

@@ -216,3 +216,80 @@ variable "openshift_version" {
   description = "OpenShift version for API compatibility."
   default     = "4.20"
 }
+
+#------------------------------------------------------------------------------
+# NetApp Storage (FSx ONTAP) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_netapp_storage" {
+  type        = bool
+  description = "Enable NetApp FSx ONTAP + Trident layer."
+  default     = false
+}
+
+variable "vpc_id" {
+  type        = string
+  description = "VPC ID where FSx ONTAP will be deployed."
+  default     = ""
+}
+
+variable "vpc_cidr" {
+  type        = string
+  description = "CIDR block of the VPC."
+  default     = ""
+}
+
+variable "private_subnet_ids" {
+  type        = list(string)
+  description = "Private subnet IDs from the ROSA VPC."
+  default     = []
+}
+
+variable "availability_zones" {
+  type        = list(string)
+  description = "Availability zones for the cluster."
+  default     = []
+}
+
+variable "private_route_table_ids" {
+  type        = list(string)
+  description = "Private route table IDs for dedicated FSxN subnet association."
+  default     = []
+}
+
+variable "fsx_deployment_type" {
+  type        = string
+  description = "FSx ONTAP deployment type: SINGLE_AZ_1 or MULTI_AZ_1."
+  default     = "SINGLE_AZ_1"
+}
+
+variable "fsx_storage_capacity_gb" {
+  type        = number
+  description = "FSx ONTAP storage capacity in GiB."
+  default     = 1024
+}
+
+variable "fsx_throughput_capacity_mbps" {
+  type        = number
+  description = "FSx ONTAP throughput capacity in MBps."
+  default     = 128
+}
+
+variable "fsx_create_dedicated_subnets" {
+  type        = bool
+  description = "Create dedicated subnets for FSx ONTAP endpoints."
+  default     = false
+}
+
+variable "fsx_dedicated_subnet_cidrs" {
+  type        = list(string)
+  description = "CIDR blocks for dedicated FSxN subnets."
+  default     = []
+}
+
+variable "fsx_admin_password" {
+  type        = string
+  description = "Password for the FSx ONTAP admin users."
+  default     = null
+  sensitive   = true
+}

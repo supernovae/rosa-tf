@@ -86,10 +86,24 @@ resource "kubectl_manifest" "<name>_subscription" {
 }
 ```
 
+## Existing Layers
+
+- `terminal` -- Web Terminal operator (no AWS infra)
+- `oadp` -- Backup/restore (S3 + IAM)
+- `virtualization` -- KubeVirt (bare metal machine pool)
+- `monitoring` -- Prometheus + Loki (S3 + IAM)
+- `certmanager` -- Cert-Manager + custom ingress (Route53 + IAM + NLB)
+- `netapp_storage` -- FSx ONTAP + Astra Trident (FSx filesystem + SVM + IAM)
+
 ## Checklist: Adding a New Layer
 
 1. Create `layer-<name>.tf` in `modules/gitops-layers/operator/`
 2. Add `enable_layer_<name>` variable to `operator/variables.tf`
-3. Wire through all 4 environments (see `gitops-variables` rule)
-4. Add YAML templates in `gitops-layers/layers/<name>/`
-5. Add operator channel to `operator_channels` map in `main.tf` if version-specific
+3. If the layer needs AWS resources, create submodule in `modules/gitops-layers/<name>/` and wire into `resources/main.tf`
+4. Wire through all 4 environments (see `gitops-variables` rule)
+5. Add YAML templates in `gitops-layers/layers/<name>/`
+6. Add operator channel to `operator_channels` map in `main.tf` if version-specific
+7. Update `layers_enabled` output in `operator/outputs.tf`
+8. Update precondition in all 4 environment `main.tf` files
+9. Create example tfvars in `examples/`
+10. Update `gitops-layers/README.md` layer table

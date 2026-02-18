@@ -1,0 +1,24 @@
+# StorageClass: fsx-ontap-iscsi-block
+#
+# iSCSI-based StorageClass for ReadWriteOnce block workloads.
+# Optimized for:
+#   - OpenShift Virtualization VM disks (high performance, raw block)
+#   - Database workloads (PostgreSQL, MySQL)
+#   - Any workload requiring dedicated block storage
+#
+# Template variables (injected by Terraform):
+# - backend_name: TridentBackendConfig name for ontap-san
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fsx-ontap-iscsi-block
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: csi.trident.netapp.io
+parameters:
+  backendType: ontap-san
+  fsType: ext4
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate

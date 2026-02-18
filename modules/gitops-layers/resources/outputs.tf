@@ -98,6 +98,30 @@ output "certmanager_ingress_visibility" {
 }
 
 #------------------------------------------------------------------------------
+# NetApp Storage (FSx ONTAP) Outputs
+#------------------------------------------------------------------------------
+
+output "fsx_filesystem_id" {
+  description = "FSx ONTAP file system ID."
+  value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].filesystem_id : ""
+}
+
+output "fsx_svm_management_ip" {
+  description = "SVM management endpoint IP for Trident backend configuration."
+  value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].gitops_config.svm_management_ip : ""
+}
+
+output "fsx_trident_role_arn" {
+  description = "IAM role ARN for Trident CSI controller."
+  value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].trident_role_arn : ""
+}
+
+output "fsx_security_group_id" {
+  description = "Security group ID for FSx ONTAP access."
+  value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].security_group_id : ""
+}
+
+#------------------------------------------------------------------------------
 # Summary Output (for debugging)
 #------------------------------------------------------------------------------
 
@@ -109,6 +133,7 @@ output "enabled_layers" {
     var.enable_layer_virtualization ? "virtualization" : "",
     var.enable_layer_monitoring ? "monitoring" : "",
     var.enable_layer_certmanager ? "certmanager" : "",
+    var.enable_layer_netapp_storage ? "netapp-storage" : "",
   ])
 }
 

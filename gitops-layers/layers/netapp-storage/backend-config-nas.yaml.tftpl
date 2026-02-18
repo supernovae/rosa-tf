@@ -1,0 +1,25 @@
+# TridentBackendConfig: ontap-nas (NFS)
+#
+# Configures Trident to provision NFS volumes on the FSx ONTAP SVM.
+# Used by the fsx-ontap-nfs-rwx StorageClass for RWX workloads.
+#
+# Template variables (injected by Terraform):
+# - svm_management_ip: SVM management LIF IP address
+# - svm_name:          SVM name
+# - backend_secret:    Name of the K8s Secret containing SVM credentials
+---
+apiVersion: trident.netapp.io/v1
+kind: TridentBackendConfig
+metadata:
+  name: backend-fsx-ontap-nas
+  namespace: trident
+spec:
+  version: 1
+  storageDriverName: ontap-nas
+  managementLIF: ${svm_management_ip}
+  svm: ${svm_name}
+  credentials:
+    name: ${backend_secret}
+  autoExportPolicy: true
+  autoExportCIDRs:
+    - 0.0.0.0/0

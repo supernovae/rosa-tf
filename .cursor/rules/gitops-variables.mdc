@@ -54,26 +54,28 @@ All other GitOps variables are identical passthrough from `var.*` to module inpu
 
 ```
 modules/gitops-layers/operator/
-  main.tf                  <- Shared locals (operator_channels, layers_path)
-  identity.tf              <- Terraform SA, ClusterRoleBinding, token Secret
-  gitops-core.tf           <- ArgoCD operator, instance, external repo Application
-  layer-terminal.tf        <- Web Terminal operator
-  layer-oadp.tf            <- OADP operator, DPA, backup schedule
-  layer-virtualization.tf  <- Virtualization operator, HyperConverged
-  layer-monitoring.tf      <- Prometheus, Loki, Logging, COO, UIPlugin
-  layer-certmanager.tf     <- cert-manager, ClusterIssuers, IngressController, DNS
-  variables.tf             <- All module input variables
-  outputs.tf               <- Module outputs (SA token, layer status)
-  versions.tf              <- Required providers (kubernetes, kubectl, aws, etc.)
+  main.tf                     <- Shared locals (operator_channels, layers_path)
+  identity.tf                 <- Terraform SA, ClusterRoleBinding, token Secret
+  gitops-core.tf              <- ArgoCD operator, instance, external repo Application
+  layer-terminal.tf           <- Web Terminal operator
+  layer-oadp.tf               <- OADP operator, DPA, backup schedule
+  layer-virtualization.tf     <- Virtualization operator, HyperConverged
+  layer-monitoring.tf         <- Prometheus, Loki, Logging, COO, UIPlugin
+  layer-certmanager.tf        <- cert-manager, ClusterIssuers, IngressController, DNS
+  layer-netapp-storage.tf     <- Trident operator, backends, StorageClasses, VolumeSnapshotClass
+  variables.tf                <- All module input variables
+  outputs.tf                  <- Module outputs (SA token, layer status, storage_classes)
+  versions.tf                 <- Required providers (kubernetes, kubectl, aws, etc.)
 ```
 
 ## Supporting Modules
 
 ```
 modules/gitops-layers/
-  resources/    <- Creates AWS infra (S3 buckets, IAM roles) for layers
-  shared/       <- Shared variable definitions across sub-modules
-  monitoring/   <- S3 + IAM for Loki (called by resources/)
-  oadp/         <- S3 + IAM for OADP (called by resources/)
-  certmanager/  <- Route53 hosted zone + IAM for cert-manager (called by resources/)
+  resources/       <- Creates AWS infra (S3 buckets, IAM roles) for layers
+  shared/          <- Shared variable definitions across sub-modules
+  monitoring/      <- S3 + IAM for Loki (called by resources/)
+  oadp/            <- S3 + IAM for OADP (called by resources/)
+  certmanager/     <- Route53 hosted zone + IAM for cert-manager (called by resources/)
+  netapp-storage/  <- FSx ONTAP + SVM + IAM for Trident (called by resources/)
 ```

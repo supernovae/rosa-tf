@@ -1,0 +1,26 @@
+# StorageClass: fsx-ontap-nfs-rwx
+#
+# NFS-based StorageClass for ReadWriteMany workloads.
+# Optimized for:
+#   - OpenShift Dev Spaces (shared workspace volumes)
+#   - CI/CD shared caches
+#   - Any workload requiring RWX access mode
+#
+# Template variables (injected by Terraform):
+# - backend_name: TridentBackendConfig name for ontap-nas
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fsx-ontap-nfs-rwx
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: csi.trident.netapp.io
+parameters:
+  backendType: ontap-nas
+  fsType: nfs
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1

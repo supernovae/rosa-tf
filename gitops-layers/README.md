@@ -99,6 +99,7 @@ apt-get install jq
 | `oadp` | OpenShift API for Data Protection (backup/restore) | S3 bucket, IAM role |
 | `virtualization` | OpenShift Virtualization (KubeVirt) | Bare metal machine pool |
 | `certmanager` | Cert-Manager with Let's Encrypt DNS01 + custom ingress | Route53 zone, IAM role, NLB |
+| `netapp-storage` | FSx ONTAP + Astra Trident (NFS, iSCSI, snapshots) | FSx ONTAP filesystem, SVM, IAM role |
 
 ## Layer Structure
 
@@ -234,6 +235,15 @@ Some layers require Terraform-managed AWS resources:
 - **Route53 CNAME**: Wildcard record pointing to the custom NLB
 
 See [modules/gitops-layers/certmanager/README.md](../modules/gitops-layers/certmanager/README.md) for full documentation.
+
+### NetApp Storage Layer
+- **FSx ONTAP File System**: Single-AZ or Multi-AZ with SVM
+- **Security Group**: NFS (2049), iSCSI (3260), ONTAP mgmt (443) from VPC CIDR
+- **IAM Role**: With OIDC trust for the Trident CSI controller
+- **Astra Trident Operator**: OLM subscription with NAS + SAN backends
+- **StorageClasses**: `fsx-ontap-nfs-rwx`, `fsx-ontap-iscsi-block`, `fsx-ontap-snapshots`
+
+See [modules/gitops-layers/netapp-storage/README.md](../modules/gitops-layers/netapp-storage/README.md) for full documentation.
 
 ## Best Practices
 
