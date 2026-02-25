@@ -59,6 +59,25 @@ skip-check:
   - CKV_AWS_111  # KMS key policy: resources="*" refers to this key only
   - CKV_AWS_356  # KMS key policy: resources="*" refers to this key only
 
+  # ECR encryption is configurable via kms_key_arn variable.
+  # Module supports both AES-256 (default for dev) and customer-managed KMS
+  # (recommended for production/GovCloud). Operators choose encryption level
+  # via tfvars: set kms_key_arn to enable KMS encryption.
+  - CKV_AWS_136  # ECR KMS encryption (configurable via kms_key_arn variable)
+
+  # ECR tag mutability is configurable via image_tag_mutability variable.
+  # Module defaults to MUTABLE for dev flexibility; production environments
+  # should set image_tag_mutability = "IMMUTABLE" in tfvars.
+  - CKV_AWS_51   # ECR image tag immutability (configurable via variable)
+
+  # S3 cross-region replication is not required for single-region ROSA
+  # deployments. Multi-region DR is handled at the cluster level via OADP.
+  - CKV_AWS_144  # S3 cross-region replication (not applicable for single-region)
+
+  # S3 default encryption uses SSE-S3. Customer KMS keys are applied via
+  # the kms_key_arn variable where required (production/GovCloud).
+  - CKV_AWS_145  # S3 KMS default encryption (configurable via kms_key_arn)
+
 # External checks
 external-checks-dir: []
 

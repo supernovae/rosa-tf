@@ -89,8 +89,7 @@ jobs:
         with:
           directory: .
           framework: terraform
-          soft_fail: true
-          skip_check: CKV_AWS_144,CKV_AWS_145,CKV_AWS_124
+          config_file: .checkov.yml
 
   shellcheck:
     name: ShellCheck
