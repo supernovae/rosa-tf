@@ -190,9 +190,24 @@ storage. VMs using EBS disks must be shut down before moving to a different node
 
 For live migration support, you need shared storage with `ReadWriteMany` (RWX) access mode,
 such as:
+- **FSx ONTAP + Trident** (recommended) -- `fsx-ontap-nfs-rwx` for RWX, `fsx-ontap-iscsi-block` for high-performance block
 - **OpenShift Data Foundation (ODF)** -- Ceph-based, fully integrated
 - **Amazon EFS** -- NFS-based, supported via the EFS CSI driver
-- **Third-party CSI drivers** with RWX support
 
 The default `gp3-csi` configuration is suitable for development, testing, and workloads
 that tolerate cold migration (stop, move, start).
+
+### FSx ONTAP Block Storage for VMs
+
+When the NetApp Storage layer is enabled (`enable_layer_netapp_storage = true`), the
+`fsx-ontap-iscsi-block` StorageClass provides iSCSI block volumes backed by FSx ONTAP.
+This is the recommended storage for production VM disks:
+
+- **Higher I/O performance** than gp3-csi for sustained workloads
+- **ONTAP snapshots** for point-in-time VM disk backups
+- **NFS RWX** (`fsx-ontap-nfs-rwx`) enables true live migration
+
+To use FSx block storage for VM disks, specify the StorageClass in your VM disk
+configuration or set it as the preferred StorageProfile for the `kubevirt` provisioner.
+
+See `examples/ocpvirtualization.tfvars` and `modules/gitops-layers/netapp-storage/README.md`.

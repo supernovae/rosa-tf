@@ -1,0 +1,18 @@
+# VolumeSnapshotClass: fsx-ontap-snapshots
+#
+# Enables CSI VolumeSnapshots backed by ONTAP snapshots.
+# These are space-efficient, copy-on-write snapshots native to ONTAP.
+#
+# Use cases:
+#   - Pre-upgrade backup of PVCs
+#   - Clone volumes for dev/test from production snapshots
+#   - OADP integration for application-consistent backups
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: fsx-ontap-snapshots
+  labels:
+    velero.io/csi-volumesnapshot-class: "true"
+driver: csi.trident.netapp.io
+deletionPolicy: Delete

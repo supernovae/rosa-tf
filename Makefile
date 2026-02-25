@@ -58,7 +58,7 @@ security-terraform: ## Run Terraform security scans (checkov, trivy)
 	@echo "============================================="
 	@echo "Running checkov..."
 	@echo "============================================="
-	checkov -d . --framework terraform --soft-fail --skip-check CKV_AWS_144,CKV_AWS_145 || true
+	checkov -d . --framework terraform || true
 	@echo ""
 	@echo "============================================="
 	@echo "Running trivy..."

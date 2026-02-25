@@ -1,0 +1,24 @@
+# TridentOrchestrator CR
+#
+# Configures the Trident CSI driver deployment after the operator is installed.
+# The operator watches for this CR and deploys the Trident controller and node pods.
+#
+# Template variables (injected by Terraform):
+# - enable_fips: Enable FIPS 140-2 compliant mode
+# - log_level:   Trident log verbosity (info, debug, trace)
+# - trident_image: Optional custom Trident image for air-gapped/GovCloud
+---
+apiVersion: trident.netapp.io/v1
+kind: TridentOrchestrator
+metadata:
+  name: trident
+  namespace: trident
+spec:
+  namespace: trident
+  debug: ${log_level == "debug" || log_level == "trace" ? true : false}
+  %{ if trident_image != "" ~}
+  tridentImage: ${trident_image}
+  %{ endif ~}
+  enableForceDetach: true
+  silenceAutosupport: true
+  kubeletDir: /var/lib/kubelet

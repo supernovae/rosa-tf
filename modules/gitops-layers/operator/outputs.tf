@@ -52,7 +52,21 @@ output "layers_enabled" {
     virtualization = var.enable_layer_virtualization
     monitoring     = var.enable_layer_monitoring
     certmanager    = var.enable_layer_certmanager
+    netapp_storage = var.enable_layer_netapp_storage
   }
+}
+
+output "storage_classes" {
+  description = <<-EOT
+    StorageClass names created by the NetApp storage layer.
+    Use these outputs to configure other layers (e.g., virtualization, dev-spaces)
+    to use FSx ONTAP storage instead of the default gp3-csi.
+  EOT
+  value = var.enable_layer_netapp_storage ? {
+    nfs_rwx        = "fsx-ontap-nfs-rwx"
+    iscsi_block    = "fsx-ontap-iscsi-block"
+    snapshot_class = "fsx-ontap-snapshots"
+  } : {}
 }
 
 output "layers_repo" {
@@ -90,6 +104,7 @@ output "install_instructions" {
     - Virtualization: ${var.enable_layer_virtualization}
     - Monitoring: ${var.enable_layer_monitoring}
     - Cert-Manager: ${var.enable_layer_certmanager}
+    - NetApp Storage: ${var.enable_layer_netapp_storage}
     
     To modify layer settings, update the Terraform variables and re-apply.
     

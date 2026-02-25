@@ -537,6 +537,66 @@ variable "certmanager_ingress_cert_secret_name" {
   default     = "custom-apps-default-cert"
 }
 
+#------------------------------------------------------------------------------
+# NetApp Storage (FSx ONTAP + Trident) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_netapp_storage" {
+  type        = bool
+  description = <<-EOT
+    Enable the NetApp Storage layer (FSx ONTAP + Astra Trident).
+    Installs Trident Operator, configures NAS and SAN backends,
+    and creates StorageClasses for NFS (RWX) and iSCSI (block).
+  EOT
+  default     = false
+}
+
+variable "fsx_svm_management_ip" {
+  type        = string
+  description = "FSx ONTAP SVM management endpoint IP. From the netapp-storage resources module."
+  default     = ""
+}
+
+variable "fsx_svm_name" {
+  type        = string
+  description = "FSx ONTAP SVM name. From the netapp-storage resources module."
+  default     = ""
+}
+
+variable "fsx_admin_password" {
+  type        = string
+  description = "FSx ONTAP SVM vsadmin password for Trident backend authentication."
+  default     = ""
+  sensitive   = true
+}
+
+variable "netapp_enable_fips" {
+  type        = bool
+  description = "Enable FIPS 140-2 compliant mode for Trident."
+  default     = false
+}
+
+variable "netapp_trident_log_level" {
+  type        = string
+  description = "Trident log verbosity: info, debug, or trace."
+  default     = "info"
+
+  validation {
+    condition     = contains(["info", "debug", "trace"], var.netapp_trident_log_level)
+    error_message = "netapp_trident_log_level must be info, debug, or trace."
+  }
+}
+
+variable "netapp_trident_image" {
+  type        = string
+  description = "Custom Trident image for air-gapped or GovCloud deployments. Empty uses default."
+  default     = ""
+}
+
+#------------------------------------------------------------------------------
+# OpenShift Version
+#------------------------------------------------------------------------------
+
 variable "openshift_version" {
   type        = string
   description = <<-EOT

@@ -1043,6 +1043,75 @@ variable "certmanager_ingress_namespace_selector" {
 }
 
 #------------------------------------------------------------------------------
+# NetApp Storage (FSx ONTAP + Trident) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_netapp_storage" {
+  type        = bool
+  description = "Enable NetApp FSx ONTAP + Astra Trident storage layer."
+  default     = false
+}
+
+variable "fsx_deployment_type" {
+  type        = string
+  description = <<-EOT
+    FSx ONTAP deployment type.
+    SINGLE_AZ_1: Lower cost, suitable for dev/test.
+    MULTI_AZ_1:  Multi-AZ with automatic failover, recommended for production.
+  EOT
+  default     = "SINGLE_AZ_1"
+}
+
+variable "fsx_storage_capacity_gb" {
+  type        = number
+  description = "FSx ONTAP storage capacity in GiB. Minimum 1024."
+  default     = 1024
+}
+
+variable "fsx_throughput_capacity_mbps" {
+  type        = number
+  description = "FSx ONTAP throughput capacity in MBps."
+  default     = 128
+}
+
+variable "fsx_create_dedicated_subnets" {
+  type        = bool
+  description = "Create dedicated subnets for FSx ONTAP endpoints. Recommended for production."
+  default     = false
+}
+
+variable "fsx_dedicated_subnet_cidrs" {
+  type        = list(string)
+  description = "CIDR blocks for dedicated FSxN subnets. Only used when fsx_create_dedicated_subnets = true."
+  default     = []
+}
+
+variable "fsx_admin_password" {
+  type        = string
+  description = "Password for FSx ONTAP admin users (sensitive, stored in encrypted state)."
+  default     = null
+  sensitive   = true
+}
+
+variable "netapp_enable_fips" {
+  type        = bool
+  description = "Enable FIPS 140-2 compliant mode for Trident."
+  default     = false
+}
+
+variable "netapp_trident_log_level" {
+  type        = string
+  description = "Trident log verbosity: info, debug, or trace."
+  default     = "info"
+}
+
+variable "netapp_trident_image" {
+  type        = string
+  description = "Custom Trident image for air-gapped deployments. Empty uses default."
+  default     = ""
+}
+
+#------------------------------------------------------------------------------
 # Virtualization Layer Configuration
 #------------------------------------------------------------------------------
 

@@ -1,0 +1,9 @@
+# Trident Operator Group
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: trident-operator-group
+  namespace: trident
+spec:
+  targetNamespaces:
+    - trident

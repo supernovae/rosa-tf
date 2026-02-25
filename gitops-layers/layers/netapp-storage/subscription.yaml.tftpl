@@ -1,0 +1,19 @@
+# Astra Trident Operator Subscription
+#
+# Installs the NetApp Astra Trident Operator from OperatorHub (certified-operators).
+# Trident provides CSI storage provisioning for FSx ONTAP backends.
+#
+# Template variables (injected by Terraform):
+# - operator_channel: Operator subscription channel
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: trident-operator
+  namespace: trident
+spec:
+  channel: ${operator_channel}
+  name: trident-operator
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

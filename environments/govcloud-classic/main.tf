@@ -80,7 +80,8 @@ resource "null_resource" "validate_gitops_config" {
         var.enable_layer_terminal ||
         var.enable_layer_oadp ||
         var.enable_layer_virtualization ||
-        var.enable_layer_monitoring
+        var.enable_layer_monitoring ||
+        var.enable_layer_netapp_storage
       )
       error_message = <<-EOT
         GitOps layers require install_gitops = true.
@@ -90,6 +91,7 @@ resource "null_resource" "validate_gitops_config" {
           - enable_layer_oadp:           ${var.enable_layer_oadp}
           - enable_layer_virtualization: ${var.enable_layer_virtualization}
           - enable_layer_monitoring:     ${var.enable_layer_monitoring}
+          - enable_layer_netapp_storage: ${var.enable_layer_netapp_storage}
 
         But install_gitops is set to: ${var.install_gitops}
 
@@ -704,6 +706,7 @@ module "gitops_resources" {
   enable_layer_virtualization = var.enable_layer_virtualization
   enable_layer_monitoring     = var.enable_layer_monitoring
   enable_layer_certmanager    = var.enable_layer_certmanager
+  enable_layer_netapp_storage = var.enable_layer_netapp_storage
 
   # Layer-specific config
   oadp_backup_retention_days = var.oadp_backup_retention_days
@@ -727,6 +730,19 @@ module "gitops_resources" {
   certmanager_ingress_replicas           = var.certmanager_ingress_replicas
   certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
   certmanager_ingress_namespace_selector = var.certmanager_ingress_namespace_selector
+
+  # NetApp Storage config
+  vpc_id                       = local.effective_vpc_id
+  vpc_cidr                     = local.effective_vpc_cidr
+  private_subnet_ids           = local.effective_private_subnet_ids
+  availability_zones           = local.effective_availability_zones
+  private_route_table_ids      = local.is_byo_vpc ? [] : try(module.vpc[0].private_route_table_ids, [])
+  fsx_deployment_type          = var.fsx_deployment_type
+  fsx_storage_capacity_gb      = var.fsx_storage_capacity_gb
+  fsx_throughput_capacity_mbps = var.fsx_throughput_capacity_mbps
+  fsx_create_dedicated_subnets = var.fsx_create_dedicated_subnets
+  fsx_dedicated_subnet_cidrs   = var.fsx_dedicated_subnet_cidrs
+  fsx_admin_password           = var.fsx_admin_password
 
   tags = local.common_tags
 }
@@ -784,6 +800,7 @@ module "gitops" {
   enable_layer_virtualization = var.enable_layer_virtualization
   enable_layer_monitoring     = var.enable_layer_monitoring
   enable_layer_certmanager    = var.enable_layer_certmanager
+  enable_layer_netapp_storage = var.enable_layer_netapp_storage
 
   # Layer resources from consolidated module
   oadp_bucket_name           = length(module.gitops_resources) > 0 ? module.gitops_resources[0].oadp_bucket_name : ""
@@ -817,6 +834,14 @@ module "gitops" {
   certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
   certmanager_ingress_namespace_selector = var.certmanager_ingress_namespace_selector
   certmanager_ingress_cert_secret_name   = length(var.certmanager_certificate_domains) > 0 ? var.certmanager_certificate_domains[0].secret_name : "custom-apps-default-cert"
+
+  # NetApp Storage resources from consolidated module
+  fsx_svm_management_ip    = length(module.gitops_resources) > 0 ? module.gitops_resources[0].fsx_svm_management_ip : ""
+  fsx_svm_name             = "${var.cluster_name}-svm"
+  fsx_admin_password       = var.fsx_admin_password != null ? var.fsx_admin_password : ""
+  netapp_enable_fips       = var.netapp_enable_fips
+  netapp_trident_log_level = var.netapp_trident_log_level
+  netapp_trident_image     = var.netapp_trident_image
 
   # OpenShift version for operator channel selection
   openshift_version = var.openshift_version
