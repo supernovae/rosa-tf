@@ -61,7 +61,7 @@ output "gitops_config" {
   description = "Configuration values passed to the operator module for NetApp storage layer."
   value = {
     filesystem_id     = aws_fsx_ontap_file_system.this.id
-    svm_management_ip = aws_fsx_ontap_storage_virtual_machine.this.endpoints[0].management[0].ip_addresses[0]
+    svm_management_ip = tolist(aws_fsx_ontap_storage_virtual_machine.this.endpoints[0].management[0].ip_addresses)[0]
     trident_role_arn  = aws_iam_role.trident_csi.arn
     security_group_id = aws_security_group.fsx_ontap.id
   }

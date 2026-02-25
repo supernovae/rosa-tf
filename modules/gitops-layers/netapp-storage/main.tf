@@ -33,7 +33,7 @@ data "aws_region" "current" {}
 
 locals {
   partition = data.aws_partition.current.partition
-  region    = data.aws_region.current.name
+  region    = data.aws_region.current.id
 
   # Subnet selection: dedicated subnets if created, otherwise ROSA private subnets
   effective_subnet_ids = var.create_dedicated_subnets ? aws_subnet.fsx_ontap[*].id : var.private_subnet_ids

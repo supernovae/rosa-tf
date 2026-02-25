@@ -23,9 +23,9 @@
 # GitOps + Layer Enablement
 #------------------------------------------------------------------------------
 
-install_gitops               = true
-enable_layer_terminal        = true
-enable_layer_netapp_storage  = true
+install_gitops              = true
+enable_layer_terminal       = true
+enable_layer_netapp_storage = true
 
 # Other layers (uncomment to enable):
 # enable_layer_oadp           = false
