@@ -139,6 +139,24 @@ module "netapp_storage" {
 }
 
 #------------------------------------------------------------------------------
+# OpenShift AI Resources (S3 + IAM for RHOAI)
+#------------------------------------------------------------------------------
+
+module "openshift_ai" {
+  source = "../openshift-ai"
+  count  = var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? 1 : 0
+
+  cluster_name        = var.cluster_name
+  oidc_endpoint_url   = var.oidc_endpoint_url
+  aws_region          = var.aws_region
+  kms_key_arn         = var.kms_key_arn
+  data_retention_days = var.openshift_ai_data_retention_days
+  is_govcloud         = var.is_govcloud
+
+  tags = var.tags
+}
+
+#------------------------------------------------------------------------------
 # Terminal Resources
 # (No infrastructure needed - operator deployment only)
 #------------------------------------------------------------------------------

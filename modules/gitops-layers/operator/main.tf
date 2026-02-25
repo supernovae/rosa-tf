@@ -65,6 +65,11 @@ locals {
     virtualization = "stable" # Auto-selects based on OCP version
     web_terminal   = "fast"   # Uses latest available
     gitops         = "latest" # OpenShift GitOps operator
+
+    # OpenShift AI stack
+    nfd          = "stable" # Node Feature Discovery
+    nvidia_gpu   = "v24.9"  # NVIDIA GPU Operator (certified-operators)
+    openshift_ai = "stable" # Red Hat OpenShift AI (RHOAI)
   }
 
   # Whether the user has provided a custom GitOps repo for additional resources.

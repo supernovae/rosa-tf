@@ -45,3 +45,5 @@ monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
 
 # For subsequent runs, provide SA token to avoid htpasswd dependency:
 # gitops_cluster_token = "<your-token-here>"
+
+# enable_layer_openshift_ai = true

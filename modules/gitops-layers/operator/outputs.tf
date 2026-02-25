@@ -53,6 +53,7 @@ output "layers_enabled" {
     monitoring     = var.enable_layer_monitoring
     certmanager    = var.enable_layer_certmanager
     netapp_storage = var.enable_layer_netapp_storage
+    openshift_ai   = var.enable_layer_openshift_ai
   }
 }
 
@@ -105,6 +106,7 @@ output "install_instructions" {
     - Monitoring: ${var.enable_layer_monitoring}
     - Cert-Manager: ${var.enable_layer_certmanager}
     - NetApp Storage: ${var.enable_layer_netapp_storage}
+    - OpenShift AI: ${var.enable_layer_openshift_ai}
     
     To modify layer settings, update the Terraform variables and re-apply.
     

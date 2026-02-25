@@ -293,3 +293,25 @@ variable "fsx_admin_password" {
   default     = null
   sensitive   = true
 }
+
+#------------------------------------------------------------------------------
+# OpenShift AI Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI data connections and pipeline artifacts."
+  default     = true
+}
+
+variable "openshift_ai_data_retention_days" {
+  type        = number
+  description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
+  default     = 0
+}

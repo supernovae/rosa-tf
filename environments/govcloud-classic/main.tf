@@ -81,7 +81,8 @@ resource "null_resource" "validate_gitops_config" {
         var.enable_layer_oadp ||
         var.enable_layer_virtualization ||
         var.enable_layer_monitoring ||
-        var.enable_layer_netapp_storage
+        var.enable_layer_netapp_storage ||
+        var.enable_layer_openshift_ai
       )
       error_message = <<-EOT
         GitOps layers require install_gitops = true.
@@ -92,6 +93,7 @@ resource "null_resource" "validate_gitops_config" {
           - enable_layer_virtualization: ${var.enable_layer_virtualization}
           - enable_layer_monitoring:     ${var.enable_layer_monitoring}
           - enable_layer_netapp_storage: ${var.enable_layer_netapp_storage}
+          - enable_layer_openshift_ai:  ${var.enable_layer_openshift_ai}
 
         But install_gitops is set to: ${var.install_gitops}
 
@@ -744,6 +746,11 @@ module "gitops_resources" {
   fsx_dedicated_subnet_cidrs   = var.fsx_dedicated_subnet_cidrs
   fsx_admin_password           = var.fsx_admin_password
 
+  # OpenShift AI config
+  enable_layer_openshift_ai        = var.enable_layer_openshift_ai
+  openshift_ai_create_s3           = var.openshift_ai_create_s3
+  openshift_ai_data_retention_days = var.openshift_ai_data_retention_days
+
   tags = local.common_tags
 }
 
@@ -842,6 +849,17 @@ module "gitops" {
   netapp_enable_fips       = var.netapp_enable_fips
   netapp_trident_log_level = var.netapp_trident_log_level
   netapp_trident_image     = var.netapp_trident_image
+
+  # OpenShift AI layer
+  enable_layer_openshift_ai         = var.enable_layer_openshift_ai
+  openshift_ai_install_nfd          = var.openshift_ai_install_nfd
+  openshift_ai_install_gpu_operator = var.openshift_ai_install_gpu_operator
+  openshift_ai_create_s3            = var.openshift_ai_create_s3
+  openshift_ai_enable_fips          = var.openshift_ai_enable_fips
+  openshift_ai_components           = var.openshift_ai_components
+  openshift_ai_bucket_name          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_name : ""
+  openshift_ai_bucket_region        = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_region : ""
+  openshift_ai_s3_endpoint          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_s3_endpoint : ""
 
   # OpenShift version for operator channel selection
   openshift_version = var.openshift_version

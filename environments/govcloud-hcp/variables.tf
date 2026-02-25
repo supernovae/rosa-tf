@@ -1466,3 +1466,54 @@ variable "skip_k8s_destroy" {
   description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."
   default     = false
 }
+
+#------------------------------------------------------------------------------
+# OpenShift AI Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, NVIDIA GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_install_nfd" {
+  type        = bool
+  description = "Install Node Feature Discovery operator as part of OpenShift AI. Disable if NFD already installed."
+  default     = true
+}
+
+variable "openshift_ai_install_gpu_operator" {
+  type        = bool
+  description = "Install NVIDIA GPU Operator. Disable for CPU-only AI workloads."
+  default     = true
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI data connections and pipeline artifacts."
+  default     = true
+}
+
+variable "openshift_ai_enable_fips" {
+  type        = bool
+  description = "Enable FIPS mode for GPU operator. Default true for GovCloud."
+  default     = true
+}
+
+variable "openshift_ai_components" {
+  type        = map(string)
+  description = <<-EOT
+    DataScienceCluster component states. Override individual components:
+      dashboard, workbenches, datasciencepipelines, modelmeshserving,
+      kserve, ray, codeflare, kueue, trustyai, trainingoperator, modelregistry
+    Values: "Managed" or "Removed"
+  EOT
+  default     = {}
+}
+
+variable "openshift_ai_data_retention_days" {
+  type        = number
+  description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
+  default     = 0
+}

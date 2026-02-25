@@ -594,6 +594,69 @@ variable "netapp_trident_image" {
 }
 
 #------------------------------------------------------------------------------
+# OpenShift AI (RHOAI) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, NVIDIA GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_install_nfd" {
+  type        = bool
+  description = "Install Node Feature Discovery operator as part of OpenShift AI. Disable if NFD already installed."
+  default     = true
+}
+
+variable "openshift_ai_install_gpu_operator" {
+  type        = bool
+  description = "Install NVIDIA GPU Operator. Disable for CPU-only AI workloads."
+  default     = true
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI data connections and pipeline artifacts."
+  default     = true
+}
+
+variable "openshift_ai_enable_fips" {
+  type        = bool
+  description = "Enable FIPS mode for GPU operator."
+  default     = false
+}
+
+variable "openshift_ai_components" {
+  type        = map(string)
+  description = <<-EOT
+    DataScienceCluster component states. Override individual components:
+      dashboard, workbenches, datasciencepipelines, modelmeshserving,
+      kserve, ray, codeflare, kueue, trustyai, trainingoperator, modelregistry
+    Values: "Managed" or "Removed"
+  EOT
+  default     = {}
+}
+
+variable "openshift_ai_bucket_name" {
+  type        = string
+  description = "S3 bucket name for RHOAI data connections. From gitops_resources module when create_s3=true."
+  default     = ""
+}
+
+variable "openshift_ai_bucket_region" {
+  type        = string
+  description = "AWS region of the RHOAI S3 bucket."
+  default     = ""
+}
+
+variable "openshift_ai_s3_endpoint" {
+  type        = string
+  description = "S3 endpoint hostname for RHOAI data connections."
+  default     = ""
+}
+
+#------------------------------------------------------------------------------
 # OpenShift Version
 #------------------------------------------------------------------------------
 

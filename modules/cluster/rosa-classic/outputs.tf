@@ -9,12 +9,20 @@ output "cluster_id" {
 
 output "api_url" {
   description = "URL of the OpenShift API server."
-  value       = coalesce(data.rhcs_cluster_rosa_classic.info.api_url, rhcs_cluster_rosa_classic.this.api_url, "")
+  value = try(
+    length(data.rhcs_cluster_rosa_classic.info.api_url) > 0 ? data.rhcs_cluster_rosa_classic.info.api_url : null,
+    length(rhcs_cluster_rosa_classic.this.api_url) > 0 ? rhcs_cluster_rosa_classic.this.api_url : null,
+    ""
+  )
 }
 
 output "console_url" {
   description = "URL of the OpenShift web console."
-  value       = coalesce(data.rhcs_cluster_rosa_classic.info.console_url, rhcs_cluster_rosa_classic.this.console_url, "")
+  value = try(
+    length(data.rhcs_cluster_rosa_classic.info.console_url) > 0 ? data.rhcs_cluster_rosa_classic.info.console_url : null,
+    length(rhcs_cluster_rosa_classic.this.console_url) > 0 ? rhcs_cluster_rosa_classic.this.console_url : null,
+    ""
+  )
 }
 
 output "domain" {
@@ -137,11 +145,19 @@ output "additional_infra_security_group_ids" {
 output "cluster_summary" {
   description = "Summary of cluster configuration."
   value = {
-    cluster_id               = rhcs_cluster_rosa_classic.this.id
-    cluster_name             = var.cluster_name
-    openshift_version        = rhcs_cluster_rosa_classic.this.current_version
-    api_url                  = coalesce(data.rhcs_cluster_rosa_classic.info.api_url, rhcs_cluster_rosa_classic.this.api_url, "")
-    console_url              = coalesce(data.rhcs_cluster_rosa_classic.info.console_url, rhcs_cluster_rosa_classic.this.console_url, "")
+    cluster_id        = rhcs_cluster_rosa_classic.this.id
+    cluster_name      = var.cluster_name
+    openshift_version = rhcs_cluster_rosa_classic.this.current_version
+    api_url = try(
+      length(data.rhcs_cluster_rosa_classic.info.api_url) > 0 ? data.rhcs_cluster_rosa_classic.info.api_url : null,
+      length(rhcs_cluster_rosa_classic.this.api_url) > 0 ? rhcs_cluster_rosa_classic.this.api_url : null,
+      ""
+    )
+    console_url = try(
+      length(data.rhcs_cluster_rosa_classic.info.console_url) > 0 ? data.rhcs_cluster_rosa_classic.info.console_url : null,
+      length(rhcs_cluster_rosa_classic.this.console_url) > 0 ? rhcs_cluster_rosa_classic.this.console_url : null,
+      ""
+    )
     private                  = rhcs_cluster_rosa_classic.this.private
     fips                     = rhcs_cluster_rosa_classic.this.fips
     multi_az                 = rhcs_cluster_rosa_classic.this.multi_az

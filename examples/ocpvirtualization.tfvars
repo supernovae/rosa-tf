@@ -163,6 +163,29 @@ virt_tolerations = [
 # fsx_throughput_capacity_mbps = 256 # Higher throughput for VM I/O
 
 #------------------------------------------------------------------------------
+# OpenShift AI + Virtualization Coexistence (optional)
+#
+# GPU passthrough for VMs requires both Virtualization and OpenShift AI layers.
+# The NVIDIA GPU Operator can expose GPUs to VMs via vfio-pci passthrough
+# when the HyperConverged CR is configured with mediatedDevicesConfiguration.
+#
+# Add a GPU machine pool alongside the bare metal virt pool:
+#
+# machine_pools = [
+#   { ...existing virt pool... },
+#   {
+#     name          = "gpu"
+#     instance_type = "g4dn.metal"
+#     replicas      = 1
+#     labels        = { "node-role.kubernetes.io/gpu" = "" }
+#     taints        = [{ key = "nvidia.com/gpu", value = "true", schedule_type = "NoSchedule" }]
+#   }
+# ]
+#
+# enable_layer_openshift_ai = true
+#------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
 # Debug / Timing
 #------------------------------------------------------------------------------
 
