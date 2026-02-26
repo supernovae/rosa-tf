@@ -66,10 +66,12 @@ locals {
     web_terminal   = "fast"   # Uses latest available
     gitops         = "latest" # OpenShift GitOps operator
 
-    # OpenShift AI stack
+    # OpenShift AI stack and prerequisites
     nfd          = "stable" # Node Feature Discovery
     nvidia_gpu   = "v24.9"  # NVIDIA GPU Operator (certified-operators)
-    openshift_ai = "stable" # Red Hat OpenShift AI (RHOAI)
+    servicemesh  = "stable" # OpenShift Service Mesh (KServe prerequisite)
+    serverless   = "stable" # OpenShift Serverless / Knative Serving (KServe prerequisite)
+    openshift_ai = "fast-3.x" # Red Hat OpenShift AI v3+ (RHOAI)
   }
 
   # Whether the user has provided a custom GitOps repo for additional resources.

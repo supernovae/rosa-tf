@@ -1,0 +1,14 @@
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  ingress:
+    istio:
+      enabled: true
+  workloads:
+    - name: activator
+      replicas: 2
+    - name: autoscaler
+      replicas: 2

@@ -75,15 +75,19 @@ enable_layer_openshift_ai = true
 # Override individual components here.
 #------------------------------------------------------------------------------
 
+# KServe is Managed by default, which auto-installs Service Mesh and Serverless
+# as prerequisites. To disable KServe (saves ~5 min install time):
+#   openshift_ai_components = { kserve = "Removed" }
+
 # openshift_ai_components = {
-#   # Disable KServe if not using single-model serving
-#   kserve = "Removed"
-#
 #   # Enable model registry for model versioning
 #   modelregistry = "Managed"
 #
 #   # Enable distributed training operator
 #   trainingoperator = "Managed"
+#
+#   # Disable KServe if only using ModelMesh for serving
+#   # kserve = "Removed"
 # }
 
 #------------------------------------------------------------------------------

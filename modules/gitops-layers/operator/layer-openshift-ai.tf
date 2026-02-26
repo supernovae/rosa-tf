@@ -4,7 +4,8 @@
 # Installs the full OpenShift AI stack:
 #   1. Node Feature Discovery (NFD) -- auto-discovers GPU hardware
 #   2. NVIDIA GPU Operator -- drivers, device plugin, container toolkit
-#   3. Red Hat OpenShift AI -- DataScienceCluster with configurable components
+#   3. OpenShift Service Mesh + Serverless -- KServe prerequisites
+#   4. Red Hat OpenShift AI -- DataScienceCluster with configurable components
 #
 # Sub-toggles:
 #   - openshift_ai_install_nfd: disable if NFD already installed
@@ -27,11 +28,22 @@ locals {
     operator_channel = local.operator_channels.nfd
   })
 
+  # KServe prerequisites: Service Mesh + Serverless are required when kserve = Managed
+  kserve_enabled = local.ai_enabled && lookup(local.ai_components, "kserve", "Managed") == "Managed"
+
   # GPU templates
   gpu_subscription = templatefile("${local.layers_path}/openshift-ai/gpu-subscription.yaml.tftpl", {
     operator_channel = local.operator_channels.nvidia_gpu
   })
   gpu_clusterpolicy = file("${local.layers_path}/openshift-ai/gpu-clusterpolicy.yaml.tftpl")
+
+  # Service Mesh + Serverless templates (KServe prerequisites)
+  servicemesh_subscription = templatefile("${local.layers_path}/openshift-ai/servicemesh-subscription.yaml.tftpl", {
+    operator_channel = local.operator_channels.servicemesh
+  })
+  serverless_subscription = templatefile("${local.layers_path}/openshift-ai/serverless-subscription.yaml.tftpl", {
+    operator_channel = local.operator_channels.serverless
+  })
 
   # RHOAI templates
   rhoai_subscription = templatefile("${local.layers_path}/openshift-ai/rhoai-subscription.yaml.tftpl", {
@@ -179,7 +191,81 @@ resource "kubectl_manifest" "gpu_clusterpolicy" {
 }
 
 #==============================================================================
-# STAGE 3: Red Hat OpenShift AI (RHOAI)
+# STAGE 3: OpenShift Service Mesh + Serverless (KServe prerequisites)
+#
+# KServe requires Knative Serving (from Serverless) and Istio (from Service
+# Mesh). These are installed only when kserve component is Managed.
+#==============================================================================
+
+resource "kubectl_manifest" "servicemesh_subscription" {
+  count = local.kserve_enabled ? 1 : 0
+
+  yaml_body = local.servicemesh_subscription
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [
+    kubectl_manifest.gpu_clusterpolicy,
+    kubectl_manifest.nfd_nodefeaturediscovery,
+    time_sleep.wait_for_argocd_ready
+  ]
+}
+
+resource "kubectl_manifest" "serverless_namespace" {
+  count = local.kserve_enabled ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/openshift-ai/serverless-namespace.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.servicemesh_subscription]
+}
+
+resource "kubectl_manifest" "serverless_operatorgroup" {
+  count = local.kserve_enabled ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/openshift-ai/serverless-operatorgroup.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.serverless_namespace]
+}
+
+resource "kubectl_manifest" "serverless_subscription" {
+  count = local.kserve_enabled ? 1 : 0
+
+  yaml_body = local.serverless_subscription
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.serverless_operatorgroup]
+}
+
+resource "time_sleep" "wait_for_serverless_operator" {
+  count = local.kserve_enabled ? 1 : 0
+
+  create_duration = "120s"
+
+  depends_on = [kubectl_manifest.serverless_subscription]
+}
+
+resource "kubectl_manifest" "knative_serving" {
+  count = local.kserve_enabled ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/openshift-ai/serverless-knativeserving.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [time_sleep.wait_for_serverless_operator]
+}
+
+#==============================================================================
+# STAGE 4: Red Hat OpenShift AI (RHOAI)
 #==============================================================================
 
 resource "kubectl_manifest" "rhoai_namespace" {
@@ -190,8 +276,8 @@ resource "kubectl_manifest" "rhoai_namespace" {
   server_side_apply = true
   force_conflicts   = true
 
-  # Wait for GPU operator if enabled, otherwise wait for NFD, otherwise ArgoCD
   depends_on = [
+    kubectl_manifest.knative_serving,
     kubectl_manifest.gpu_clusterpolicy,
     kubectl_manifest.nfd_nodefeaturediscovery,
     time_sleep.wait_for_argocd_ready
@@ -256,6 +342,44 @@ resource "kubectl_manifest" "rhoai_datasciencecluster" {
   force_conflicts   = true
 
   depends_on = [time_sleep.wait_for_dsci_ready]
+}
+
+#==============================================================================
+# IRSA Annotations on RHOAI Service Accounts
+#
+# RHOAI workloads (KServe, pipelines, model serving) need S3 access.
+# Annotating SAs with the IAM role ARN enables IRSA so pods get
+# projected tokens and can assume the role without static credentials.
+#==============================================================================
+
+locals {
+  rhoai_irsa_service_accounts = [
+    "default",
+    "modelmesh",
+    "modelmesh-serving-sa",
+    "ds-pipeline-dspa",
+  ]
+}
+
+resource "kubectl_manifest" "rhoai_irsa_sa_annotation" {
+  for_each = local.ai_enabled && var.openshift_ai_create_s3 ? toset(local.rhoai_irsa_service_accounts) : toset([])
+
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "ServiceAccount"
+    metadata = {
+      name      = each.value
+      namespace = "redhat-ods-applications"
+      annotations = {
+        "eks.amazonaws.com/role-arn" = var.openshift_ai_role_arn
+      }
+    }
+  })
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.rhoai_datasciencecluster]
 }
 
 #==============================================================================
