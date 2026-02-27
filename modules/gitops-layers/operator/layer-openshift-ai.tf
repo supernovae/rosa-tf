@@ -4,7 +4,7 @@
 # Installs the full OpenShift AI v3+ stack:
 #   1. Node Feature Discovery (NFD) -- auto-discovers GPU hardware
 #   2. NVIDIA GPU Operator -- drivers, device plugin, container toolkit
-#   3. Red Hat OpenShift AI -- DataScienceCluster v2 with configurable components
+#   3. Red Hat OpenShift AI -- DataScienceCluster with configurable components
 #
 # RHOAI v3+ uses KServe RawDeployment (Headed) mode. Service Mesh and
 # Serverless operators are no longer required as prerequisites.
@@ -41,21 +41,21 @@ locals {
     operator_channel = local.operator_channels.openshift_ai
   })
 
-  # Merge user overrides into default component states (RHOAI v3 / DSC v2 schema)
+  # Merge user overrides into default component states (RHOAI v3 / v1 CRD)
   ai_default_components = {
-    dashboard          = "Managed"
-    workbenches        = "Managed"
-    aipipelines        = "Managed"
-    kserve             = "Managed"
-    nim                = "Managed"
-    ray                = "Managed"
-    kueue              = "Managed"
-    trustyai           = "Removed"
-    trainingoperator   = "Removed"
-    trainer            = "Managed"
-    modelregistry      = "Removed"
-    feastoperator      = "Removed"
-    llamastackoperator = "Removed"
+    dashboard            = "Managed"
+    workbenches          = "Managed"
+    datasciencepipelines = "Managed"
+    modelmeshserving     = "Managed"
+    kserve               = "Managed"
+    ray                  = "Managed"
+    codeflare            = "Managed"
+    kueue                = "Managed"
+    trustyai             = "Removed"
+    trainingoperator     = "Removed"
+    modelregistry        = "Removed"
+    feastoperator        = "Removed"
+    llamastackoperator   = "Removed"
   }
   ai_components = merge(local.ai_default_components, var.openshift_ai_components)
 

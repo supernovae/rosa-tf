@@ -75,8 +75,8 @@ enable_layer_openshift_ai = true
 # Override individual components here.
 #------------------------------------------------------------------------------
 
-# KServe is Managed by default, which auto-installs Service Mesh and Serverless
-# as prerequisites. To disable KServe (saves ~5 min install time):
+# KServe is Managed by default (RHOAI v3 auto-manages Service Mesh).
+# To disable KServe:
 #   openshift_ai_components = { kserve = "Removed" }
 
 # openshift_ai_components = {
@@ -92,8 +92,8 @@ enable_layer_openshift_ai = true
 #   # Disable KServe if not serving models
 #   # kserve = "Removed"
 #
-#   # Disable AI Pipelines if not using pipelines (avoids S3 requirement)
-#   # aipipelines = "Removed"
+#   # Disable pipelines if not using them (avoids S3 requirement)
+#   # datasciencepipelines = "Removed"
 # }
 
 #------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ enable_layer_openshift_ai = true
 #
 # To enable pipelines with S3:
 #   openshift_ai_create_s3  = true
-#   openshift_ai_components = { aipipelines = "Managed" }  # (Managed by default)
+#   openshift_ai_components = { datasciencepipelines = "Managed" }  # (Managed by default)
 #
 # For shared notebook datasets, consider enabling the NetApp Storage layer
 # which provides RWX (NFS) storage.
