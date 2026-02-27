@@ -56,8 +56,6 @@ locals {
     modelregistry      = "Removed"
     feastoperator      = "Removed"
     llamastackoperator = "Removed"
-    mlflowoperator     = "Removed"
-    sparkoperator      = "Removed"
   }
   ai_components = merge(local.ai_default_components, var.openshift_ai_components)
 

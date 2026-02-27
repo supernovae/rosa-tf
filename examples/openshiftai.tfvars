@@ -83,11 +83,11 @@ enable_layer_openshift_ai = true
 #   # Enable model registry for model versioning
 #   modelregistry = "Managed"
 #
-#   # Enable MLflow experiment tracking
-#   mlflowoperator = "Managed"
-#
-#   # Enable feature store
+#   # Enable feature store (Technology Preview)
 #   feastoperator = "Managed"
+#
+#   # Enable Llama Stack (Technology Preview)
+#   llamastackoperator = "Managed"
 #
 #   # Disable KServe if not serving models
 #   # kserve = "Removed"

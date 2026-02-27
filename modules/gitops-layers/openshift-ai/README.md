@@ -115,13 +115,12 @@ defaults via `openshift_ai_components`:
 | `trustyai`           | Removed   | AI model explainability (opt-in)       |
 | `trainingoperator`   | Removed   | Distributed training (opt-in)          |
 | `modelregistry`      | Removed   | Model versioning registry (opt-in)     |
-| `feastoperator`      | Removed   | Feature store (opt-in)                 |
-| `llamastackoperator` | Removed   | Llama Stack serving (opt-in)           |
-| `mlflowoperator`     | Removed   | MLflow experiment tracking (opt-in)    |
-| `sparkoperator`      | Removed   | Apache Spark on Kubernetes (opt-in)    |
+| `feastoperator`      | Removed   | Feature store (opt-in, Tech Preview)   |
+| `llamastackoperator` | Removed   | Llama Stack serving (opt-in, Tech Preview) |
 
 **Removed in v3** (no longer in schema): `modelmeshserving`, `codeflare`,
-`datasciencepipelines` (renamed to `aipipelines`).
+`datasciencepipelines` (renamed to `aipipelines`), embedded `kueue`
+(now uses Red Hat Build of Kueue Operator).
 
 Example override to disable KServe and enable model registry:
 

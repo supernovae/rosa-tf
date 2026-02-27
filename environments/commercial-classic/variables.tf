@@ -1565,7 +1565,7 @@ variable "openshift_ai_components" {
     DataScienceCluster v2 component states. Override individual components:
       dashboard, workbenches, aipipelines, kserve, nim, ray, kueue,
       trainer, trustyai, trainingoperator, modelregistry, feastoperator,
-      llamastackoperator, mlflowoperator, sparkoperator
+      llamastackoperator
     Values: "Managed" or "Removed"
   EOT
   default     = {}
