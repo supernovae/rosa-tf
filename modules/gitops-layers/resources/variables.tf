@@ -306,8 +306,8 @@ variable "enable_layer_openshift_ai" {
 
 variable "openshift_ai_create_s3" {
   type        = bool
-  description = "Create S3 bucket for RHOAI data connections and pipeline artifacts."
-  default     = true
+  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when datasciencepipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
+  default     = false
 }
 
 variable "openshift_ai_data_retention_days" {

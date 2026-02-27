@@ -67,10 +67,10 @@ locals {
     gitops         = "latest" # OpenShift GitOps operator
 
     # OpenShift AI stack and prerequisites
-    nfd          = "stable" # Node Feature Discovery
-    nvidia_gpu   = "v24.9"  # NVIDIA GPU Operator (certified-operators)
-    servicemesh  = "stable" # OpenShift Service Mesh (KServe prerequisite)
-    serverless   = "stable" # OpenShift Serverless / Knative Serving (KServe prerequisite)
+    nfd          = "stable"   # Node Feature Discovery
+    nvidia_gpu   = "v24.9"    # NVIDIA GPU Operator (certified-operators)
+    servicemesh  = "stable"   # OpenShift Service Mesh (KServe prerequisite)
+    serverless   = "stable"   # OpenShift Serverless / Knative Serving (KServe prerequisite)
     openshift_ai = "fast-3.x" # Red Hat OpenShift AI v3+ (RHOAI)
   }
 

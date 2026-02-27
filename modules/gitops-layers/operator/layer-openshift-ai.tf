@@ -10,11 +10,11 @@
 # Sub-toggles:
 #   - openshift_ai_install_nfd: disable if NFD already installed
 #   - openshift_ai_install_gpu_operator: disable for CPU-only AI workloads
-#   - openshift_ai_create_s3: disable if using external S3 storage
+#   - openshift_ai_create_s3: opt-in, only for AI Pipelines artifact storage
 #
 # Dependencies:
 #   - GPU machine pool (configured in cluster phase via machine_pools variable)
-#   - S3 bucket + IAM role (from openshift-ai resources module, optional)
+#   - S3 bucket + IAM role (from openshift-ai resources module, only if create_s3=true)
 #------------------------------------------------------------------------------
 
 locals {

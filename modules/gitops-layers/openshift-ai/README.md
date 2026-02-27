@@ -1,13 +1,17 @@
 # OpenShift AI Layer
 
-Provisions the full Red Hat OpenShift AI (RHOAI) stack with GPU support:
+Provisions the full Red Hat OpenShift AI (RHOAI) v3+ stack with GPU support:
 
 - **Node Feature Discovery (NFD)** -- auto-detects GPU hardware on nodes
 - **NVIDIA GPU Operator** -- installs drivers, device plugin, container toolkit
 - **OpenShift Service Mesh** -- Istio control plane (KServe prerequisite)
 - **OpenShift Serverless** -- Knative Serving (KServe prerequisite)
 - **Red Hat OpenShift AI** -- DataScienceCluster with ML/AI components
-- **S3 Data Storage** -- bucket for model artifacts and pipeline data (optional)
+- **S3 Data Storage** -- opt-in bucket for AI Pipelines artifact storage only
+
+> **RHOAI v3 Storage Note**: Model serving in v3+ uses **OCI images** or **PVC**
+> storage — S3 is **not required** for serving models. S3 is only needed if you
+> enable the `datasciencepipelines` component for ML pipeline artifact storage.
 
 ## Quick Start
 
@@ -97,7 +101,7 @@ Service Mesh and Serverless are KServe prerequisites. If you set
 | `enable_layer_openshift_ai`        | bool        | `false`   | Enable the OpenShift AI layer                  |
 | `openshift_ai_install_nfd`         | bool        | `true`    | Install NFD operator (disable if already present)|
 | `openshift_ai_install_gpu_operator`| bool        | `true`    | Install NVIDIA GPU Operator (disable for CPU-only)|
-| `openshift_ai_create_s3`           | bool        | `true`    | Create S3 bucket for data connections          |
+| `openshift_ai_create_s3`           | bool        | `false`   | Create S3 bucket (only for AI Pipelines)       |
 | `openshift_ai_enable_fips`         | bool        | GovCloud: `true` | FIPS mode for GPU operator             |
 | `openshift_ai_components`          | map(string) | `{}`      | Override DataScienceCluster component states    |
 | `openshift_ai_data_retention_days` | number      | `0`       | S3 lifecycle expiration (0 = no expiration)    |
@@ -110,7 +114,7 @@ Default component states (override via `openshift_ai_components`):
 |----------------------|-----------|---------------------------------------|
 | `dashboard`          | Managed   | OpenShift AI web dashboard            |
 | `workbenches`        | Managed   | JupyterLab notebook environments      |
-| `datasciencepipelines` | Managed | Kubeflow Pipelines 2.0 for ML workflows |
+| `datasciencepipelines` | Managed | Kubeflow Pipelines 2.0 (**requires** `openshift_ai_create_s3 = true`) |
 | `modelmeshserving`   | Managed   | Multi-model serving (ModelMesh)       |
 | `kserve`             | Managed   | Single-model serving (KNative)        |
 | `ray`                | Managed   | Distributed computing (Ray clusters)  |
@@ -287,10 +291,44 @@ If you see errors like `Token file not found "/.cache/huggingface/token"` or
 ### Model Serving with KServe
 
 KServe is enabled by default with Service Mesh and Serverless as prerequisites
-(all installed by Terraform). To deploy an `InferenceService`:
+(all installed by Terraform). RHOAI v3+ supports three model storage backends:
 
-1. Upload your model to the S3 bucket (see S3 section below)
-2. Create an `InferenceService` CR referencing the S3 data connection:
+**Option A: OCI Image (Recommended)** -- No S3 needed, fastest startup:
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: my-model
+  namespace: my-project
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: vLLM
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.1-8b-instruct
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
+```
+
+**Option B: PVC Storage** -- For models already on cluster storage:
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: my-model
+  namespace: my-project
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: onnx
+      storageUri: pvc://my-model-pvc/models/my-onnx-model/
+```
+
+**Option C: S3 Storage** -- Only if `openshift_ai_create_s3 = true`:
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -338,9 +376,9 @@ oc get route rhods-dashboard -n redhat-ods-applications -o jsonpath='{.spec.host
 
 Login with your OpenShift credentials. The dashboard provides:
 - **Workbenches**: Create JupyterLab notebooks with GPU support
-- **Model Serving**: Deploy models via KServe or ModelMesh
-- **Data Connections**: Manage S3 and database connections
-- **Pipelines**: Build and run ML pipelines
+- **Model Serving**: Deploy models via KServe or ModelMesh (OCI, PVC, or S3)
+- **Data Connections**: Manage storage and database connections
+- **Pipelines**: Build and run ML pipelines (requires S3 if enabled)
 
 ### Optional: Additional Secrets and Integrations
 
@@ -353,13 +391,33 @@ Login with your OpenShift credentials. The dashboard provides:
 | Container registry credentials  | Private model images (e.g., vLLM, TEI)           | Namespace of the serving runtime     |
 
 For air-gapped or GovCloud environments where Hugging Face Hub is not
-reachable, pre-download models and upload to S3. Configure serving runtimes
-to pull from S3 instead of HF Hub.
+reachable, package models as OCI "modelcar" images and push to your internal
+registry (e.g., ECR or Quay). Use `oci://` URIs in `InferenceService` specs.
 
-## S3 Bucket Access and Model Upload
+## Storage Integration
 
-Terraform creates an S3 bucket for model artifacts and pipeline data. After apply,
-retrieve the bucket details from Terraform outputs:
+RHOAI v3+ has flexible storage options. S3 is **no longer required** for model
+serving — use OCI images or PVC instead.
+
+| Use Case           | Recommended Storage         | S3 Needed? |
+|--------------------|-----------------------------|------------|
+| Model serving      | OCI images or PVC           | No         |
+| Workbenches        | PVC (default `gp3-csi`)     | No         |
+| AI Pipelines       | S3 for pipeline artifacts   | **Yes**    |
+| Model Registry     | Database (internal)         | No         |
+| Shared datasets    | RWX via NetApp NFS          | No         |
+
+For shared datasets across notebooks, enable the
+[NetApp Storage layer](../netapp-storage/README.md) which provides
+`fsx-ontap-nfs-rwx` (RWX via NFS).
+
+## S3 Bucket (Opt-In for AI Pipelines)
+
+> **Only needed if** `openshift_ai_create_s3 = true` and
+> `datasciencepipelines = "Managed"` (both default to their respective values).
+
+If you enable S3, Terraform creates a bucket and IAM role with IRSA.
+Retrieve the bucket details after apply:
 
 ```bash
 # Find the bucket (naming pattern: <cluster_name>-<hex>-rhoai-data)
@@ -369,47 +427,17 @@ aws s3 ls | grep rhoai-data
 oc get secret aws-connection-default -n redhat-ods-applications \
   -o jsonpath='{.data.AWS_S3_BUCKET}' | base64 -d
 
-# Get the full data connection details
-oc get secret aws-connection-default -n redhat-ods-applications -o yaml
-
 # Get the IAM role ARN (naming pattern: <cluster_name>-rhoai)
 aws iam list-roles --query "Roles[?contains(RoleName,'rhoai')].Arn" --output text
 ```
 
-### Uploading Models
-
-Upload model artifacts to the bucket using the AWS CLI. RHOAI expects models
-in a path-based structure:
+### Uploading Pipeline Artifacts
 
 ```bash
 BUCKET=$(terraform output -raw openshift_ai_bucket_name)
 
-# Upload a model (e.g., an ONNX model for KServe/ModelMesh)
-aws s3 cp my-model/ s3://${BUCKET}/models/my-model/ --recursive
-
 # Upload pipeline artifacts
 aws s3 cp pipeline-output/ s3://${BUCKET}/pipelines/run-001/ --recursive
-```
-
-### Recommended Directory Structure
-
-```
-s3://<bucket>/
-├── models/                     # Model artifacts for serving
-│   ├── my-sklearn-model/
-│   │   └── model.joblib
-│   ├── my-onnx-model/
-│   │   └── model.onnx
-│   └── my-llm/
-│       ├── config.json
-│       ├── tokenizer.json
-│       └── model.safetensors
-├── pipelines/                  # Pipeline run artifacts
-│   ├── run-001/
-│   └── run-002/
-└── data/                       # Training datasets and notebooks
-    ├── datasets/
-    └── notebooks/
 ```
 
 ### Data Connection in OpenShift AI Dashboard
@@ -419,43 +447,13 @@ Terraform creates a data connection secret (`aws-connection-default`) in the
 OpenShift AI dashboard under **Data connections**.
 
 For IRSA-based access (no static credentials), workloads running on nodes with
-the OIDC-trusted service account assume the IAM role automatically. The data
-connection secret has empty `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-fields -- RHOAI workloads use the pod's projected service account token instead.
-
-To create additional data connections manually:
-
-```bash
-oc create secret generic my-data-connection \
-  -n redhat-ods-applications \
-  --from-literal=AWS_ACCESS_KEY_ID="" \
-  --from-literal=AWS_SECRET_ACCESS_KEY="" \
-  --from-literal=AWS_S3_ENDPOINT="https://$(terraform output -raw openshift_ai_s3_endpoint)" \
-  --from-literal=AWS_S3_BUCKET="$(terraform output -raw openshift_ai_bucket_name)" \
-  --from-literal=AWS_DEFAULT_REGION="$(terraform output -raw openshift_ai_bucket_region)"
-
-oc label secret my-data-connection -n redhat-ods-applications \
-  opendatahub.io/dashboard=true \
-  opendatahub.io/managed=false
-```
-
-## Storage Integration
-
-OpenShift AI workbenches and pipelines need persistent storage:
-
-- **Workbenches**: RWO storage for notebook data (default `gp3-csi` works)
-- **Pipelines**: RWO for pipeline metadata
-- **Model serving**: S3 for model artifacts (this module creates the bucket)
-- **Shared datasets**: RWX storage if multiple notebooks share data
-
-For shared datasets, enable the [NetApp Storage layer](../netapp-storage/README.md)
-which provides `fsx-ontap-nfs-rwx` (RWX via NFS).
+the OIDC-trusted service account assume the IAM role automatically.
 
 ## FedRAMP / GovCloud Notes
 
 - `openshift_ai_enable_fips = true` (default in GovCloud) configures the
   GPU Operator's ClusterPolicy for FIPS-compliant mode
-- S3 bucket uses KMS encryption when `kms_key_arn` is provided
+- S3 bucket (if enabled) uses KMS encryption when `kms_key_arn` is provided
 - IAM roles use `data.aws_partition.current.partition` for GovCloud ARNs
 - All operators install from Red Hat's certified catalog (no third-party)
 - Bucket is created via CloudFormation with `DeletionPolicy: Retain`

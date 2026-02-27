@@ -20,10 +20,10 @@
 
 enable_layer_openshift_ai = true
 
-# Sub-toggles (all default to true)
+# Sub-toggles
 # openshift_ai_install_nfd            = true    # Disable if NFD already installed
 # openshift_ai_install_gpu_operator   = true    # Disable for CPU-only AI workloads
-# openshift_ai_create_s3              = true    # Disable to skip S3 bucket creation
+# openshift_ai_create_s3              = false   # Enable only if using AI Pipelines (default: false)
 
 #------------------------------------------------------------------------------
 # GPU Machine Pool (add to your cluster-*.tfvars)
@@ -93,10 +93,17 @@ enable_layer_openshift_ai = true
 #------------------------------------------------------------------------------
 # Storage Integration (optional)
 #
-# OpenShift AI uses S3 for model artifacts and pipeline data.
+# RHOAI v3+ model serving uses OCI images or PVC — S3 is NOT required for
+# serving models. S3 is only needed for AI Pipelines artifact storage.
+#
+# To enable pipelines with S3:
+#   openshift_ai_create_s3  = true
+#   openshift_ai_components = { datasciencepipelines = "Managed" }
+#
 # For shared notebook datasets, consider enabling the NetApp Storage layer
 # which provides RWX (NFS) storage.
 #------------------------------------------------------------------------------
 
-# enable_layer_netapp_storage = true
-# fsx_admin_password          = "YourSecurePassword123!"
+# openshift_ai_create_s3      = true   # Only for AI Pipelines
+# enable_layer_netapp_storage  = true
+# fsx_admin_password           = "YourSecurePassword123!"
