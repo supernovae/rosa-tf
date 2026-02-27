@@ -50,7 +50,7 @@ locals {
     kserve               = "Managed"
     ray                  = "Managed"
     codeflare            = "Removed"
-    kueue                = "Managed"
+    kueue                = "Removed"
     trustyai             = "Removed"
     trainingoperator     = "Removed"
     modelregistry        = "Removed"
