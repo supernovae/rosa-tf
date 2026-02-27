@@ -4,14 +4,13 @@ Provisions the full Red Hat OpenShift AI (RHOAI) v3+ stack with GPU support:
 
 - **Node Feature Discovery (NFD)** -- auto-detects GPU hardware on nodes
 - **NVIDIA GPU Operator** -- installs drivers, device plugin, container toolkit
-- **OpenShift Service Mesh** -- Istio control plane (KServe prerequisite)
-- **OpenShift Serverless** -- Knative Serving (KServe prerequisite)
-- **Red Hat OpenShift AI** -- DataScienceCluster with ML/AI components
+- **Red Hat OpenShift AI** -- DataScienceCluster v2 with ML/AI components
 - **S3 Data Storage** -- opt-in bucket for AI Pipelines artifact storage only
 
-> **RHOAI v3 Storage Note**: Model serving in v3+ uses **OCI images** or **PVC**
-> storage — S3 is **not required** for serving models. S3 is only needed if you
-> enable the `datasciencepipelines` component for ML pipeline artifact storage.
+> **RHOAI v3+ Changes**: KServe now uses **RawDeployment (Headed)** mode.
+> Service Mesh and Serverless are **no longer required** as prerequisites.
+> Model serving uses **OCI images** or **PVC** storage — S3 is only needed
+> for the `aipipelines` component.
 
 ## Quick Start
 
@@ -46,20 +45,18 @@ machine_pools = [
 
 ## What Terraform Installs (Day 0)
 
-This layer installs **6 operators** and their CRs automatically. No manual
+This layer installs **3 operators** and their CRs automatically. No manual
 operator installation is needed.
 
 | Stage | Operator                  | Namespace              | Source             | Condition                    |
 |-------|---------------------------|------------------------|--------------------|------------------------------|
 | 1     | Node Feature Discovery    | openshift-nfd          | redhat-operators   | `openshift_ai_install_nfd`   |
 | 2     | NVIDIA GPU Operator       | nvidia-gpu-operator    | certified-operators| `openshift_ai_install_gpu_operator` |
-| 3     | OpenShift Service Mesh    | openshift-operators    | redhat-operators   | `kserve = "Managed"` (default) |
-| 3     | OpenShift Serverless      | openshift-serverless   | redhat-operators   | `kserve = "Managed"` (default) |
-| 4     | Red Hat OpenShift AI      | redhat-ods-operator    | redhat-operators   | Always (when layer enabled)  |
+| 3     | Red Hat OpenShift AI      | redhat-ods-operator    | redhat-operators   | Always (when layer enabled)  |
 | --    | S3 Bucket + IAM Role      | AWS                    | --                 | `openshift_ai_create_s3`    |
 
-Service Mesh and Serverless are KServe prerequisites. If you set
-`kserve = "Removed"` in `openshift_ai_components`, they are skipped.
+RHOAI v3+ uses KServe RawDeployment (Headed) mode. Service Mesh and
+Serverless operators are **not required**.
 
 ## Architecture
 
@@ -76,20 +73,14 @@ Service Mesh and Serverless are KServe prerequisites. If you set
 |  +------------------+     |  toolkit, DCGM exporter)    |             |
 |                           +-----------------------------+             |
 |                                      |                                |
-|  Stage 3 (KServe prereqs)           v                                |
-|  openshift-operators       openshift-serverless                       |
-|  +------------------+     +-----------------------------+             |
-|  | Service Mesh     |     | Serverless Operator         |             |
-|  | (Istio)          |---->| KnativeServing CR           |             |
-|  +------------------+     +-----------------------------+             |
-|                                      |                                |
-|  Stage 4                             v                                |
+|  Stage 3                             v                                |
 |  redhat-ods-operator       redhat-ods-applications                    |
 |  +------------------+     +-----------------------------+             |
-|  | RHOAI Operator   |     | DataScienceCluster          |             |
+|  | RHOAI Operator   |     | DataScienceCluster v2       |             |
 |  | DSCInitialization|---->| Dashboard, Workbenches,     |             |
-|  +------------------+     | Pipelines, KServe, Ray,     |             |
-|                           | CodeFlare, Kueue            |             |
+|  +------------------+     | KServe (RawDeployment),     |             |
+|                           | AI Pipelines, Ray, Kueue,   |             |
+|                           | NIM, Trainer                |             |
 |                           +-----------------------------+             |
 +-----------------------------------------------------------------------+
 ```
@@ -106,23 +97,31 @@ Service Mesh and Serverless are KServe prerequisites. If you set
 | `openshift_ai_components`          | map(string) | `{}`      | Override DataScienceCluster component states    |
 | `openshift_ai_data_retention_days` | number      | `0`       | S3 lifecycle expiration (0 = no expiration)    |
 
-## DataScienceCluster Components
+## DataScienceCluster Components (v2 API)
 
-Default component states (override via `openshift_ai_components`):
+RHOAI v3+ uses the `datasciencecluster.opendatahub.io/v2` API. Override
+defaults via `openshift_ai_components`:
 
-| Component            | Default   | Description                           |
-|----------------------|-----------|---------------------------------------|
-| `dashboard`          | Managed   | OpenShift AI web dashboard            |
-| `workbenches`        | Managed   | JupyterLab notebook environments      |
-| `datasciencepipelines` | Managed | Kubeflow Pipelines 2.0 (**requires** `openshift_ai_create_s3 = true`) |
-| `modelmeshserving`   | Managed   | Multi-model serving (ModelMesh)       |
-| `kserve`             | Managed   | Single-model serving (KNative)        |
-| `ray`                | Managed   | Distributed computing (Ray clusters)  |
-| `codeflare`          | Managed   | Distributed workload orchestration    |
-| `kueue`              | Managed   | Job queue and quota management        |
-| `trustyai`           | Removed   | AI model explainability (opt-in)      |
-| `trainingoperator`   | Removed   | Distributed training (opt-in)         |
-| `modelregistry`      | Removed   | Model versioning registry (opt-in)    |
+| Component            | Default   | Description                            |
+|----------------------|-----------|----------------------------------------|
+| `dashboard`          | Managed   | OpenShift AI web dashboard             |
+| `workbenches`        | Managed   | JupyterLab notebook environments       |
+| `aipipelines`        | Managed   | AI Pipelines (**requires** `openshift_ai_create_s3 = true` for artifact storage) |
+| `kserve`             | Managed   | Model serving (KNative / Raw)          |
+| `nim`                | Managed   | NVIDIA NIM integration                 |
+| `ray`                | Managed   | Distributed computing (Ray clusters)   |
+| `kueue`              | Managed   | Job queue and quota management         |
+| `trainer`            | Managed   | Training job orchestration             |
+| `trustyai`           | Removed   | AI model explainability (opt-in)       |
+| `trainingoperator`   | Removed   | Distributed training (opt-in)          |
+| `modelregistry`      | Removed   | Model versioning registry (opt-in)     |
+| `feastoperator`      | Removed   | Feature store (opt-in)                 |
+| `llamastackoperator` | Removed   | Llama Stack serving (opt-in)           |
+| `mlflowoperator`     | Removed   | MLflow experiment tracking (opt-in)    |
+| `sparkoperator`      | Removed   | Apache Spark on Kubernetes (opt-in)    |
+
+**Removed in v3** (no longer in schema): `modelmeshserving`, `codeflare`,
+`datasciencepipelines` (renamed to `aipipelines`).
 
 Example override to disable KServe and enable model registry:
 

@@ -1,35 +1,40 @@
-apiVersion: datasciencecluster.opendatahub.io/v1
+apiVersion: datasciencecluster.opendatahub.io/v2
 kind: DataScienceCluster
 metadata:
   name: default-dsc
+  labels:
+    app.kubernetes.io/name: datasciencecluster
 spec:
   components:
     dashboard:
       managementState: ${dashboard}
     workbenches:
       managementState: ${workbenches}
-    datasciencepipelines:
-      managementState: ${datasciencepipelines}
-    modelmeshserving:
-      managementState: ${modelmeshserving}
+    aipipelines:
+      managementState: ${aipipelines}
     kserve:
       managementState: ${kserve}
-      serving:
-        ingressGateway:
-          certificate:
-            type: OpenshiftDefaultIngress
-        managementState: ${kserve}
-        name: knative-serving
+      nim:
+        managementState: ${nim}
+      rawDeploymentServiceConfig: Headed
     ray:
       managementState: ${ray}
-    codeflare:
-      managementState: ${codeflare}
     kueue:
       managementState: ${kueue}
     trustyai:
       managementState: ${trustyai}
     trainingoperator:
       managementState: ${trainingoperator}
+    trainer:
+      managementState: ${trainer}
     modelregistry:
       managementState: ${modelregistry}
       registriesNamespace: rhoai-model-registries
+    feastoperator:
+      managementState: ${feastoperator}
+    llamastackoperator:
+      managementState: ${llamastackoperator}
+    mlflowoperator:
+      managementState: ${mlflowoperator}
+    sparkoperator:
+      managementState: ${sparkoperator}

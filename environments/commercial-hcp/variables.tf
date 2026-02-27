@@ -1464,9 +1464,10 @@ variable "openshift_ai_enable_fips" {
 variable "openshift_ai_components" {
   type        = map(string)
   description = <<-EOT
-    DataScienceCluster component states. Override individual components:
-      dashboard, workbenches, datasciencepipelines, modelmeshserving,
-      kserve, ray, codeflare, kueue, trustyai, trainingoperator, modelregistry
+    DataScienceCluster v2 component states. Override individual components:
+      dashboard, workbenches, aipipelines, kserve, nim, ray, kueue,
+      trainer, trustyai, trainingoperator, modelregistry, feastoperator,
+      llamastackoperator, mlflowoperator, sparkoperator
     Values: "Managed" or "Removed"
   EOT
   default     = {}

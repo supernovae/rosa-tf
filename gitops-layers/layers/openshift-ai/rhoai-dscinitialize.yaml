@@ -1,15 +1,13 @@
-apiVersion: dscinitialization.opendatahub.io/v1
+apiVersion: dscinitialization.opendatahub.io/v2
 kind: DSCInitialization
 metadata:
   name: default-dsci
 spec:
   applicationsNamespace: redhat-ods-applications
-  serviceMesh:
-    controlPlane:
-      metricsCollection: Istio
-      name: data-science-smcp
-      namespace: istio-system
+  monitoring:
     managementState: Managed
+    namespace: redhat-ods-monitoring
+    metrics: {}
   trustedCABundle:
-    customCABundle: ""
     managementState: Managed
+    customCABundle: ""
