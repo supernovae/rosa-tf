@@ -41,16 +41,14 @@ locals {
     operator_channel = local.operator_channels.openshift_ai
   })
 
-  # Merge user overrides into default component states (RHOAI v3 / v1 CRD)
+  # Component defaults (RHOAI v3). Deprecated components (modelmeshserving,
+  # codeflare, kueue) are omitted — the operator manages their defaults.
   ai_default_components = {
     dashboard            = "Managed"
     workbenches          = "Managed"
     datasciencepipelines = "Managed"
-    modelmeshserving     = "Removed"
     kserve               = "Managed"
     ray                  = "Managed"
-    codeflare            = "Removed"
-    kueue                = "Removed"
     trustyai             = "Removed"
     trainingoperator     = "Removed"
     modelregistry        = "Removed"
