@@ -96,7 +96,7 @@ cluster_autoscaler_enabled = false # Set to true for autoscaling
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10"
+openshift_version = "4.20.14"
 channel_group     = "stable"
 
 #------------------------------------------------------------------------------

@@ -139,11 +139,11 @@ variable "openshift_version" {
     To see available versions, run:
       rosa list versions --channel-group stable
   EOT
-  default     = "4.20.10"
+  default     = "4.20.14"
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
-    error_message = "OpenShift version must be in x.y.z format (e.g., 4.20.10)."
+    error_message = "OpenShift version must be in x.y.z format (e.g., 4.20.14)."
   }
 }
 

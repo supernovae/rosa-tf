@@ -82,8 +82,8 @@ variable "environment" {
 
 variable "openshift_version" {
   type        = string
-  description = "OpenShift version for control plane (e.g., 4.20.10). Run 'rosa list versions' to see available."
-  default     = "4.20.10"
+  description = "OpenShift version for control plane (e.g., 4.20.14). Run 'rosa list versions' to see available."
+  default     = "4.20.14"
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
