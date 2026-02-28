@@ -29,6 +29,22 @@ variable "aws_region" {
 }
 
 #------------------------------------------------------------------------------
+# Feature Toggles
+#------------------------------------------------------------------------------
+
+variable "create_s3" {
+  type        = bool
+  description = "Create S3 bucket for AI Pipelines artifact storage."
+  default     = false
+}
+
+variable "ecr_repository_arn" {
+  type        = string
+  description = "ARN of the ECR repository for OCI model images. When set, adds push/pull permissions to the RHOAI IAM role."
+  default     = ""
+}
+
+#------------------------------------------------------------------------------
 # S3 Configuration
 #------------------------------------------------------------------------------
 

@@ -279,7 +279,7 @@ locals {
 }
 
 resource "kubectl_manifest" "rhoai_irsa_sa_annotation" {
-  for_each = local.ai_enabled && var.openshift_ai_create_s3 ? toset(local.rhoai_irsa_service_accounts) : toset([])
+  for_each = local.ai_enabled && var.openshift_ai_role_arn != "" ? toset(local.rhoai_irsa_service_accounts) : toset([])
 
   yaml_body = yamlencode({
     apiVersion = "v1"

@@ -315,3 +315,9 @@ variable "openshift_ai_data_retention_days" {
   description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
   default     = 0
 }
+
+variable "ecr_repository_arn" {
+  type        = string
+  description = "ARN of the ECR repository. When set with OpenShift AI, adds push/pull permissions for RHOAI service accounts."
+  default     = ""
+}

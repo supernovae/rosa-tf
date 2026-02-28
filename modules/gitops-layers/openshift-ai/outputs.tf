@@ -4,17 +4,17 @@
 
 output "bucket_name" {
   description = "Name of the S3 bucket for RHOAI data storage."
-  value       = local.bucket_name
+  value       = var.create_s3 ? local.bucket_name : ""
 }
 
 output "bucket_arn" {
   description = "ARN of the S3 bucket for RHOAI data storage."
-  value       = local.bucket_arn
+  value       = var.create_s3 ? local.bucket_arn : ""
 }
 
 output "bucket_region" {
   description = "Region of the S3 bucket."
-  value       = var.aws_region
+  value       = var.create_s3 ? var.aws_region : ""
 }
 
 output "role_arn" {
@@ -29,16 +29,16 @@ output "role_name" {
 
 output "s3_endpoint" {
   description = "S3 endpoint URL for RHOAI data connections."
-  value       = local.s3_endpoint
+  value       = var.create_s3 ? local.s3_endpoint : ""
 }
 
 output "gitops_config" {
   description = "Configuration values passed to the operator module for OpenShift AI layer."
   value = {
-    bucket_name   = local.bucket_name
-    bucket_region = var.aws_region
+    bucket_name   = var.create_s3 ? local.bucket_name : ""
+    bucket_region = var.create_s3 ? var.aws_region : ""
     role_arn      = aws_iam_role.rhoai.arn
-    s3_endpoint   = local.s3_endpoint
+    s3_endpoint   = var.create_s3 ? local.s3_endpoint : ""
     is_govcloud   = var.is_govcloud
   }
 }

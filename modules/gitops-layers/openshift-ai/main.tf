@@ -35,18 +35,18 @@ locals {
   bucket_suffix         = "rhoai-data"
   bucket_max_name_len   = 63 - 8 - length(local.bucket_suffix) - 2
   bucket_cluster_name   = substr(lower(replace(var.cluster_name, "_", "-")), 0, local.bucket_max_name_len)
-  bucket_name_generated = "${local.bucket_cluster_name}-${random_id.bucket_suffix.hex}-${local.bucket_suffix}"
-  bucket_name           = var.s3_bucket_name != "" ? var.s3_bucket_name : local.bucket_name_generated
+  bucket_name_generated = var.create_s3 ? "${local.bucket_cluster_name}-${random_id.bucket_suffix[0].hex}-${local.bucket_suffix}" : ""
+  bucket_name           = var.create_s3 ? (var.s3_bucket_name != "" ? var.s3_bucket_name : local.bucket_name_generated) : ""
 
   s3_endpoint = "s3.${var.aws_region}.amazonaws.com"
 
-  # RHOAI service accounts that need S3 access for data connections and pipelines
   rhoai_service_accounts = [
     "system:serviceaccount:redhat-ods-applications:*",
     "system:serviceaccount:rhods-notebooks:*"
   ]
 
-  bucket_arn = "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}"
+  bucket_arn = var.create_s3 ? "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}" : ""
+  has_ecr    = var.ecr_repository_arn != ""
 }
 
 #------------------------------------------------------------------------------
@@ -54,6 +54,7 @@ locals {
 #------------------------------------------------------------------------------
 
 resource "random_id" "bucket_suffix" {
+  count       = var.create_s3 ? 1 : 0
   byte_length = 4
 
   keepers = {
@@ -66,7 +67,8 @@ resource "random_id" "bucket_suffix" {
 #------------------------------------------------------------------------------
 
 resource "aws_cloudformation_stack" "rhoai_bucket" {
-  name = "${var.cluster_name}-rhoai-bucket"
+  count = var.create_s3 ? 1 : 0
+  name  = "${var.cluster_name}-rhoai-bucket"
 
   template_body = jsonencode({
     AWSTemplateFormatVersion = "2010-09-09"
@@ -159,6 +161,7 @@ resource "aws_cloudformation_stack" "rhoai_bucket" {
 #------------------------------------------------------------------------------
 
 resource "null_resource" "bucket_destroy_notice" {
+  count = var.create_s3 ? 1 : 0
   triggers = {
     bucket_name = local.bucket_name
     aws_region  = var.aws_region
@@ -230,10 +233,12 @@ resource "aws_iam_role" "rhoai" {
 }
 
 #------------------------------------------------------------------------------
-# IAM Policy for RHOAI S3 Access
+# IAM Policy for RHOAI S3 Access (conditional on create_s3)
 #------------------------------------------------------------------------------
 
-data "aws_iam_policy_document" "rhoai" {
+data "aws_iam_policy_document" "rhoai_s3" {
+  count = var.create_s3 ? 1 : 0
+
   statement {
     sid    = "S3BucketAccess"
     effect = "Allow"
@@ -274,10 +279,53 @@ data "aws_iam_policy_document" "rhoai" {
   }
 }
 
-resource "aws_iam_role_policy" "rhoai" {
-  name   = "${var.cluster_name}-rhoai-policy"
+resource "aws_iam_role_policy" "rhoai_s3" {
+  count  = var.create_s3 ? 1 : 0
+  name   = "${var.cluster_name}-rhoai-s3"
   role   = aws_iam_role.rhoai.id
-  policy = data.aws_iam_policy_document.rhoai.json
+  policy = data.aws_iam_policy_document.rhoai_s3[0].json
+}
+
+#------------------------------------------------------------------------------
+# IAM Policy for RHOAI ECR Push/Pull (conditional on ecr_repository_arn)
+#
+# Allows RHOAI service accounts to push OCI model images to ECR
+# and pull them for serving via oci:// URIs.
+#------------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "rhoai_ecr" {
+  count = local.has_ecr ? 1 : 0
+
+  statement {
+    sid    = "ECRAuth"
+    effect = "Allow"
+    actions = [
+      "ecr:GetAuthorizationToken"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "ECRPushPull"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart"
+    ]
+    resources = [var.ecr_repository_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "rhoai_ecr" {
+  count  = local.has_ecr ? 1 : 0
+  name   = "${var.cluster_name}-rhoai-ecr"
+  role   = aws_iam_role.rhoai.id
+  policy = data.aws_iam_policy_document.rhoai_ecr[0].json
 }
 
 #------------------------------------------------------------------------------
@@ -291,5 +339,8 @@ resource "time_sleep" "role_propagation" {
     role_arn = aws_iam_role.rhoai.arn
   }
 
-  depends_on = [aws_iam_role_policy.rhoai]
+  depends_on = [
+    aws_iam_role_policy.rhoai_s3,
+    aws_iam_role_policy.rhoai_ecr,
+  ]
 }

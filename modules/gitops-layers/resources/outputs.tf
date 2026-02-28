@@ -127,22 +127,22 @@ output "fsx_security_group_id" {
 
 output "openshift_ai_bucket_name" {
   description = "S3 bucket name for RHOAI data."
-  value       = var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].bucket_name : ""
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].bucket_name : ""
 }
 
 output "openshift_ai_role_arn" {
   description = "IAM role ARN for RHOAI workloads."
-  value       = var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].role_arn : ""
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].role_arn : ""
 }
 
 output "openshift_ai_s3_endpoint" {
   description = "S3 endpoint URL for RHOAI data connections."
-  value       = var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].s3_endpoint : ""
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].s3_endpoint : ""
 }
 
 output "openshift_ai_bucket_region" {
   description = "Region of the RHOAI S3 bucket."
-  value       = var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].bucket_region : ""
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].bucket_region : ""
 }
 
 #------------------------------------------------------------------------------
@@ -211,6 +211,6 @@ output "s3_buckets_requiring_manual_cleanup" {
   value = compact([
     var.enable_layer_oadp ? module.oadp[0].bucket_name : "",
     var.enable_layer_monitoring ? module.monitoring[0].loki_bucket_name : "",
-    var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].bucket_name : "",
+    var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].bucket_name : ""
   ])
 }

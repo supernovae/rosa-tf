@@ -731,6 +731,7 @@ module "gitops_resources" {
   enable_layer_openshift_ai        = var.enable_layer_openshift_ai
   openshift_ai_create_s3           = var.openshift_ai_create_s3
   openshift_ai_data_retention_days = var.openshift_ai_data_retention_days
+  ecr_repository_arn               = var.create_ecr ? module.ecr[0].repository_arn : ""
 
   tags = local.common_tags
 }
