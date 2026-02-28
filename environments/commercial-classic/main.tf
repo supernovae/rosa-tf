@@ -215,8 +215,8 @@ locals {
     for i in range(local.az_count) : cidrsubnet(var.vpc_cidr, 4, i + 3)
   ]
 
-  # NAT gateway count follows AZ count: single-AZ = single NAT, multi-AZ = NAT per AZ
-  use_single_nat = !var.multi_az
+  # NAT: null = auto (single-AZ→1, multi-AZ→per-AZ), true = shared, false = per-AZ
+  use_single_nat = var.single_nat_gateway != null ? var.single_nat_gateway : !var.multi_az
 
   # BYO-VPC: indirection layer for all network references
   # When existing_vpc_id is set, use provided values instead of module.vpc outputs

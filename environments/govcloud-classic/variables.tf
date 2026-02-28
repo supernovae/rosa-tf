@@ -80,6 +80,17 @@ variable "multi_az" {
   default     = true
 }
 
+variable "single_nat_gateway" {
+  type        = bool
+  description = <<-EOT
+    Use a single shared NAT gateway instead of one per AZ.
+    - null (default): auto — single-AZ gets 1 NAT, multi-AZ gets 1 per AZ
+    - true: shared NAT (~$64/month savings for 3-AZ, single point of failure)
+    - false: dedicated NAT per AZ (high availability)
+  EOT
+  default     = null
+}
+
 variable "availability_zones" {
   type        = list(string)
   description = <<-EOT
