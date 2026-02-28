@@ -657,9 +657,15 @@ variable "openshift_ai_s3_endpoint" {
   default     = ""
 }
 
+variable "openshift_ai_create_irsa" {
+  type        = bool
+  description = "Whether to annotate RHOAI service accounts with the IAM role for IRSA."
+  default     = false
+}
+
 variable "openshift_ai_role_arn" {
   type        = string
-  description = "IAM role ARN for RHOAI workloads (IRSA). Used to annotate service accounts for S3 access."
+  description = "IAM role ARN for RHOAI workloads (IRSA). Used to annotate service accounts for S3/ECR access."
   default     = ""
 }
 

@@ -903,6 +903,7 @@ module "gitops" {
   openshift_ai_bucket_name          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_name : ""
   openshift_ai_bucket_region        = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_region : ""
   openshift_ai_s3_endpoint          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_s3_endpoint : ""
+  openshift_ai_create_irsa          = var.enable_layer_openshift_ai
   openshift_ai_role_arn             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_role_arn : ""
 
   # OpenShift version for operator channel selection
