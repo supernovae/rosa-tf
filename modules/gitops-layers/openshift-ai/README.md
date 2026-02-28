@@ -34,11 +34,12 @@ GPU machine pool in `cluster-dev.tfvars`:
 ```hcl
 machine_pools = [
   {
-    name          = "gpu"
-    instance_type = "g6.xlarge"
-    replicas      = 1
-    labels        = { "node-role.kubernetes.io/gpu" = "" }
-    taints        = [{ key = "nvidia.com/gpu", value = "true", schedule_type = "NoSchedule" }]
+    name              = "gpu"
+    instance_type     = "g7e.2xlarge"        # RTX PRO 6000 Blackwell 96GB
+    replicas          = 1
+    availability_zone = "us-east-1b"         # g7e only in us-east-1b/1d
+    labels            = { "node-role.kubernetes.io/gpu" = "" }
+    taints            = [{ key = "nvidia.com/gpu", value = "true", schedule_type = "NoSchedule" }]
   }
 ]
 ```
@@ -148,6 +149,9 @@ Best for model serving, inference endpoints, and light fine-tuning.
 | g6.12xlarge   | 4    | NVIDIA L4   | 96 GB   | 48   | $4.60       | Fair   | us-gov-east |
 | g6e.xlarge    | 1    | NVIDIA L40S | 48 GB   | 4    | $1.86       | Fair   | No       |
 | g6e.12xlarge  | 4    | NVIDIA L40S | 192 GB  | 48   | $9.69       | Fair   | No       |
+| g7e.2xlarge   | 1    | RTX PRO 6000 Blackwell | 96 GB  | 8    | ~$2.50      | Fair   | No  |
+| g7e.12xlarge  | 4    | RTX PRO 6000 Blackwell | 384 GB | 48   | ~$12.00     | Fair   | No  |
+| g7e.48xlarge  | 8    | RTX PRO 6000 Blackwell | 768 GB | 192  | ~$30.00     | Rare   | No  |
 
 ### Training Tier (High Performance)
 
@@ -188,6 +192,61 @@ GovCloud has limited GPU instance availability:
 **Recommendation for GovCloud**: Start with `g4dn.xlarge` for dev/test. For
 production inference, request `g6` capacity in `us-gov-east-1`. For training
 workloads, use `p3.2xlarge` or `p3.8xlarge` where available.
+
+## GPU Availability Zone Constraints
+
+Newer GPU instance types (g7e, p5) are **not available in all AZs**. If your
+cluster's VPC only spans AZs that don't support your desired GPU type,
+machine pool creation will fail with a 400 error.
+
+### Commercial us-east-1
+
+| Instance Family | us-east-1a | us-east-1b | us-east-1c | us-east-1d |
+|-----------------|------------|------------|------------|------------|
+| g4dn, g5, g6   | Yes        | Yes        | Yes        | Yes        |
+| g6e             | Yes        | Yes        | Yes        | Yes        |
+| g7e (Blackwell)| **No**     | Yes        | **No**     | Yes        |
+| p5 (H100)      | Yes        | Limited    | Limited    | Limited    |
+
+### How to Target a Specific AZ
+
+Use the `availability_zone` field on machine pools to place GPU workers in a
+supported AZ. This requires `multi_az = true` (or explicit `availability_zones`
+that include the target AZ) so the VPC has subnets in the right zones.
+
+```hcl
+# byron-dev.tfvars — multi-AZ VPC
+multi_az = true
+
+# byron-openshiftai.tfvars — GPU pool targeting us-east-1b for g7e
+machine_pools = [
+  {
+    name              = "gpu"
+    instance_type     = "g7e.2xlarge"
+    replicas          = 1
+    availability_zone = "us-east-1b"
+    labels = {
+      "node-role.kubernetes.io/gpu" = ""
+    }
+    taints = [{
+      key           = "nvidia.com/gpu"
+      value         = "true"
+      schedule_type = "NoSchedule"
+    }]
+  }
+]
+```
+
+**Tip**: Check AZ availability before choosing an instance type:
+
+```bash
+aws ec2 describe-instance-type-offerings \
+  --location-type availability-zone \
+  --filters "Name=instance-type,Values=g7e.*" \
+  --region us-east-1 \
+  --query 'InstanceTypeOfferings[].{Type:InstanceType,AZ:Location}' \
+  --output table
+```
 
 ## Spot Instance Guidance
 

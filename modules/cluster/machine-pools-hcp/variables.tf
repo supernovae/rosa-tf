@@ -29,6 +29,16 @@ variable "subnet_id" {
   description = "Default subnet ID for machine pools."
 }
 
+variable "az_subnet_map" {
+  type        = map(string)
+  description = <<-EOT
+    Map of availability zone name to private subnet ID.
+    Enables pools to target a specific AZ using the availability_zone field
+    (e.g., for GPU instances only available in certain AZs).
+  EOT
+  default     = {}
+}
+
 #------------------------------------------------------------------------------
 # Machine Pools Configuration
 #
@@ -77,7 +87,11 @@ variable "machine_pools" {
       schedule_type = string # NoSchedule, PreferNoSchedule, NoExecute
     })), [])
 
-    # Override default subnet (optional)
+    # AZ targeting (optional) - resolves to subnet via az_subnet_map
+    # Use when an instance type is only available in specific AZs (e.g., g7e in us-east-1b)
+    availability_zone = optional(string)
+
+    # Override default subnet (optional, mutually exclusive with availability_zone)
     subnet_id = optional(string)
 
     # ECR policy attachment (optional)
@@ -95,11 +109,12 @@ variable "machine_pools" {
     - autoscaling: { enabled = bool, min = number, max = number }
     - labels: Map of node labels for workload targeting
     - taints: List of taints for workload isolation
-    - subnet_id: Override default subnet
+    - availability_zone: Target a specific AZ (requires az_subnet_map)
+    - subnet_id: Override default subnet (alternative to availability_zone)
     - attach_ecr_policy: Attach ECR readonly policy to pool's instance profile (default: false)
     
     See docs/MACHINE-POOLS.md for detailed examples including:
-    - GPU pools (NVIDIA)
+    - GPU pools (NVIDIA) with AZ targeting
     - Bare metal pools (OpenShift Virtualization)
     - ARM/Graviton pools (cost optimization)
     - High memory pools

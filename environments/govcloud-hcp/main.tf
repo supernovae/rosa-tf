@@ -570,6 +570,7 @@ module "machine_pools" {
   cluster_id        = module.rosa_cluster.cluster_id
   openshift_version = coalesce(var.machine_pool_version, var.openshift_version)
   subnet_id         = local.effective_private_subnet_ids[0]
+  az_subnet_map     = zipmap(local.effective_availability_zones, local.effective_private_subnet_ids)
 
   # Pass generic machine pools list
   # See docs/MACHINE-POOLS.md for configuration examples

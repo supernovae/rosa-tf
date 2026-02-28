@@ -45,8 +45,12 @@ resource "rhcs_hcp_machine_pool" "pool" {
   # Version configuration - must be within n-2 of control plane
   version = var.openshift_version
 
-  # Subnet configuration - use pool-specific or default
-  subnet_id = coalesce(each.value.subnet_id, var.subnet_id)
+  # Subnet resolution order: availability_zone (via az_subnet_map) → subnet_id → default
+  subnet_id = coalesce(
+    try(var.az_subnet_map[each.value.availability_zone], null),
+    each.value.subnet_id,
+    var.subnet_id
+  )
 
   # Autoscaling configuration
   # Provider requires this block but min/max conflict with replicas.
