@@ -67,6 +67,29 @@ The number of private subnets determines the cluster topology:
 
 In BYO-VPC mode, the `multi_az` variable is ignored — topology is inferred from the subnets you provide. The actual availability zones are looked up from the subnets via `data.aws_subnet`.
 
+## NAT Gateway Topology
+
+When Terraform creates the VPC (non-BYO), it supports three NAT configurations:
+
+| Setting | NAT Gateways | Monthly Cost | AZ Resilience |
+|---------|:---:|:---:|:---:|
+| `multi_az = false` (default) | 1 | ~$35 | N/A (single AZ) |
+| `multi_az = true` | 3 (1 per AZ) | ~$100 | Full — survives AZ failure |
+| `multi_az = true` + `single_nat_gateway = true` | 1 (shared) | ~$35 | None — shared NAT is single point of failure |
+
+The shared NAT option saves ~$64/month for multi-AZ dev/lab clusters where AZ
+resilience for egress is not critical. All AZs still have independent subnets
+and workers — only outbound internet traffic shares a single NAT gateway.
+
+```hcl
+# Multi-AZ with shared NAT (dev/lab cost savings)
+multi_az           = true
+single_nat_gateway = true
+```
+
+> **Production recommendation:** Use the default `single_nat_gateway = null`
+> (auto) which gives dedicated NAT per AZ for multi-AZ deployments.
+
 ## CIDR Planning Guide
 
 ### Default CIDRs

@@ -88,6 +88,42 @@ machine_pools = [
 ]
 ```
 
+### GPU Pool with AZ Targeting
+
+Newer GPU instance types (g7e, p5) are only available in specific AZs.
+Use `availability_zone` to place the pool in a supported AZ. Requires
+`multi_az = true` so the VPC has subnets in that AZ.
+
+```hcl
+machine_pools = [
+  {
+    name              = "gpu"
+    instance_type     = "g7e.2xlarge"   # RTX PRO 6000 Blackwell 96GB
+    replicas          = 1
+    availability_zone = "us-east-1b"    # g7e only in us-east-1b/1d
+    labels = {
+      "node-role.kubernetes.io/gpu" = ""
+    }
+    taints = [{
+      key           = "nvidia.com/gpu"
+      value         = "true"
+      schedule_type = "NoSchedule"
+    }]
+  }
+]
+```
+
+Check which AZs support a given instance type:
+
+```bash
+aws ec2 describe-instance-type-offerings \
+  --location-type availability-zone \
+  --filters "Name=instance-type,Values=g7e.*" \
+  --region us-east-1 \
+  --query 'InstanceTypeOfferings[].{Type:InstanceType,AZ:Location}' \
+  --output table
+```
+
 ### ARM/Graviton Pool for Cost Optimization
 
 ```hcl
@@ -173,14 +209,18 @@ machine_pools = [
 
 ### GPU Instance Types
 
-| Instance | GPU | Memory | Use Case |
-|----------|-----|--------|----------|
-| g4dn.xlarge | T4 | 16 GB | ML inference, lightweight training |
-| g4dn.2xlarge | T4 | 32 GB | ML inference, medium workloads |
-| g5.xlarge | A10G | 24 GB | ML training, graphics |
-| p3.2xlarge | V100 | 16 GB | Deep learning training |
-| p3.8xlarge | 4x V100 | 64 GB | Large model training |
-| p4d.24xlarge | 8x A100 | 320 GB | Massive scale ML |
+| Instance | GPU | VRAM | Use Case | AZ Note |
+|----------|-----|------|----------|---------|
+| g4dn.xlarge | T4 | 16 GB | ML inference, lightweight training | Broad |
+| g4dn.2xlarge | T4 | 16 GB | ML inference, medium workloads | Broad |
+| g5.xlarge | A10G | 24 GB | ML training, graphics | Broad |
+| g6e.2xlarge | L40S | 48 GB | Inference, fine-tuning | Broad |
+| g7e.2xlarge | RTX PRO 6000 Blackwell | 96 GB | LLM inference, FP4/FP8 | Limited (use `availability_zone`) |
+| g7e.12xlarge | 4x RTX PRO 6000 | 384 GB | Large model training | Limited |
+| p3.2xlarge | V100 | 16 GB | Deep learning training | Broad |
+| p3.8xlarge | 4x V100 | 64 GB | Large model training | Broad |
+| p4d.24xlarge | 8x A100 | 320 GB | Massive scale ML | Limited |
+| p5.48xlarge | 8x H100 | 640 GB | Frontier-scale ML | Very limited |
 
 ### High Memory Instance Types
 
@@ -260,6 +300,7 @@ spec:
 | cluster_id | HCP cluster ID | string | required |
 | openshift_version | OpenShift version for pools | string | required |
 | subnet_id | Default subnet ID for pools | string | required |
+| az_subnet_map | Map of AZ name to subnet ID (for `availability_zone` targeting) | map(string) | {} |
 | machine_pools | List of machine pool configurations | list(object) | [] |
 | auto_repair | Enable auto-repair for pools | bool | true |
 
@@ -275,7 +316,8 @@ Each pool in `machine_pools` supports:
 | autoscaling | `{ enabled, min, max }` | no |
 | labels | Map of node labels | no |
 | taints | List of `{ key, value, schedule_type }` | no |
-| subnet_id | Override default subnet | no |
+| availability_zone | Target AZ (resolves to subnet via `az_subnet_map`) | no |
+| subnet_id | Override default subnet (alternative to `availability_zone`) | no |
 | attach_ecr_policy | Attach ECR readonly policy | no (default: false) |
 
 ## Outputs
