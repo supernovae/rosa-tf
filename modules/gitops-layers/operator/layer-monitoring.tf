@@ -63,45 +63,52 @@ resource "kubectl_manifest" "monitoring_prometheus_rules" {
 # Namespaces
 #------------------------------------------------------------------------------
 
-resource "kubernetes_namespace_v1" "monitoring_logging" {
+# openshift-logging namespace may already exist on fresh clusters (created by
+# OpenShift). Using kubectl_manifest with server_side_apply to be idempotent.
+resource "kubectl_manifest" "monitoring_logging_ns" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
-  metadata {
-    name = "openshift-logging"
-
-    labels = {
-      "openshift.io/cluster-monitoring" = "true"
-      "app.kubernetes.io/managed-by"    = "terraform"
-      "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
-      "app.kubernetes.io/component"     = "monitoring"
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "openshift-logging"
+      labels = {
+        "openshift.io/cluster-monitoring" = "true"
+        "app.kubernetes.io/managed-by"    = "terraform"
+        "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
+        "app.kubernetes.io/component"     = "monitoring"
+      }
     }
-  }
+  })
 
-  lifecycle {
-    ignore_changes = [metadata[0].annotations]
-  }
+  server_side_apply = true
+  force_conflicts   = true
 
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 
-resource "kubernetes_namespace_v1" "monitoring_operators_redhat" {
+# openshift-operators-redhat namespace may already exist on fresh clusters.
+resource "kubectl_manifest" "monitoring_operators_redhat_ns" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
-  metadata {
-    name = "openshift-operators-redhat"
-
-    labels = {
-      "app.kubernetes.io/managed-by" = "terraform"
-      "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
-      "app.kubernetes.io/component"  = "monitoring"
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "openshift-operators-redhat"
+      labels = {
+        "app.kubernetes.io/managed-by" = "terraform"
+        "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
+        "app.kubernetes.io/component"  = "monitoring"
+      }
     }
-  }
+  })
 
-  lifecycle {
-    ignore_changes = [metadata[0].annotations]
-  }
+  server_side_apply = true
+  force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.monitoring_logging]
+  depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 #------------------------------------------------------------------------------
@@ -116,7 +123,7 @@ resource "kubectl_manifest" "monitoring_operatorgroup_logging" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.monitoring_logging]
+  depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 resource "kubectl_manifest" "monitoring_operatorgroup_operators_redhat" {
@@ -127,7 +134,7 @@ resource "kubectl_manifest" "monitoring_operatorgroup_operators_redhat" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.monitoring_operators_redhat]
+  depends_on = [kubectl_manifest.monitoring_operators_redhat_ns]
 }
 
 resource "kubectl_manifest" "monitoring_loki_subscription" {
@@ -182,7 +189,7 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
     role_arn    = base64encode(var.monitoring_role_arn)
   }
 
-  depends_on = [kubernetes_namespace_v1.monitoring_logging]
+  depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 #------------------------------------------------------------------------------
