@@ -38,9 +38,15 @@ variable "create_s3" {
   default     = false
 }
 
+variable "create_ecr_policy" {
+  type        = bool
+  description = "Attach ECR push/pull policy to the RHOAI IAM role for OCI model images."
+  default     = false
+}
+
 variable "ecr_repository_arn" {
   type        = string
-  description = "ARN of the ECR repository for OCI model images. When set, adds push/pull permissions to the RHOAI IAM role."
+  description = "ARN of the ECR repository for OCI model images."
   default     = ""
 }
 

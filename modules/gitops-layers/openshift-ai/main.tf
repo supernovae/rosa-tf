@@ -46,7 +46,6 @@ locals {
   ]
 
   bucket_arn = var.create_s3 ? "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}" : ""
-  has_ecr    = var.ecr_repository_arn != ""
 }
 
 #------------------------------------------------------------------------------
@@ -294,7 +293,7 @@ resource "aws_iam_role_policy" "rhoai_s3" {
 #------------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "rhoai_ecr" {
-  count = local.has_ecr ? 1 : 0
+  count = var.create_ecr_policy ? 1 : 0
 
   statement {
     sid    = "ECRAuth"
@@ -322,7 +321,7 @@ data "aws_iam_policy_document" "rhoai_ecr" {
 }
 
 resource "aws_iam_role_policy" "rhoai_ecr" {
-  count  = local.has_ecr ? 1 : 0
+  count  = var.create_ecr_policy ? 1 : 0
   name   = "${var.cluster_name}-rhoai-ecr"
   role   = aws_iam_role.rhoai.id
   policy = data.aws_iam_policy_document.rhoai_ecr[0].json

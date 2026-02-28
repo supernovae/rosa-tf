@@ -154,6 +154,7 @@ module "openshift_ai" {
 
   create_s3           = var.openshift_ai_create_s3
   data_retention_days = var.openshift_ai_data_retention_days
+  create_ecr_policy   = var.create_ecr_policy
   ecr_repository_arn  = var.ecr_repository_arn
 
   tags = var.tags

@@ -316,8 +316,14 @@ variable "openshift_ai_data_retention_days" {
   default     = 0
 }
 
+variable "create_ecr_policy" {
+  type        = bool
+  description = "Attach ECR push/pull policy to the RHOAI IAM role."
+  default     = false
+}
+
 variable "ecr_repository_arn" {
   type        = string
-  description = "ARN of the ECR repository. When set with OpenShift AI, adds push/pull permissions for RHOAI service accounts."
+  description = "ARN of the ECR repository for RHOAI OCI model images."
   default     = ""
 }
