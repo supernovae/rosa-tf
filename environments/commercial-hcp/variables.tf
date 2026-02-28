@@ -544,7 +544,9 @@ variable "machine_pools" {
       value         = string
       schedule_type = string
     })), [])
-    subnet_id = optional(string)
+    availability_zone = optional(string)
+    subnet_id         = optional(string)
+    attach_ecr_policy = optional(bool, false)
   }))
 
   description = <<-EOT
@@ -557,7 +559,9 @@ variable "machine_pools" {
     - autoscaling: { enabled = bool, min = number, max = number }
     - labels: Map of node labels for workload targeting
     - taints: List of taints for workload isolation
-    - subnet_id: Override default subnet
+    - availability_zone: Target a specific AZ (for instance types with limited AZ support)
+    - subnet_id: Override default subnet (alternative to availability_zone)
+    - attach_ecr_policy: Attach ECR readonly policy to pool (default: false)
     
     Examples in docs/MACHINE-POOLS.md:
     - GPU pools (NVIDIA g4dn, p3, p4d)
