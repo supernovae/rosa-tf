@@ -184,9 +184,9 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
   }
 
   data = {
-    bucketnames = base64encode(var.monitoring_bucket_name)
-    region      = base64encode(var.aws_region)
-    role_arn    = base64encode(var.monitoring_role_arn)
+    bucketnames = var.monitoring_bucket_name
+    region      = var.aws_region
+    role_arn    = var.monitoring_role_arn
   }
 
   depends_on = [kubectl_manifest.monitoring_logging_ns]
