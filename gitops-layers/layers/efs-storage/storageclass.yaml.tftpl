@@ -1,0 +1,25 @@
+# EFS StorageClass for dynamic PV provisioning via access points
+#
+# Uses the EFS CSI driver with access point provisioning mode.
+# Each PVC creates a dedicated EFS access point (uid/gid isolation).
+#
+# Template variables (injected by Terraform):
+# - efs_file_system_id: AWS EFS filesystem ID
+# - storage_class_name: Name of the StorageClass (default: efs-sc)
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ${storage_class_name}
+  labels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: rosa-gitops-layers
+    app.kubernetes.io/component: efs-storage
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: ${efs_file_system_id}
+  directoryPerms: "700"
+  basePath: "/dynamic_provisioning"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate

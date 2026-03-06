@@ -122,6 +122,25 @@ output "fsx_security_group_id" {
 }
 
 #------------------------------------------------------------------------------
+# EFS Storage Outputs
+#------------------------------------------------------------------------------
+
+output "efs_file_system_id" {
+  description = "EFS file system ID for StorageClass configuration."
+  value       = var.enable_layer_efs_storage ? module.efs_storage[0].efs_file_system_id : ""
+}
+
+output "efs_role_arn" {
+  description = "IAM role ARN for EFS CSI driver."
+  value       = var.enable_layer_efs_storage ? module.efs_storage[0].efs_role_arn : ""
+}
+
+output "efs_security_group_id" {
+  description = "Security group ID for EFS mount targets."
+  value       = var.enable_layer_efs_storage ? module.efs_storage[0].efs_security_group_id : ""
+}
+
+#------------------------------------------------------------------------------
 # Summary Output (for debugging)
 #------------------------------------------------------------------------------
 
@@ -134,6 +153,7 @@ output "enabled_layers" {
     var.enable_layer_monitoring ? "monitoring" : "",
     var.enable_layer_certmanager ? "certmanager" : "",
     var.enable_layer_netapp_storage ? "netapp-storage" : "",
+    var.enable_layer_efs_storage ? "efs-storage" : "",
   ])
 }
 
