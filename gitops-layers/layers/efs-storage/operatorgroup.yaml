@@ -1,0 +1,14 @@
+# EFS CSI Driver Operator Group
+#
+# Required for OLM to install operators in the openshift-cluster-csi-drivers
+# namespace. On ROSA HCP, this namespace exists but does not have a
+# pre-created OperatorGroup (unlike Classic where it may already exist).
+#
+# Uses AllNamespaces install mode (no targetNamespaces) per Red Hat docs:
+# https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/storage/using-container-storage-interface-csi#persistent-storage-csi-aws-efs
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-cluster-csi-drivers
+  namespace: openshift-cluster-csi-drivers
+spec: {}
