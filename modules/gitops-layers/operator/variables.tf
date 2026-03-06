@@ -558,6 +558,39 @@ variable "certmanager_ingress_cert_secret_name" {
 }
 
 #------------------------------------------------------------------------------
+# EFS Storage (AWS EFS CSI Driver) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_efs_storage" {
+  type        = bool
+  description = <<-EOT
+    Enable the EFS Storage layer (AWS EFS CSI Driver + StorageClass).
+    Installs the EFS CSI Driver Operator, creates credentials secret,
+    deploys ClusterCSIDriver, and creates an efs-sc StorageClass.
+    Works on Classic/HCP and Commercial/GovCloud.
+  EOT
+  default     = false
+}
+
+variable "efs_file_system_id" {
+  type        = string
+  description = "EFS file system ID for StorageClass. From the efs-storage resources module."
+  default     = ""
+}
+
+variable "efs_role_arn" {
+  type        = string
+  description = "IAM role ARN for EFS CSI driver IRSA. From the efs-storage resources module."
+  default     = ""
+}
+
+variable "efs_storage_class_name" {
+  type        = string
+  description = "Name of the EFS StorageClass to create."
+  default     = "efs-sc"
+}
+
+#------------------------------------------------------------------------------
 # NetApp Storage (FSx ONTAP + Trident) Configuration
 #------------------------------------------------------------------------------
 

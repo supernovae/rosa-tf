@@ -737,6 +737,12 @@ module "gitops_resources" {
   enable_layer_monitoring     = var.enable_layer_monitoring
   enable_layer_certmanager    = var.enable_layer_certmanager
   enable_layer_netapp_storage = var.enable_layer_netapp_storage
+  enable_layer_efs_storage    = var.enable_layer_efs_storage
+
+  # EFS Storage config
+  efs_performance_mode = var.efs_performance_mode
+  efs_throughput_mode  = var.efs_throughput_mode
+  efs_encrypted        = var.efs_encrypted
 
   # Layer-specific config
   oadp_backup_retention_days = var.oadp_backup_retention_days
@@ -850,6 +856,12 @@ module "gitops" {
   enable_layer_monitoring     = var.enable_layer_monitoring
   enable_layer_certmanager    = var.enable_layer_certmanager
   enable_layer_netapp_storage = var.enable_layer_netapp_storage
+  enable_layer_efs_storage    = var.enable_layer_efs_storage
+
+  # EFS Storage resources from consolidated module
+  efs_file_system_id     = length(module.gitops_resources) > 0 ? module.gitops_resources[0].efs_file_system_id : ""
+  efs_role_arn           = length(module.gitops_resources) > 0 ? module.gitops_resources[0].efs_role_arn : ""
+  efs_storage_class_name = var.efs_storage_class_name
 
   # Layer resources from consolidated module
   oadp_bucket_name           = length(module.gitops_resources) > 0 ? module.gitops_resources[0].oadp_bucket_name : ""
