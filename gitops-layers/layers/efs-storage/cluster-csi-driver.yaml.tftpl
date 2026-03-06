@@ -1,0 +1,11 @@
+# ClusterCSIDriver for AWS EFS
+#
+# Tells the EFS CSI Driver Operator to deploy and manage the EFS CSI driver.
+# The operator watches this CR and installs driver DaemonSets/Deployments.
+---
+apiVersion: operator.openshift.io/v1
+kind: ClusterCSIDriver
+metadata:
+  name: efs.csi.aws.com
+spec:
+  managementState: Managed

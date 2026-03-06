@@ -1058,6 +1058,40 @@ variable "certmanager_ingress_namespace_selector" {
 }
 
 #------------------------------------------------------------------------------
+# EFS Storage (AWS EFS CSI Driver) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_efs_storage" {
+  type        = bool
+  description = "Enable AWS EFS CSI Driver + StorageClass layer."
+  default     = false
+}
+
+variable "efs_performance_mode" {
+  type        = string
+  description = "EFS performance mode: generalPurpose or maxIO."
+  default     = "generalPurpose"
+}
+
+variable "efs_throughput_mode" {
+  type        = string
+  description = "EFS throughput mode: bursting, provisioned, or elastic."
+  default     = "elastic"
+}
+
+variable "efs_encrypted" {
+  type        = bool
+  description = "Enable encryption at rest for EFS. Always true for GovCloud/FedRAMP."
+  default     = true
+}
+
+variable "efs_storage_class_name" {
+  type        = string
+  description = "Name of the EFS StorageClass to create."
+  default     = "efs-sc"
+}
+
+#------------------------------------------------------------------------------
 # NetApp Storage (FSx ONTAP + Trident) Configuration
 #------------------------------------------------------------------------------
 
