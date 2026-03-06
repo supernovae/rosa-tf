@@ -42,6 +42,9 @@ resource "kubectl_manifest" "nodepool" {
       )
     }
     spec = {
+      disruption = {
+        consolidationPolicy = each.value.consolidation_policy
+      }
       template = {
         metadata = {
           labels = local.safe_template_labels[each.key]

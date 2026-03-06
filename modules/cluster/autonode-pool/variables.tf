@@ -12,8 +12,9 @@ variable "autonode_pools" {
       value         = string
       schedule_type = string
     })), [])
-    capacity_type = optional(string, "spot")
-    node_class    = optional(string, "default")
+    capacity_type        = optional(string, "spot")
+    node_class           = optional(string, "default")
+    consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
   }))
 
   description = <<-EOT
@@ -39,6 +40,10 @@ variable "autonode_pools" {
     capacity_type controls Spot vs On-Demand pricing. Karpenter will wait
     for Spot capacity if unavailable; add "on-demand" as a separate pool
     for fallback.
+
+    consolidation_policy controls when Karpenter consolidates (disrupts)
+    nodes. Default "WhenEmptyOrUnderutilized"; set "WhenEmpty" to only
+    remove nodes with zero non-daemonset pods.
   EOT
 
   default = []

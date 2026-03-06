@@ -27,6 +27,23 @@ locals {
   monitoring_logforwarder = templatefile("${local.layers_path}/monitoring/clusterlogforwarder-observability.yaml.tftpl", {
     cluster_name = var.cluster_name
   })
+
+  # LokiStack with optional node placement (nodeSelector + tolerations).
+  # The template also contains an S3 Secret document which we create
+  # separately via kubernetes_secret_v1, so extract only the first YAML doc.
+  monitoring_lokistack_full = templatefile("${local.layers_path}/monitoring/lokistack-observability.yaml.tftpl", {
+    loki_size            = var.monitoring_loki_size
+    bucket_name          = var.monitoring_bucket_name
+    bucket_region        = var.aws_region
+    role_arn             = var.monitoring_role_arn
+    retention_days       = var.monitoring_retention_days
+    storage_class        = var.monitoring_storage_class
+    node_selector        = var.monitoring_node_selector
+    tolerations          = var.monitoring_tolerations
+    ingestion_rate       = var.monitoring_loki_ingestion_rate
+    ingestion_burst_size = var.monitoring_loki_ingestion_burst_size
+  })
+  monitoring_lokistack = element(split("\n---\n", local.monitoring_lokistack_full), 1)
 }
 
 #------------------------------------------------------------------------------
@@ -199,39 +216,7 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
 resource "kubectl_manifest" "monitoring_lokistack" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
-  yaml_body = <<-YAML
-apiVersion: loki.grafana.com/v1
-kind: LokiStack
-metadata:
-  name: logging-loki
-  namespace: openshift-logging
-spec:
-  size: ${var.monitoring_loki_size}
-  storage:
-    schemas:
-      - version: v13
-        effectiveDate: "2024-10-15"
-    secret:
-      name: logging-loki-s3
-      type: s3
-  storageClassName: ${var.monitoring_storage_class}
-  tenants:
-    mode: openshift-logging
-  limits:
-    global:
-      retention:
-        days: ${var.monitoring_retention_days}
-        streams:
-          - selector: '{log_type="infrastructure"}'
-            priority: 1
-            days: ${var.monitoring_retention_days}
-          - selector: '{log_type="application"}'
-            priority: 1
-            days: ${var.monitoring_retention_days}
-          - selector: '{log_type="audit"}'
-            priority: 1
-            days: ${var.monitoring_retention_days}
-  YAML
+  yaml_body = local.monitoring_lokistack
 
   server_side_apply = true
   force_conflicts   = true

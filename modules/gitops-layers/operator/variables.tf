@@ -358,6 +358,26 @@ variable "monitoring_prometheus_storage_size" {
   default     = "100Gi"
 }
 
+variable "monitoring_loki_ingestion_rate" {
+  type        = number
+  description = <<-EOT
+    Per-tenant Loki ingestion rate limit in MB/s.
+    The 1x.extra-small default (~4 MB/s) is too low for clusters running
+    multiple operators. Increase if Vector logs show 429 Too Many Requests.
+  EOT
+  default     = 10
+}
+
+variable "monitoring_loki_ingestion_burst_size" {
+  type        = number
+  description = <<-EOT
+    Per-tenant Loki ingestion burst size in MB.
+    Should be >= ingestion_rate. Allows short bursts above the sustained rate
+    (e.g., operator restarts, deployment rollouts).
+  EOT
+  default     = 20
+}
+
 variable "monitoring_node_selector" {
   type        = map(string)
   description = <<-EOT
