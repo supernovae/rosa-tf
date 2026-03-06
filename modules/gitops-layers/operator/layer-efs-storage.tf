@@ -28,10 +28,26 @@ locals {
 }
 
 #------------------------------------------------------------------------------
-# Subscription (OLM)
+# OperatorGroup
 #
-# openshift-cluster-csi-drivers namespace already exists on ROSA clusters
-# (managed by the cluster). No need to create it or an OperatorGroup.
+# On ROSA HCP, openshift-cluster-csi-drivers exists but has no OperatorGroup.
+# OLM requires one to create InstallPlans. On Classic it may already exist;
+# server_side_apply + force_conflicts handles the idempotent case.
+#------------------------------------------------------------------------------
+
+resource "kubectl_manifest" "efs_operatorgroup" {
+  count = !var.skip_k8s_destroy && var.enable_layer_efs_storage ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/efs-storage/operatorgroup.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [time_sleep.wait_for_argocd_ready]
+}
+
+#------------------------------------------------------------------------------
+# Subscription (OLM)
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "efs_subscription" {
@@ -42,7 +58,7 @@ resource "kubectl_manifest" "efs_subscription" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [time_sleep.wait_for_argocd_ready]
+  depends_on = [kubectl_manifest.efs_operatorgroup]
 }
 
 #------------------------------------------------------------------------------
