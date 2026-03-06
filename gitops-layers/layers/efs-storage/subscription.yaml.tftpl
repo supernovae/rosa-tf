@@ -1,0 +1,19 @@
+# AWS EFS CSI Driver Operator Subscription
+#
+# Installs the AWS EFS CSI Driver Operator from OperatorHub.
+# Works on both Commercial and GovCloud ROSA clusters (Classic and HCP).
+#
+# Template variables (injected by Terraform):
+# - operator_channel: Operator subscription channel
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: aws-efs-csi-driver-operator
+  namespace: openshift-cluster-csi-drivers
+spec:
+  channel: ${operator_channel}
+  name: aws-efs-csi-driver-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

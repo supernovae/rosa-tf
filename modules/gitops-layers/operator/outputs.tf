@@ -53,6 +53,7 @@ output "layers_enabled" {
     monitoring     = var.enable_layer_monitoring
     certmanager    = var.enable_layer_certmanager
     netapp_storage = var.enable_layer_netapp_storage
+    efs_storage    = var.enable_layer_efs_storage
   }
 }
 
