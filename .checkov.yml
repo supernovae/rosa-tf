@@ -78,6 +78,20 @@ skip-check:
   # the kms_key_arn variable where required (production/GovCloud).
   - CKV_AWS_145  # S3 KMS default encryption (configurable via kms_key_arn)
 
+  # EFS encryption at rest is always enabled (encrypted = true). The module
+  # uses the AWS-managed aws/elasticfilesystem key by default; customer-managed
+  # KMS is optional via kms_key_arn. GovCloud environments pass the infra KMS key.
+  - CKV_AWS_184  # EFS CMK encryption (configurable via kms_key_arn variable)
+
+  # Karpenter controller IAM policy - AWS-documented permissions for node
+  # autoscaling. EC2 Describe*, pricing:GetProducts, and SQS actions inherently
+  # require Resource="*" (no resource-level constraints in AWS API). Write actions
+  # (RunInstances, CreateFleet, TerminateInstances) are scoped by karpenter.sh/nodepool
+  # and karpenter.k8s.aws/ec2nodeclass condition tags to limit blast radius.
+  # Reference: https://karpenter.sh/docs/getting-started/getting-started-with-karpenter/
+  - CKV_AWS_290  # Karpenter write actions scoped by condition tags
+  - CKV_AWS_355  # Karpenter/ECR read APIs require Resource="*"
+
 # External checks
 external-checks-dir: []
 
