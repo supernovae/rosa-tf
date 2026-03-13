@@ -16,6 +16,7 @@ variable "autonode_pools" {
     capacity_type        = optional(string, "spot")
     node_class           = optional(string, "default")
     consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
+    consolidate_after    = optional(string, "30s")
     limits               = optional(map(string), {})
     weight               = optional(number, 0)
     expire_after         = optional(string, "720h")
@@ -62,6 +63,7 @@ variable "autonode_pools" {
       weight         - priority between pools; higher = preferred (default 0)
       expire_after   - node TTL before replacement (default "720h" / 30 days)
       consolidation_policy - "WhenEmptyOrUnderutilized" (default) or "WhenEmpty"
+      consolidate_after    - delay before consolidation (default "30s")
   EOT
 
   default = []

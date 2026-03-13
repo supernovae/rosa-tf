@@ -1525,6 +1525,7 @@ variable "autonode_pools" {
     capacity_type        = optional(string, "spot")
     node_class           = optional(string, "default")
     consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
+    consolidate_after    = optional(string, "30s")
     limits               = optional(map(string), {})
     weight               = optional(number, 0)
     expire_after         = optional(string, "720h")

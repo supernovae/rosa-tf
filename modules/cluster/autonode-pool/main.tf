@@ -55,6 +55,7 @@ resource "kubectl_manifest" "nodepool" {
       {
         disruption = {
           consolidationPolicy = each.value.consolidation_policy
+          consolidateAfter    = each.value.consolidate_after
         }
         template = {
           metadata = length(local.safe_template_labels[each.key]) > 0 ? {
