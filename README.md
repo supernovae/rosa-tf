@@ -394,7 +394,7 @@ terraform destroy -var-file=cluster-dev.tfvars
 
 | Feature | Description |
 |---------|-------------|
-| **VPC** | Multi-AZ with NAT/TGW/Proxy egress options |
+| **VPC** | Multi-AZ with NAT/TGW/Proxy egress; optional shared NAT for cost savings |
 | **IAM** | Account roles, operator roles, OIDC provider |
 | **KMS** | Three modes: provider-managed, create, or existing |
 | **Jump Host** | SSM-enabled EC2 for private cluster access |
@@ -492,7 +492,7 @@ Classic clusters run control plane and infrastructure nodes in your account:
 | Control Plane | 3x m6i.xlarge | ~$420/mo |
 | Infra Nodes | 3x r5.xlarge | ~$550/mo |
 | Workers | 3x m6i.xlarge | ~$420/mo |
-| NAT Gateways | 3x (1 per AZ) | ~$100/mo |
+| NAT Gateways | 3x (1 per AZ) | ~$100/mo (or ~$35/mo with `single_nat_gateway = true`) |
 
 ### ROSA HCP Architecture
 
@@ -511,7 +511,8 @@ HCP control plane is always multi-AZ (managed by Red Hat). You only pay for work
 | Workers (2x m6i.xlarge) | ~$280/mo |
 | NAT Gateway | ~$35/mo |
 
-> **Note:** Scale workers based on workload needs. Add NAT gateways for multi-AZ VPC (~$65/mo more).
+> **Note:** Scale workers based on workload needs. Multi-AZ VPC adds ~$65/mo for dedicated NAT per AZ,
+> or use `single_nat_gateway = true` to share one NAT across all AZs (saves ~$64/mo, acceptable for dev/lab).
 
 ### Summary
 

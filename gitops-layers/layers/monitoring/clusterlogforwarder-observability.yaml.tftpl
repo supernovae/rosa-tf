@@ -25,9 +25,8 @@ spec:
   serviceAccount:
     name: logcollector
   
-  # Collector configuration - deploys Vector DaemonSet
+  # Collector configuration (Vector is the only collector in CLO 6.x)
   collector:
-    type: vector
     resources:
       limits:
         memory: 1Gi

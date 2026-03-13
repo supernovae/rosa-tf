@@ -82,8 +82,8 @@ variable "environment" {
 
 variable "openshift_version" {
   type        = string
-  description = "OpenShift version for control plane (e.g., 4.20.10). Run 'rosa list versions' to see available."
-  default     = "4.20.10"
+  description = "OpenShift version for control plane (e.g., 4.20.14). Run 'rosa list versions' to see available."
+  default     = "4.20.14"
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
@@ -168,6 +168,17 @@ variable "multi_az" {
   type        = bool
   description = "Deploy across multiple availability zones (true for production)."
   default     = false
+}
+
+variable "single_nat_gateway" {
+  type        = bool
+  description = <<-EOT
+    Use a single shared NAT gateway instead of one per AZ.
+    - null (default): auto — single-AZ gets 1 NAT, multi-AZ gets 1 per AZ
+    - true: shared NAT (~$64/month savings for 3-AZ, single point of failure)
+    - false: dedicated NAT per AZ (high availability)
+  EOT
+  default     = null
 }
 
 variable "egress_type" {
@@ -533,7 +544,9 @@ variable "machine_pools" {
       value         = string
       schedule_type = string
     })), [])
-    subnet_id = optional(string)
+    availability_zone = optional(string)
+    subnet_id         = optional(string)
+    attach_ecr_policy = optional(bool, false)
   }))
 
   description = <<-EOT
@@ -546,7 +559,9 @@ variable "machine_pools" {
     - autoscaling: { enabled = bool, min = number, max = number }
     - labels: Map of node labels for workload targeting
     - taints: List of taints for workload isolation
-    - subnet_id: Override default subnet
+    - availability_zone: Target a specific AZ (for instance types with limited AZ support)
+    - subnet_id: Override default subnet (alternative to availability_zone)
+    - attach_ecr_policy: Attach ECR readonly policy to pool (default: false)
     
     Examples in docs/MACHINE-POOLS.md:
     - GPU pools (NVIDIA g4dn, p3, p4d)
@@ -1459,4 +1474,125 @@ variable "skip_k8s_destroy" {
   type        = bool
   description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."
   default     = false
+}
+
+#------------------------------------------------------------------------------
+# AutoNode (Karpenter) Configuration
+#------------------------------------------------------------------------------
+
+variable "cluster_properties" {
+  type        = map(string)
+  description = <<-EOT
+    Additional cluster properties passed to the OCM API.
+    For stage shard targeting (AutoNode private preview), set:
+      cluster_properties = { "provision_shard_id" = "<shard-id>" }
+  EOT
+  default     = {}
+}
+
+variable "enable_autonode" {
+  type        = bool
+  description = <<-EOT
+    Enable AutoNode (Karpenter) support.
+
+    When true, creates:
+    - Karpenter controller IAM role with OIDC trust
+    - Karpenter IAM policy with EC2/IAM/SSM/SQS permissions
+    - ec2:CreateTags permission on the control-plane-operator role
+    - Karpenter discovery tags on private subnets
+
+    After terraform apply, enable AutoNode:
+      terraform output -raw rosa_enable_autonode_command | bash
+
+    Requirements:
+    - OpenShift 4.19+
+    - us-east-1 region (private preview)
+  EOT
+  default     = false
+}
+
+variable "autonode_pools" {
+  type = list(object({
+    name           = string
+    instance_type  = optional(string, "")
+    instance_types = optional(list(string), [])
+    labels         = optional(map(string), {})
+    taints = optional(list(object({
+      key           = string
+      value         = optional(string, "")
+      schedule_type = string
+    })), [])
+    capacity_type        = optional(string, "spot")
+    node_class           = optional(string, "default")
+    consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
+    consolidate_after    = optional(string, "30s")
+    limits               = optional(map(string), {})
+    weight               = optional(number, 0)
+    expire_after         = optional(string, "720h")
+  }))
+
+  description = <<-EOT
+    Karpenter NodePool definitions. Applied in Phase 2 (requires
+    install_gitops = true) because NodePool CRDs only exist after
+    manually enabling AutoNode between phases.
+
+    Simple pool:
+      autonode_pools = [{ name = "general", instance_type = "m6a.2xlarge" }]
+
+    See modules/cluster/autonode-pool/variables.tf for full field reference.
+  EOT
+
+  default = []
+}
+
+#------------------------------------------------------------------------------
+# OpenShift AI Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, NVIDIA GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_install_nfd" {
+  type        = bool
+  description = "Install Node Feature Discovery operator as part of OpenShift AI. Disable if NFD already installed."
+  default     = true
+}
+
+variable "openshift_ai_install_gpu_operator" {
+  type        = bool
+  description = "Install NVIDIA GPU Operator. Disable for CPU-only AI workloads."
+  default     = true
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when datasciencepipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
+  default     = false
+}
+
+variable "openshift_ai_enable_fips" {
+  type        = bool
+  description = "Enable FIPS mode for GPU operator. Default false for Commercial."
+  default     = false
+}
+
+variable "openshift_ai_components" {
+  type        = map(string)
+  description = <<-EOT
+    DataScienceCluster component states. Override individual components:
+      dashboard, workbenches, datasciencepipelines, modelmeshserving,
+      kserve, ray, codeflare, kueue, trustyai, trainingoperator,
+      modelregistry, feastoperator, llamastackoperator
+    Values: "Managed" or "Removed"
+  EOT
+  default     = {}
+}
+
+variable "openshift_ai_data_retention_days" {
+  type        = number
+  description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
+  default     = 0
 }

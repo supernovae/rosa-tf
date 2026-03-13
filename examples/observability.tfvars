@@ -29,7 +29,7 @@ aws_region   = "us-east-1" # <-- CHANGE THIS
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10" # <-- CHANGE to your desired version
+openshift_version = "4.20.14" # <-- CHANGE to your desired version
 channel_group     = "stable"
 
 #------------------------------------------------------------------------------

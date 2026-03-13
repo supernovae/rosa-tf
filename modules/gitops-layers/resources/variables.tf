@@ -321,3 +321,37 @@ variable "fsx_admin_password" {
   default     = null
   sensitive   = true
 }
+
+#------------------------------------------------------------------------------
+# OpenShift AI Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when datasciencepipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
+  default     = false
+}
+
+variable "openshift_ai_data_retention_days" {
+  type        = number
+  description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
+  default     = 0
+}
+
+variable "create_ecr_policy" {
+  type        = bool
+  description = "Attach ECR push/pull policy to the RHOAI IAM role."
+  default     = false
+}
+
+variable "ecr_repository_arn" {
+  type        = string
+  description = "ARN of the ECR repository for RHOAI OCI model images."
+  default     = ""
+}

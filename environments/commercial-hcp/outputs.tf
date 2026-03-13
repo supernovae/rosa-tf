@@ -245,6 +245,7 @@ output "cluster_summary" {
     managed_policies  = true
     etcd_encrypted    = var.etcd_encryption
     ecr_enabled       = var.create_ecr
+    autonode_enabled  = var.enable_autonode
   }
 }
 
@@ -396,4 +397,23 @@ output "certmanager_dnssec_ds_record" {
     to work, but recommended for DNS spoofing protection.
   EOT
   value       = var.install_gitops && length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_dnssec_ds_record : ""
+}
+
+#------------------------------------------------------------------------------
+# AutoNode (Karpenter)
+#------------------------------------------------------------------------------
+
+output "autonode_role_arn" {
+  description = "ARN of the Karpenter controller IAM role (null if AutoNode disabled)."
+  value       = var.enable_autonode && length(module.autonode) > 0 ? module.autonode[0].karpenter_role_arn : null
+}
+
+output "rosa_enable_autonode_command" {
+  description = "Command to enable AutoNode on the cluster."
+  value       = var.enable_autonode && length(module.autonode) > 0 ? module.autonode[0].rosa_enable_command : "echo 'AutoNode is not enabled. Set enable_autonode = true in tfvars.'"
+}
+
+output "autonode_pool_names" {
+  description = "Names of the Karpenter NodePool CRDs created (empty until Phase 2)."
+  value       = var.enable_autonode && length(module.autonode_pools) > 0 ? module.autonode_pools[0].nodepool_names : []
 }

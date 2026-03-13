@@ -100,6 +100,43 @@ certmanager_certificate_domains = [
 
 **Note:** Cannot be used on zero-egress clusters (requires outbound HTTPS for ACME).
 
+### `autonode.tfvars`
+
+> **Technology Preview** -- AutoNode is not supported for production use. Clusters with AutoNode enabled should be treated as disposable test environments. See [Red Hat Technology Preview scope](https://access.redhat.com/support/offerings/techpreview).
+
+AutoNode (Karpenter) node autoscaling on ROSA HCP. Replaces traditional machine pool autoscaling with Karpenter's bin-packing scheduler. See [docs/AUTONODE.md](../docs/AUTONODE.md) for the full guide.
+
+**Key configuration:**
+```hcl
+enable_autonode = true
+
+# Simple pool (only name + instance_type required):
+autonode_pools = [
+  { name = "general", instance_type = "m6a.2xlarge" }
+]
+
+# Multi-type Spot with resource limits:
+autonode_pools = [{
+  name           = "compute-spot"
+  instance_types = ["m6a.2xlarge", "m6a.4xlarge", "m7a.2xlarge"]
+  capacity_type  = "spot"
+  limits         = { cpu = "64", memory = "256Gi" }
+}]
+
+# GPU with taints and delayed consolidation:
+autonode_pools = [{
+  name              = "gpu-l40"
+  instance_type     = "g6e.2xlarge"
+  taints            = [{ key = "nvidia.com/gpu", value = "true", schedule_type = "NoSchedule" }]
+  consolidate_after = "10m"
+}]
+```
+
+**After deployment:**
+1. Run `terraform output -raw rosa_enable_autonode_command | bash`
+2. Wait ~5 min for CRDs: `oc get crd | grep karpenter`
+3. Re-apply with `install_gitops = true` to deploy NodePools
+
 ### `byovpc.tfvars`
 
 Deploy a second ROSA HCP cluster into an existing VPC (BYO-VPC). Uses non-overlapping CIDRs to avoid conflicts with the first cluster.

@@ -27,6 +27,23 @@ locals {
   monitoring_logforwarder = templatefile("${local.layers_path}/monitoring/clusterlogforwarder-observability.yaml.tftpl", {
     cluster_name = var.cluster_name
   })
+
+  # LokiStack with optional node placement (nodeSelector + tolerations).
+  # The template also contains an S3 Secret document which we create
+  # separately via kubernetes_secret_v1, so extract only the first YAML doc.
+  monitoring_lokistack_full = templatefile("${local.layers_path}/monitoring/lokistack-observability.yaml.tftpl", {
+    loki_size            = var.monitoring_loki_size
+    bucket_name          = var.monitoring_bucket_name
+    bucket_region        = var.aws_region
+    role_arn             = var.monitoring_role_arn
+    retention_days       = var.monitoring_retention_days
+    storage_class        = var.monitoring_storage_class
+    node_selector        = var.monitoring_node_selector
+    tolerations          = var.monitoring_tolerations
+    ingestion_rate       = var.monitoring_loki_ingestion_rate
+    ingestion_burst_size = var.monitoring_loki_ingestion_burst_size
+  })
+  monitoring_lokistack = element(split("\n---\n", local.monitoring_lokistack_full), 1)
 }
 
 #------------------------------------------------------------------------------
@@ -63,45 +80,52 @@ resource "kubectl_manifest" "monitoring_prometheus_rules" {
 # Namespaces
 #------------------------------------------------------------------------------
 
-resource "kubernetes_namespace_v1" "monitoring_logging" {
+# openshift-logging namespace may already exist on fresh clusters (created by
+# OpenShift). Using kubectl_manifest with server_side_apply to be idempotent.
+resource "kubectl_manifest" "monitoring_logging_ns" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
-  metadata {
-    name = "openshift-logging"
-
-    labels = {
-      "openshift.io/cluster-monitoring" = "true"
-      "app.kubernetes.io/managed-by"    = "terraform"
-      "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
-      "app.kubernetes.io/component"     = "monitoring"
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "openshift-logging"
+      labels = {
+        "openshift.io/cluster-monitoring" = "true"
+        "app.kubernetes.io/managed-by"    = "terraform"
+        "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
+        "app.kubernetes.io/component"     = "monitoring"
+      }
     }
-  }
+  })
 
-  lifecycle {
-    ignore_changes = [metadata[0].annotations]
-  }
+  server_side_apply = true
+  force_conflicts   = true
 
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 
-resource "kubernetes_namespace_v1" "monitoring_operators_redhat" {
+# openshift-operators-redhat namespace may already exist on fresh clusters.
+resource "kubectl_manifest" "monitoring_operators_redhat_ns" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
-  metadata {
-    name = "openshift-operators-redhat"
-
-    labels = {
-      "app.kubernetes.io/managed-by" = "terraform"
-      "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
-      "app.kubernetes.io/component"  = "monitoring"
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "openshift-operators-redhat"
+      labels = {
+        "app.kubernetes.io/managed-by" = "terraform"
+        "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
+        "app.kubernetes.io/component"  = "monitoring"
+      }
     }
-  }
+  })
 
-  lifecycle {
-    ignore_changes = [metadata[0].annotations]
-  }
+  server_side_apply = true
+  force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.monitoring_logging]
+  depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 #------------------------------------------------------------------------------
@@ -116,7 +140,7 @@ resource "kubectl_manifest" "monitoring_operatorgroup_logging" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.monitoring_logging]
+  depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 resource "kubectl_manifest" "monitoring_operatorgroup_operators_redhat" {
@@ -127,7 +151,7 @@ resource "kubectl_manifest" "monitoring_operatorgroup_operators_redhat" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubernetes_namespace_v1.monitoring_operators_redhat]
+  depends_on = [kubectl_manifest.monitoring_operators_redhat_ns]
 }
 
 resource "kubectl_manifest" "monitoring_loki_subscription" {
@@ -177,12 +201,12 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
   }
 
   data = {
-    bucketnames = base64encode(var.monitoring_bucket_name)
-    region      = base64encode(var.aws_region)
-    role_arn    = base64encode(var.monitoring_role_arn)
+    bucketnames = var.monitoring_bucket_name
+    region      = var.aws_region
+    role_arn    = var.monitoring_role_arn
   }
 
-  depends_on = [kubernetes_namespace_v1.monitoring_logging]
+  depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 #------------------------------------------------------------------------------
@@ -192,39 +216,7 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
 resource "kubectl_manifest" "monitoring_lokistack" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
-  yaml_body = <<-YAML
-apiVersion: loki.grafana.com/v1
-kind: LokiStack
-metadata:
-  name: logging-loki
-  namespace: openshift-logging
-spec:
-  size: ${var.monitoring_loki_size}
-  storage:
-    schemas:
-      - version: v13
-        effectiveDate: "2024-10-15"
-    secret:
-      name: logging-loki-s3
-      type: s3
-  storageClassName: ${var.monitoring_storage_class}
-  tenants:
-    mode: openshift-logging
-  limits:
-    global:
-      retention:
-        days: ${var.monitoring_retention_days}
-        streams:
-          - selector: '{log_type="infrastructure"}'
-            priority: 1
-            days: ${var.monitoring_retention_days}
-          - selector: '{log_type="application"}'
-            priority: 1
-            days: ${var.monitoring_retention_days}
-          - selector: '{log_type="audit"}'
-            priority: 1
-            days: ${var.monitoring_retention_days}
-  YAML
+  yaml_body = local.monitoring_lokistack
 
   server_side_apply = true
   force_conflicts   = true

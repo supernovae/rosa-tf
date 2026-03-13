@@ -141,6 +141,30 @@ output "efs_security_group_id" {
 }
 
 #------------------------------------------------------------------------------
+# OpenShift AI Outputs
+#------------------------------------------------------------------------------
+
+output "openshift_ai_bucket_name" {
+  description = "S3 bucket name for RHOAI data."
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].bucket_name : ""
+}
+
+output "openshift_ai_role_arn" {
+  description = "IAM role ARN for RHOAI workloads."
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].role_arn : ""
+}
+
+output "openshift_ai_s3_endpoint" {
+  description = "S3 endpoint URL for RHOAI data connections."
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].s3_endpoint : ""
+}
+
+output "openshift_ai_bucket_region" {
+  description = "Region of the RHOAI S3 bucket."
+  value       = var.enable_layer_openshift_ai ? module.openshift_ai[0].bucket_region : ""
+}
+
+#------------------------------------------------------------------------------
 # Summary Output (for debugging)
 #------------------------------------------------------------------------------
 
@@ -154,6 +178,7 @@ output "enabled_layers" {
     var.enable_layer_certmanager ? "certmanager" : "",
     var.enable_layer_netapp_storage ? "netapp-storage" : "",
     var.enable_layer_efs_storage ? "efs-storage" : "",
+    var.enable_layer_openshift_ai ? "openshift-ai" : "",
   ])
 }
 
@@ -206,5 +231,6 @@ output "s3_buckets_requiring_manual_cleanup" {
   value = compact([
     var.enable_layer_oadp ? module.oadp[0].bucket_name : "",
     var.enable_layer_monitoring ? module.monitoring[0].loki_bucket_name : "",
+    var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].bucket_name : ""
   ])
 }

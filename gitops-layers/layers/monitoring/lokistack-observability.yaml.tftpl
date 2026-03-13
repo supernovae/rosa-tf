@@ -12,6 +12,8 @@
 # - storage_class: StorageClass for Loki PVCs (e.g., gp3-csi)
 # - node_selector: Optional node selector for Loki components
 # - tolerations: Optional tolerations for Loki components
+# - ingestion_rate: Per-tenant ingestion rate limit in MB/s
+# - ingestion_burst_size: Per-tenant ingestion burst size in MB
 ---
 apiVersion: loki.grafana.com/v1
 kind: LokiStack
@@ -41,10 +43,13 @@ spec:
   tenants:
     mode: openshift-logging
   
-  # Limits and retention configuration
-  # Note: 'days' field is required for each stream in Loki Operator 6.4+
+  # Limits: ingestion rate and retention
+  # ingestion rates are per-tenant (application, infrastructure, audit)
   limits:
     global:
+      ingestion:
+        ingestionRate: ${ingestion_rate}
+        ingestionBurstSize: ${ingestion_burst_size}
       retention:
         days: ${retention_days}
         streams:

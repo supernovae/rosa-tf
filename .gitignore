@@ -23,6 +23,9 @@ terraform.tfvars
 byron-*.tfvars
 byron*.tfvars
 
+# Stage environment (internal OCM stage shard testing, not for production)
+environments/stage-hcp/
+
 # Sensitive files
 *.pem
 *.key

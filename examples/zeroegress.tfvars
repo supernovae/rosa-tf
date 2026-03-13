@@ -35,7 +35,7 @@ aws_region   = "us-east-1" # <-- CHANGE THIS
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10" # <-- Zero egress requires 4.18+
+openshift_version = "4.20.14" # <-- Zero egress requires 4.18+
 channel_group     = "stable"
 
 #------------------------------------------------------------------------------

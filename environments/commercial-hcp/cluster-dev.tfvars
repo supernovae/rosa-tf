@@ -23,8 +23,8 @@ aws_region   = "us-east-1"
 # For upgrades: set machine_pool_version to upgrade pools separately
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.10"
-# machine_pool_version = "4.20.10"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
+openshift_version = "4.20.14"
+# machine_pool_version = "4.20.14"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
 channel_group = "stable"
 
 #------------------------------------------------------------------------------

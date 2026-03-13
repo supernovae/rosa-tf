@@ -63,6 +63,7 @@ modules/gitops-layers/operator/
   layer-monitoring.tf         <- Prometheus, Loki, Logging, COO, UIPlugin
   layer-certmanager.tf        <- cert-manager, ClusterIssuers, IngressController, DNS
   layer-netapp-storage.tf     <- Trident operator, backends, StorageClasses, VolumeSnapshotClass
+  layer-openshift-ai.tf       <- NFD, NVIDIA GPU Operator, RHOAI DataScienceCluster
   variables.tf                <- All module input variables
   outputs.tf                  <- Module outputs (SA token, layer status, storage_classes)
   versions.tf                 <- Required providers (kubernetes, kubectl, aws, etc.)
@@ -78,4 +79,5 @@ modules/gitops-layers/
   oadp/            <- S3 + IAM for OADP (called by resources/)
   certmanager/     <- Route53 hosted zone + IAM for cert-manager (called by resources/)
   netapp-storage/  <- FSx ONTAP + SVM + IAM for Trident (called by resources/)
+  openshift-ai/    <- S3 + IAM for RHOAI data connections (called by resources/)
 ```

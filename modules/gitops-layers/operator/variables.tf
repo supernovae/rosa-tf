@@ -358,6 +358,26 @@ variable "monitoring_prometheus_storage_size" {
   default     = "100Gi"
 }
 
+variable "monitoring_loki_ingestion_rate" {
+  type        = number
+  description = <<-EOT
+    Per-tenant Loki ingestion rate limit in MB/s.
+    The 1x.extra-small default (~4 MB/s) is too low for clusters running
+    multiple operators. Increase if Vector logs show 429 Too Many Requests.
+  EOT
+  default     = 10
+}
+
+variable "monitoring_loki_ingestion_burst_size" {
+  type        = number
+  description = <<-EOT
+    Per-tenant Loki ingestion burst size in MB.
+    Should be >= ingestion_rate. Allows short bursts above the sustained rate
+    (e.g., operator restarts, deployment rollouts).
+  EOT
+  default     = 20
+}
+
 variable "monitoring_node_selector" {
   type        = map(string)
   description = <<-EOT
@@ -623,6 +643,82 @@ variable "netapp_trident_log_level" {
 variable "netapp_trident_image" {
   type        = string
   description = "Custom Trident image for air-gapped or GovCloud deployments. Empty uses default."
+  default     = ""
+}
+
+#------------------------------------------------------------------------------
+# OpenShift AI (RHOAI) Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, NVIDIA GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_install_nfd" {
+  type        = bool
+  description = "Install Node Feature Discovery operator as part of OpenShift AI. Disable if NFD already installed."
+  default     = true
+}
+
+variable "openshift_ai_install_gpu_operator" {
+  type        = bool
+  description = "Install NVIDIA GPU Operator. Disable for CPU-only AI workloads."
+  default     = true
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when datasciencepipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
+  default     = false
+}
+
+variable "openshift_ai_enable_fips" {
+  type        = bool
+  description = "Enable FIPS mode for GPU operator."
+  default     = false
+}
+
+variable "openshift_ai_components" {
+  type        = map(string)
+  description = <<-EOT
+    DataScienceCluster component states. Override individual components:
+      dashboard, workbenches, datasciencepipelines, modelmeshserving,
+      kserve, ray, codeflare, kueue, trustyai, trainingoperator,
+      modelregistry, feastoperator, llamastackoperator
+    Values: "Managed" or "Removed"
+  EOT
+  default     = {}
+}
+
+variable "openshift_ai_bucket_name" {
+  type        = string
+  description = "S3 bucket name for RHOAI data connections. From gitops_resources module when create_s3=true."
+  default     = ""
+}
+
+variable "openshift_ai_bucket_region" {
+  type        = string
+  description = "AWS region of the RHOAI S3 bucket."
+  default     = ""
+}
+
+variable "openshift_ai_s3_endpoint" {
+  type        = string
+  description = "S3 endpoint hostname for RHOAI data connections."
+  default     = ""
+}
+
+variable "openshift_ai_create_irsa" {
+  type        = bool
+  description = "Whether to annotate RHOAI service accounts with the IAM role for IRSA."
+  default     = false
+}
+
+variable "openshift_ai_role_arn" {
+  type        = string
+  description = "IAM role ARN for RHOAI workloads (IRSA). Used to annotate service accounts for S3/ECR access."
   default     = ""
 }
 

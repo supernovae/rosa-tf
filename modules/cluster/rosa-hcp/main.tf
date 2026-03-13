@@ -142,6 +142,7 @@ resource "rhcs_cluster_rosa_hcp" "this" {
     # via Hybrid Cloud Console or automatic z-stream updates
     ignore_changes = [
       version,
+      audit_log_arn,
     ]
   }
 }

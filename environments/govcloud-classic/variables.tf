@@ -80,6 +80,17 @@ variable "multi_az" {
   default     = true
 }
 
+variable "single_nat_gateway" {
+  type        = bool
+  description = <<-EOT
+    Use a single shared NAT gateway instead of one per AZ.
+    - null (default): auto — single-AZ gets 1 NAT, multi-AZ gets 1 per AZ
+    - true: shared NAT (~$64/month savings for 3-AZ, single point of failure)
+    - false: dedicated NAT per AZ (high availability)
+  EOT
+  default     = null
+}
+
 variable "availability_zones" {
   type        = list(string)
   description = <<-EOT
@@ -1080,6 +1091,7 @@ variable "machine_pools" {
     multi_az          = optional(bool, true)
     availability_zone = optional(string)
     subnet_id         = optional(string)
+    attach_ecr_policy = optional(bool, false)
   }))
 
   description = <<-EOT
@@ -1095,8 +1107,9 @@ variable "machine_pools" {
     - labels: Map of node labels for workload targeting
     - taints: List of taints for workload isolation
     - multi_az: Distribute across AZs (default: true)
-    - availability_zone: Specific AZ (only if multi_az = false)
-    - subnet_id: Override default subnet
+    - availability_zone: Target a specific AZ (for instance types with limited AZ support)
+    - subnet_id: Override default subnet (alternative to availability_zone)
+    - attach_ecr_policy: Attach ECR readonly policy to pool (default: false)
     
     GovCloud GPU instances: p3.2xlarge, p3.8xlarge, g4dn.xlarge (check availability)
     
@@ -1557,4 +1570,56 @@ variable "skip_k8s_destroy" {
   type        = bool
   description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."
   default     = false
+}
+
+#------------------------------------------------------------------------------
+# OpenShift AI Configuration
+#------------------------------------------------------------------------------
+
+variable "enable_layer_openshift_ai" {
+  type        = bool
+  description = "Enable OpenShift AI layer (NFD, NVIDIA GPU Operator, RHOAI)."
+  default     = false
+}
+
+variable "openshift_ai_install_nfd" {
+  type        = bool
+  description = "Install Node Feature Discovery operator as part of OpenShift AI. Disable if NFD already installed."
+  default     = true
+}
+
+variable "openshift_ai_install_gpu_operator" {
+  type        = bool
+  description = "Install NVIDIA GPU Operator. Disable for CPU-only AI workloads."
+  default     = true
+}
+
+variable "openshift_ai_create_s3" {
+  type        = bool
+  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when datasciencepipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
+  default     = false
+}
+
+variable "openshift_ai_enable_fips" {
+  type        = bool
+  description = "Enable FIPS mode for GPU operator. Default true for GovCloud."
+  default     = true
+}
+
+variable "openshift_ai_components" {
+  type        = map(string)
+  description = <<-EOT
+    DataScienceCluster component states. Override individual components:
+      dashboard, workbenches, datasciencepipelines, modelmeshserving,
+      kserve, ray, codeflare, kueue, trustyai, trainingoperator,
+      modelregistry, feastoperator, llamastackoperator
+    Values: "Managed" or "Removed"
+  EOT
+  default     = {}
+}
+
+variable "openshift_ai_data_retention_days" {
+  type        = number
+  description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
+  default     = 0
 }

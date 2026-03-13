@@ -239,6 +239,59 @@ resource "kubectl_manifest" "certmanager_certificate" {
 # annotated Routes and automatically provisions TLS certificates.
 #------------------------------------------------------------------------------
 
+# Leader election requires lease access for the routes controller SA
+resource "kubectl_manifest" "certmanager_routes_leader_election_role" {
+  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
+
+  yaml_body = <<-YAML
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: cert-manager-openshift-routes-leader-election
+      namespace: cert-manager
+      labels:
+        app.kubernetes.io/name: cert-manager-openshift-routes
+        app.kubernetes.io/managed-by: terraform
+    rules:
+      - apiGroups: ["coordination.k8s.io"]
+        resources: ["leases"]
+        verbs: ["get", "create", "update", "patch"]
+  YAML
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.certmanager_issuer_production]
+}
+
+resource "kubectl_manifest" "certmanager_routes_leader_election_rolebinding" {
+  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
+
+  yaml_body = <<-YAML
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: cert-manager-openshift-routes-leader-election
+      namespace: cert-manager
+      labels:
+        app.kubernetes.io/name: cert-manager-openshift-routes
+        app.kubernetes.io/managed-by: terraform
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: cert-manager-openshift-routes-leader-election
+    subjects:
+      - kind: ServiceAccount
+        name: cert-manager
+        namespace: cert-manager
+  YAML
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.certmanager_routes_leader_election_role]
+}
+
 resource "kubectl_manifest" "certmanager_routes_integration" {
   count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
 
@@ -272,9 +325,7 @@ resource "kubectl_manifest" "certmanager_routes_integration" {
   server_side_apply = true
   force_conflicts   = true
 
-  # Sequence after ClusterIssuer to avoid parallel API calls that
-  # trigger the kubectl provider's client rate limiter.
-  depends_on = [kubectl_manifest.certmanager_issuer_production]
+  depends_on = [kubectl_manifest.certmanager_routes_leader_election_rolebinding]
 }
 
 #------------------------------------------------------------------------------

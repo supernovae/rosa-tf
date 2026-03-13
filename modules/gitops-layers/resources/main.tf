@@ -163,6 +163,28 @@ module "efs_storage" {
 }
 
 #------------------------------------------------------------------------------
+# OpenShift AI Resources (S3 + IAM for RHOAI)
+#------------------------------------------------------------------------------
+
+module "openshift_ai" {
+  source = "../openshift-ai"
+  count  = var.enable_layer_openshift_ai ? 1 : 0
+
+  cluster_name      = var.cluster_name
+  oidc_endpoint_url = var.oidc_endpoint_url
+  aws_region        = var.aws_region
+  kms_key_arn       = var.kms_key_arn
+  is_govcloud       = var.is_govcloud
+
+  create_s3           = var.openshift_ai_create_s3
+  data_retention_days = var.openshift_ai_data_retention_days
+  create_ecr_policy   = var.create_ecr_policy
+  ecr_repository_arn  = var.ecr_repository_arn
+
+  tags = var.tags
+}
+
+#------------------------------------------------------------------------------
 # Terminal Resources
 # (No infrastructure needed - operator deployment only)
 #------------------------------------------------------------------------------

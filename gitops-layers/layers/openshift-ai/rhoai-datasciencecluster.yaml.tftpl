@@ -1,0 +1,27 @@
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+spec:
+  components:
+    dashboard:
+      managementState: ${dashboard}
+    workbenches:
+      managementState: ${workbenches}
+    datasciencepipelines:
+      managementState: ${datasciencepipelines}
+    kserve:
+      managementState: ${kserve}
+    ray:
+      managementState: ${ray}
+    trustyai:
+      managementState: ${trustyai}
+    trainingoperator:
+      managementState: ${trainingoperator}
+    modelregistry:
+      managementState: ${modelregistry}
+      registriesNamespace: rhoai-model-registries
+    feastoperator:
+      managementState: ${feastoperator}
+    llamastackoperator:
+      managementState: ${llamastackoperator}

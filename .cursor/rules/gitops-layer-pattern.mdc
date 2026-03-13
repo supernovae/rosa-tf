@@ -94,6 +94,7 @@ resource "kubectl_manifest" "<name>_subscription" {
 - `monitoring` -- Prometheus + Loki (S3 + IAM)
 - `certmanager` -- Cert-Manager + custom ingress (Route53 + IAM + NLB)
 - `netapp_storage` -- FSx ONTAP + Astra Trident (FSx filesystem + SVM + IAM)
+- `openshift_ai` -- NFD + NVIDIA GPU Operator + OpenShift AI (S3 + IAM + GPU machine pool)
 
 ## Checklist: Adding a New Layer
 

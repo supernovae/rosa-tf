@@ -100,6 +100,7 @@ apt-get install jq
 | `virtualization` | OpenShift Virtualization (KubeVirt) | Bare metal machine pool |
 | `certmanager` | Cert-Manager with Let's Encrypt DNS01 + custom ingress | Route53 zone, IAM role, NLB |
 | `netapp-storage` | FSx ONTAP + Astra Trident (NFS, iSCSI, snapshots) | FSx ONTAP filesystem, SVM, IAM role |
+| `openshift-ai` | NFD + NVIDIA GPU Operator + Red Hat OpenShift AI | S3 bucket, IAM role, GPU machine pool |
 
 ## Layer Structure
 
@@ -244,6 +245,16 @@ See [modules/gitops-layers/certmanager/README.md](../modules/gitops-layers/certm
 - **StorageClasses**: `fsx-ontap-nfs-rwx`, `fsx-ontap-iscsi-block`, `fsx-ontap-snapshots`
 
 See [modules/gitops-layers/netapp-storage/README.md](../modules/gitops-layers/netapp-storage/README.md) for full documentation.
+
+### OpenShift AI Layer
+- **NFD Operator**: Node Feature Discovery for GPU hardware detection
+- **NVIDIA GPU Operator**: Drivers, device plugin, container toolkit (from certified-operators)
+- **OpenShift AI Operator**: DataScienceCluster with Dashboard, Workbenches, Pipelines, KServe, Ray
+- **S3 Bucket**: For model artifacts, pipeline data, and data connections
+- **IAM Role**: With OIDC trust for RHOAI service accounts
+- **GPU Machine Pool**: Add via `machine_pools` in cluster tfvars (e.g., `g6.xlarge`, `g4dn.xlarge`)
+
+See [modules/gitops-layers/openshift-ai/README.md](../modules/gitops-layers/openshift-ai/README.md) for GPU instance reference and full documentation.
 
 ## Best Practices
 

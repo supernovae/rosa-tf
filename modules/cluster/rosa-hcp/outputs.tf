@@ -25,12 +25,20 @@ output "cluster_state" {
 
 output "api_url" {
   description = "API server URL."
-  value       = coalesce(data.rhcs_cluster_rosa_hcp.info.api_url, rhcs_cluster_rosa_hcp.this.api_url, "")
+  value = try(
+    length(data.rhcs_cluster_rosa_hcp.info.api_url) > 0 ? data.rhcs_cluster_rosa_hcp.info.api_url : null,
+    length(rhcs_cluster_rosa_hcp.this.api_url) > 0 ? rhcs_cluster_rosa_hcp.this.api_url : null,
+    ""
+  )
 }
 
 output "console_url" {
   description = "OpenShift console URL."
-  value       = coalesce(data.rhcs_cluster_rosa_hcp.info.console_url, rhcs_cluster_rosa_hcp.this.console_url, "")
+  value = try(
+    length(data.rhcs_cluster_rosa_hcp.info.console_url) > 0 ? data.rhcs_cluster_rosa_hcp.info.console_url : null,
+    length(rhcs_cluster_rosa_hcp.this.console_url) > 0 ? rhcs_cluster_rosa_hcp.this.console_url : null,
+    ""
+  )
 }
 
 output "domain" {
@@ -161,11 +169,19 @@ output "additional_compute_security_group_ids" {
 output "cluster_summary" {
   description = "Summary of cluster configuration."
   value = {
-    cluster_id                      = rhcs_cluster_rosa_hcp.this.id
-    cluster_name                    = rhcs_cluster_rosa_hcp.this.name
-    openshift_version               = rhcs_cluster_rosa_hcp.this.current_version
-    api_url                         = coalesce(data.rhcs_cluster_rosa_hcp.info.api_url, rhcs_cluster_rosa_hcp.this.api_url, "")
-    console_url                     = coalesce(data.rhcs_cluster_rosa_hcp.info.console_url, rhcs_cluster_rosa_hcp.this.console_url, "")
+    cluster_id        = rhcs_cluster_rosa_hcp.this.id
+    cluster_name      = rhcs_cluster_rosa_hcp.this.name
+    openshift_version = rhcs_cluster_rosa_hcp.this.current_version
+    api_url = try(
+      length(data.rhcs_cluster_rosa_hcp.info.api_url) > 0 ? data.rhcs_cluster_rosa_hcp.info.api_url : null,
+      length(rhcs_cluster_rosa_hcp.this.api_url) > 0 ? rhcs_cluster_rosa_hcp.this.api_url : null,
+      ""
+    )
+    console_url = try(
+      length(data.rhcs_cluster_rosa_hcp.info.console_url) > 0 ? data.rhcs_cluster_rosa_hcp.info.console_url : null,
+      length(rhcs_cluster_rosa_hcp.this.console_url) > 0 ? rhcs_cluster_rosa_hcp.this.console_url : null,
+      ""
+    )
     private                         = rhcs_cluster_rosa_hcp.this.private
     zero_egress                     = var.zero_egress
     external_auth_providers_enabled = var.external_auth_providers_enabled
