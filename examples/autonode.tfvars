@@ -1,6 +1,15 @@
 #------------------------------------------------------------------------------
 # AutoNode (Karpenter) Example Configuration
 #
+# !! TECHNOLOGY PREVIEW -- NOT FOR PRODUCTION USE !!
+#
+# AutoNode on ROSA HCP is a Technology Preview feature. It is not fully
+# supported under Red Hat subscription service level agreements, may not
+# be functionally complete, and is not intended for production use. Red Hat
+# does not guarantee stability or a migration path to GA. Clusters with
+# AutoNode enabled should be treated as disposable test environments.
+# See: https://access.redhat.com/support/offerings/techpreview
+#
 # Enables Karpenter-based node autoscaling on ROSA HCP clusters.
 # AutoNode replaces traditional machine pool autoscaling with Karpenter's
 # bin-packing scheduler for faster, more efficient scaling.
