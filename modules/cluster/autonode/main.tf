@@ -37,6 +37,8 @@ locals {
 #------------------------------------------------------------------------------
 
 resource "aws_iam_policy" "karpenter" {
+  #checkov:skip=CKV_AWS_290:Karpenter requires EC2 write actions (RunInstances, CreateFleet) scoped by karpenter.sh/nodepool condition tags. AWS Describe/List/SQS actions inherently require Resource="*".
+  #checkov:skip=CKV_AWS_355:AWS EC2 Describe*, pricing:GetProducts, and sqs:ReceiveMessage do not support resource-level constraints and require Resource="*". This is the AWS-documented Karpenter controller policy.
   name        = "${var.cluster_name}-autonode-karpenter"
   description = "ROSA HCP AutoNode private preview - Karpenter controller permissions"
   path        = "/"
@@ -295,6 +297,7 @@ resource "aws_iam_role_policy_attachment" "karpenter" {
 #------------------------------------------------------------------------------
 
 resource "aws_iam_role_policy" "karpenter_ecr_pull" {
+  #checkov:skip=CKV_AWS_355:ecr:GetAuthorizationToken requires Resource="*" per AWS docs. Remaining ECR read actions are scoped to pull-only (no push/delete). Karpenter nodes need access to pull images from any ECR repo.
   count = var.enable_ecr_pull ? 1 : 0
   name  = "autonode-ecr-pull"
   role  = aws_iam_role.karpenter.name

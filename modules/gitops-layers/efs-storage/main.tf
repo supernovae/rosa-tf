@@ -34,8 +34,8 @@ locals {
 # 1. EFS File System
 #------------------------------------------------------------------------------
 
-#checkov:skip=CKV_AWS_184:Encryption at rest is always enabled. CMK is optional via kms_key_arn (uses AWS-managed aws/elasticfilesystem key when unset). GovCloud environments pass the infra KMS key automatically.
 resource "aws_efs_file_system" "this" {
+  #checkov:skip=CKV_AWS_184:Encryption at rest is always enabled. CMK is optional via kms_key_arn (uses AWS-managed aws/elasticfilesystem key when unset). GovCloud environments pass the infra KMS key automatically.
   encrypted        = var.efs_encrypted
   kms_key_id       = var.kms_key_arn != "" ? var.kms_key_arn : null
   performance_mode = var.efs_performance_mode
