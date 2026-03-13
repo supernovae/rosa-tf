@@ -35,7 +35,10 @@ provider "aws" {
   # security groups. Ignore them so Phase 2 (and subsequent) applies
   # don't produce unnecessary modifications.
   ignore_tags {
-    key_prefixes = ["kubernetes.io/cluster/"]
+    key_prefixes = [
+      "kubernetes.io/cluster/",
+      "karpenter.sh/",
+    ]
   }
 }
 
@@ -519,6 +522,9 @@ module "rosa_cluster" {
   compute_machine_type         = var.compute_machine_type
   replicas                     = var.worker_node_count
 
+  # Cluster properties (e.g. provision_shard_id for AutoNode preview)
+  cluster_properties = var.cluster_properties
+
   # Partition detection (affects billing account handling)
   is_govcloud = local.is_govcloud
 
@@ -613,6 +619,48 @@ module "machine_pools" {
   tags = local.common_tags
 
   depends_on = [module.rosa_cluster]
+}
+
+#------------------------------------------------------------------------------
+# AutoNode (Karpenter) Support (Optional)
+#
+# Creates the IAM role, policy, and subnet discovery tags required for
+# the ROSA HCP AutoNode feature.
+#
+# After terraform apply, run the output command to enable AutoNode:
+#   terraform output -raw rosa_enable_autonode_command | bash
+#------------------------------------------------------------------------------
+
+module "autonode" {
+  source = "../../modules/cluster/autonode"
+  count  = var.enable_autonode ? 1 : 0
+
+  cluster_name         = var.cluster_name
+  cluster_id           = module.rosa_cluster.cluster_id
+  oidc_endpoint_url    = module.iam_roles.oidc_endpoint_url
+  operator_role_prefix = var.cluster_name
+  private_subnet_ids   = local.effective_private_subnet_ids
+  enable_ecr_pull      = var.create_ecr && var.enable_autonode
+
+  tags = local.common_tags
+
+  depends_on = [module.rosa_cluster]
+}
+
+#------------------------------------------------------------------------------
+# AutoNode Pools (Karpenter NodePool CRDs)
+#
+# Creates Karpenter NodePool CRDs for workload pools.
+# Gated on install_gitops (Phase 2) because NodePool CRDs only exist
+# after the manual `rosa edit cluster --autonode=enabled` step.
+#------------------------------------------------------------------------------
+
+module "autonode_pools" {
+  source = "../../modules/cluster/autonode-pool"
+  count  = var.enable_autonode && var.install_gitops && !var.skip_k8s_destroy ? 1 : 0
+
+  autonode_pools   = var.autonode_pools
+  skip_k8s_destroy = var.skip_k8s_destroy
 }
 
 #------------------------------------------------------------------------------

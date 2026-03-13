@@ -1477,6 +1477,74 @@ variable "skip_k8s_destroy" {
 }
 
 #------------------------------------------------------------------------------
+# AutoNode (Karpenter) Configuration
+#------------------------------------------------------------------------------
+
+variable "cluster_properties" {
+  type        = map(string)
+  description = <<-EOT
+    Additional cluster properties passed to the OCM API.
+    For stage shard targeting (AutoNode private preview), set:
+      cluster_properties = { "provision_shard_id" = "<shard-id>" }
+  EOT
+  default     = {}
+}
+
+variable "enable_autonode" {
+  type        = bool
+  description = <<-EOT
+    Enable AutoNode (Karpenter) support.
+
+    When true, creates:
+    - Karpenter controller IAM role with OIDC trust
+    - Karpenter IAM policy with EC2/IAM/SSM/SQS permissions
+    - ec2:CreateTags permission on the control-plane-operator role
+    - Karpenter discovery tags on private subnets
+
+    After terraform apply, enable AutoNode:
+      terraform output -raw rosa_enable_autonode_command | bash
+
+    Requirements:
+    - OpenShift 4.19+
+    - us-east-1 region (private preview)
+  EOT
+  default     = false
+}
+
+variable "autonode_pools" {
+  type = list(object({
+    name           = string
+    instance_type  = optional(string, "")
+    instance_types = optional(list(string), [])
+    labels         = optional(map(string), {})
+    taints = optional(list(object({
+      key           = string
+      value         = optional(string, "")
+      schedule_type = string
+    })), [])
+    capacity_type        = optional(string, "spot")
+    node_class           = optional(string, "default")
+    consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
+    limits               = optional(map(string), {})
+    weight               = optional(number, 0)
+    expire_after         = optional(string, "720h")
+  }))
+
+  description = <<-EOT
+    Karpenter NodePool definitions. Applied in Phase 2 (requires
+    install_gitops = true) because NodePool CRDs only exist after
+    manually enabling AutoNode between phases.
+
+    Simple pool:
+      autonode_pools = [{ name = "general", instance_type = "m6a.2xlarge" }]
+
+    See modules/cluster/autonode-pool/variables.tf for full field reference.
+  EOT
+
+  default = []
+}
+
+#------------------------------------------------------------------------------
 # OpenShift AI Configuration
 #------------------------------------------------------------------------------
 

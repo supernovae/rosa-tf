@@ -2,8 +2,11 @@
 # AutoNode Pool Module - Karpenter NodePool CRDs
 #
 # Creates Karpenter NodePool custom resources on the cluster. Each pool
-# maps to a single NodePool CR with instance type, capacity type (spot /
-# on-demand), labels, taints, and a nodeClassRef.
+# maps to a single NodePool CR with instance type(s), capacity type (spot /
+# on-demand), labels, taints, limits, weight, and a nodeClassRef.
+#
+# Supports simple definitions (just name + instance_type) through complex
+# multi-type pools with resource limits, weights, and expiry.
 #
 # NOTE: Karpenter restricts kubernetes.io and k8s.io domain labels in
 # spec.template.metadata.labels. Use custom domains instead, e.g.:
@@ -17,6 +20,13 @@
 
 locals {
   pool_map = { for pool in var.autonode_pools : pool.name => pool }
+
+  # Resolve instance types: prefer explicit list, fall back to single value.
+  effective_instance_types = {
+    for name, pool in local.pool_map : name => (
+      length(pool.instance_types) > 0 ? pool.instance_types : [pool.instance_type]
+    )
+  }
 
   # Karpenter rejects kubernetes.io and k8s.io domain labels in
   # spec.template.metadata.labels -- filter them out automatically.
@@ -41,46 +51,50 @@ resource "kubectl_manifest" "nodepool" {
         each.value.labels
       )
     }
-    spec = {
-      disruption = {
-        consolidationPolicy = each.value.consolidation_policy
-      }
-      template = {
-        metadata = {
-          labels = local.safe_template_labels[each.key]
+    spec = merge(
+      {
+        disruption = {
+          consolidationPolicy = each.value.consolidation_policy
         }
-        spec = merge(
-          {
-            requirements = [
-              {
-                key      = "node.kubernetes.io/instance-type"
-                operator = "In"
-                values   = [each.value.instance_type]
-              },
-              {
-                key      = "karpenter.sh/capacity-type"
-                operator = "In"
-                values   = [each.value.capacity_type]
-              }
-            ]
-            nodeClassRef = {
-              group = var.node_class_group
-              kind  = var.node_class_kind
-              name  = each.value.node_class
-            }
-          },
-          length(each.value.taints) > 0 ? {
-            taints = [
-              for t in each.value.taints : {
-                key    = t.key
-                value  = t.value
-                effect = t.schedule_type
-              }
-            ]
+        template = {
+          metadata = length(local.safe_template_labels[each.key]) > 0 ? {
+            labels = local.safe_template_labels[each.key]
           } : {}
-        )
-      }
-    }
+          spec = merge(
+            {
+              requirements = concat(
+                [{
+                  key      = "node.kubernetes.io/instance-type"
+                  operator = "In"
+                  values   = local.effective_instance_types[each.key]
+                }],
+                [{
+                  key      = "karpenter.sh/capacity-type"
+                  operator = "In"
+                  values   = [each.value.capacity_type]
+                }]
+              )
+              nodeClassRef = {
+                group = var.node_class_group
+                kind  = var.node_class_kind
+                name  = each.value.node_class
+              }
+              expireAfter = each.value.expire_after
+            },
+            length(each.value.taints) > 0 ? {
+              taints = [
+                for t in each.value.taints : merge(
+                  { key = t.key, effect = t.schedule_type },
+                  t.value != "" ? { value = t.value } : {}
+                )
+              ]
+            } : {}
+          )
+        }
+      },
+      length(each.value.limits) > 0 ? { limits = each.value.limits } : {},
+      each.value.weight > 0 ? { weight = each.value.weight } : {}
+    )
   })
 
   server_side_apply = true
