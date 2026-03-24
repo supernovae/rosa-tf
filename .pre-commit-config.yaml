@@ -34,11 +34,10 @@ repos:
         name: tflint - Terraform linter
         args:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
-      - id: terraform_trivy
-        name: trivy - Security scanner
+      - id: terraform_tfsec
+        name: tfsec - Terraform security scanner
         args:
-          - --args=--severity=HIGH,CRITICAL
-          - --args=--skip-dirs=.terraform
+          - --args=--minimum-severity=HIGH
 
   #----------------------------------------------------------------------------
   # Secrets Detection

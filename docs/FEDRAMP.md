@@ -82,7 +82,8 @@ Configure your internal repository with:
 This repository includes automated security scanning:
 
 - **Dependabot** alerts for dependency vulnerabilities
-- **Trivy** SARIF results uploaded to the GitHub Security tab
+- **tfsec** SARIF results uploaded to the GitHub Security tab
+- **Grype** SARIF results uploaded to the GitHub Security tab
 - **Checkov** SARIF results for Terraform policy violations
 
 Review these findings in your fork's **Security** tab. Adapt the GitHub Actions workflow (`.github/workflows/security.yml`) for your internal CI system as needed.
@@ -124,7 +125,8 @@ This framework includes a comprehensive security scanning pipeline. See [SECURIT
 | Tool | Purpose | Scope |
 |------|---------|-------|
 | **Checkov** | Policy-as-code for Terraform | All `.tf` files |
-| **Trivy** | Vulnerability and misconfiguration scanner | All Terraform config |
+| **tfsec** | Terraform misconfiguration scanner | All `.tf` files |
+| **Grype** | Vulnerability scanner (SCA) | Full repository |
 | **ShellCheck** | Shell script static analysis | All `.sh` files |
 | **Gitleaks** | Secrets detection in Git history | Full repository |
 | **TruffleHog** | Verified secrets detection | Full repository |
@@ -136,7 +138,7 @@ This framework includes a comprehensive security scanning pipeline. See [SECURIT
 make security
 
 # Individual scans
-make security-terraform  # Checkov, Trivy
+make security-terraform  # Checkov, tfsec, Grype
 make security-shell      # ShellCheck
 make security-secrets    # Gitleaks, pattern matching
 ```
@@ -146,10 +148,11 @@ make security-secrets    # Gitleaks, pattern matching
 The GitHub Actions workflow at `.github/workflows/security.yml` can be adapted for your internal CI system (Jenkins, GitLab CI, etc.). Key jobs to replicate:
 
 1. `terraform-validate` -- Format check and validation across all 4 environments
-2. `trivy` -- Terraform misconfiguration scanning (HIGH/CRITICAL)
-3. `checkov` -- Policy-as-code checks with SARIF output
-4. `shellcheck` -- Shell script analysis
-5. `gitleaks` / `trufflehog` -- Secrets detection
+2. `tfsec` -- Terraform misconfiguration scanning (HIGH/CRITICAL)
+3. `grype` -- Vulnerability scanning (HIGH/CRITICAL)
+4. `checkov` -- Policy-as-code checks with SARIF output
+5. `shellcheck` -- Shell script analysis
+6. `gitleaks` / `trufflehog` -- Secrets detection
 
 **Recommendation:** Run `make security` as a mandatory gate before any `terraform apply` in your pipeline.
 
