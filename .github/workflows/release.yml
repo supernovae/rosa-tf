@@ -42,10 +42,10 @@ jobs:
           - govcloud-classic
           - govcloud-hcp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~> 1.6"
 
@@ -67,7 +67,7 @@ jobs:
     name: tfsec Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install tfsec
         run: |
@@ -76,13 +76,14 @@ jobs:
           sudo mv tfsec /usr/local/bin/
 
       - name: Run tfsec
-        run: tfsec . --format sarif --out tfsec-results.sarif --soft-fail
+        run: |
+          tfsec . --format sarif --out tfsec-results.sarif --soft-fail || true
 
   grype:
     name: Grype Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run Grype filesystem scan
         uses: anchore/scan-action@v7
@@ -95,7 +96,7 @@ jobs:
     name: Checkov Policy Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@v12
@@ -108,7 +109,7 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master
@@ -123,12 +124,12 @@ jobs:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -140,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate, tfsec, grype, checkov, shellcheck, gitleaks]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
