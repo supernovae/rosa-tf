@@ -42,13 +42,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install tfsec
+        run: |
+          curl -sLo tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64
+          chmod +x tfsec
+          sudo mv tfsec /usr/local/bin/
+
       - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          format: sarif
-          additional_args: --out tfsec-results.sarif
-          soft_fail: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: tfsec . --format sarif --out tfsec-results.sarif --soft-fail
 
       - name: Upload tfsec results
         uses: github/codeql-action/upload-sarif@v4
