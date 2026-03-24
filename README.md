@@ -10,7 +10,8 @@
 ![ROSA](https://img.shields.io/badge/ROSA-HCP%20%7C%20Classic-red?logo=red-hat)
 
 <!-- Security Posture -->
-![Trivy IaC](https://img.shields.io/badge/Trivy-IaC%20Scanning-blue?logo=aqua)
+![tfsec](https://img.shields.io/badge/tfsec-IaC%20Scanning-blue?logo=aqua)
+![Grype](https://img.shields.io/badge/Grype-Vulnerability%20Scanning-blue?logo=anchore)
 [![Security Checks](https://github.com/supernovae/rosa-tf/actions/workflows/security.yml/badge.svg)](https://github.com/supernovae/rosa-tf/actions/workflows/security.yml)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen?logo=dependabot)](https://github.com/supernovae/rosa-tf/security)
 
@@ -551,7 +552,7 @@ pre-commit run --all-files
 ### Security Scanning
 
 ```bash
-make security  # Runs checkov, trivy, shellcheck, gitleaks
+make security  # Runs checkov, tfsec, grype, shellcheck, gitleaks
 ```
 
 ## Contributing

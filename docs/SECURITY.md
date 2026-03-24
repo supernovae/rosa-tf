@@ -32,7 +32,8 @@ This project uses multiple security scanning tools to ensure:
 | Tool | Purpose | Configuration |
 |------|---------|---------------|
 | **Checkov** | Policy-as-code for Terraform | `.checkov.yml` |
-| **Trivy** | Vulnerability and misconfiguration scanner (tfsec successor) | HIGH/CRITICAL severity |
+| **tfsec** | Terraform misconfiguration scanner | HIGH/CRITICAL severity |
+| **Grype** | Vulnerability scanner (SCA) | HIGH/CRITICAL severity |
 | **TFLint** | Terraform linter | `.tflint.hcl` |
 
 ### Shell Script Security
@@ -110,7 +111,7 @@ make security
 
 # Run specific checks
 make security-shell      # ShellCheck only
-make security-terraform  # Checkov, Trivy
+make security-terraform  # Checkov, tfsec, Grype
 make security-secrets    # Gitleaks, pattern matching
 
 # Run pre-commit hooks (includes security)
@@ -129,8 +130,11 @@ find . -name "*.sh" -type f | xargs shellcheck -x -e SC1091
 # Gitleaks
 gitleaks detect --source . --config .gitleaks.toml
 
-# Trivy
-trivy config . --severity HIGH,CRITICAL
+# tfsec
+tfsec . --minimum-severity HIGH
+
+# Grype
+grype dir:. --only-fixed --fail-on high
 ```
 
 ---
@@ -153,7 +157,7 @@ pre-commit install
 | `terraform_fmt` | Terraform | Format check |
 | `terraform_validate` | Terraform | Syntax validation |
 | `terraform_tflint` | TFLint | Linting |
-| `terraform_trivy` | Trivy | Security scan |
+| `terraform_tfsec` | tfsec | Terraform security scan |
 | `detect-secrets` | detect-secrets | Secrets in staged files |
 | `gitleaks` | Gitleaks | Secrets in commits |
 | `check-yaml` | pre-commit | YAML syntax |
@@ -177,7 +181,8 @@ GitHub Actions runs security checks on all PRs and pushes to `main`.
 | Job | Tools | Scope |
 |-----|-------|-------|
 | `shellcheck` | ShellCheck | All `*.sh` files |
-| `trivy` | Trivy | Config scanning |
+| `tfsec` | tfsec | Terraform misconfiguration scanning |
+| `grype` | Grype | Vulnerability scanning |
 | `checkov` | Checkov | All Terraform |
 | `gitleaks` | Gitleaks | Git history |
 | `trufflehog` | TruffleHog | Verified secrets |
@@ -187,7 +192,8 @@ GitHub Actions runs security checks on all PRs and pushes to `main`.
 ### SARIF Integration
 
 Security findings are uploaded to GitHub Security tab via SARIF format:
-- Trivy results
+- tfsec results
+- Grype results
 - Checkov results
 
 ---
@@ -314,4 +320,5 @@ IRSA ensures backup credentials can only be used by authorized OADP pods running
 - [Checkov Documentation](https://www.checkov.io/5.Policy%20Index/aws.html)
 - [ShellCheck Wiki](https://www.shellcheck.net/wiki/)
 - [Gitleaks Configuration](https://github.com/gitleaks/gitleaks#configuration)
-- [Trivy Misconfiguration](https://aquasecurity.github.io/trivy/latest/docs/scanner/misconfiguration/)
+- [tfsec Documentation](https://aquasecurity.github.io/tfsec/latest/)
+- [Grype Documentation](https://github.com/anchore/grype)

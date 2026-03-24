@@ -54,16 +54,21 @@ security-shell: ## Run shell script security checks
 	@find . -name "*.sh" -type f | xargs shellcheck -x -e SC1091 || true
 	@echo ""
 
-security-terraform: ## Run Terraform security scans (checkov, trivy)
+security-terraform: ## Run Terraform security scans (checkov, tfsec, grype)
 	@echo "============================================="
 	@echo "Running checkov..."
 	@echo "============================================="
 	checkov -d . --framework terraform || true
 	@echo ""
 	@echo "============================================="
-	@echo "Running trivy..."
+	@echo "Running tfsec..."
 	@echo "============================================="
-	trivy config . --severity HIGH,CRITICAL --skip-dirs .terraform || true
+	tfsec . --minimum-severity HIGH || true
+	@echo ""
+	@echo "============================================="
+	@echo "Running grype..."
+	@echo "============================================="
+	grype dir:. --only-fixed --fail-on high || true
 
 security-secrets: ## Scan for secrets and credentials
 	@echo "============================================="
@@ -127,8 +132,11 @@ install-tools: ## Install required development tools
 	@echo "Installing checkov..."
 	pip install checkov
 	@echo ""
-	@echo "Installing trivy..."
-	curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin || brew install trivy
+	@echo "Installing tfsec..."
+	brew install tfsec || go install github.com/aquasecurity/tfsec/cmd/tfsec@latest || echo "Install tfsec manually: https://github.com/aquasecurity/tfsec"
+	@echo ""
+	@echo "Installing grype..."
+	curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin || brew install grype
 	@echo ""
 	@echo "Installing gitleaks..."
 	brew install gitleaks || go install github.com/gitleaks/gitleaks/v8@latest || echo "Install gitleaks manually: https://github.com/gitleaks/gitleaks"
