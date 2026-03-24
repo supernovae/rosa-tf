@@ -243,8 +243,8 @@ resource "aws_iam_policy" "karpenter" {
   })
 
   tags = merge(var.tags, {
-    Name      = "${var.cluster_name}-autonode-karpenter"
-    autonode  = "private-preview"
+    Name     = "${var.cluster_name}-autonode-karpenter"
+    autonode = "private-preview"
   })
 }
 
