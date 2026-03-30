@@ -34,8 +34,8 @@ aws_region   = "us-gov-west-1"
 # EUS recommended for GovCloud stability
 #------------------------------------------------------------------------------
 
-openshift_version = "4.16.55"
-# machine_pool_version = "4.16.55"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
+openshift_version = "4.18.34"
+# machine_pool_version = "4.18.34"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
 channel_group = "eus"
 
 #------------------------------------------------------------------------------

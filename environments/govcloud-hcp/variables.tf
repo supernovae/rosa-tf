@@ -60,10 +60,10 @@ variable "environment" {
 variable "openshift_version" {
   type        = string
   description = <<-EOT
-    OpenShift version for control plane (e.g., 4.16.0).
+    OpenShift version for control plane (e.g., 4.18.34).
     Run: rosa list versions --channel-group=eus --region us-gov-west-1
   EOT
-  default     = "4.16.0"
+  default     = "4.18.34"
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
@@ -808,7 +808,7 @@ variable "gitops_oauth_url" {
       OAuth URL: https://oauth-openshift.apps.<cluster>.<domain>
     
     Set this if:
-    - Older OpenShift version with different OAuth routing (e.g., 4.16)
+    - Older OpenShift version with different OAuth routing (e.g., pre-4.18)
     - Custom OAuth configuration
     
     Discovery: oc get route -n openshift-authentication oauth-openshift -o jsonpath='{.spec.host}'

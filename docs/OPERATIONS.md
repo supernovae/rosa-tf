@@ -775,11 +775,11 @@ Classic clusters upgrade as a single unit - control plane and workers upgrade to
 rosa list upgrade --cluster=<cluster-name>
 
 # 2. Update tfvars with target version
-openshift_version = "4.17.0"
+openshift_version = "4.19.0"
 
-# 3. If upgrading to a new minor version (e.g., 4.16 → 4.17), add acknowledgement
+# 3. If upgrading to a new minor version (e.g., 4.18 → 4.19), add acknowledgement
 # This confirms you've reviewed breaking API changes
-upgrade_acknowledgements_for = "4.17"
+upgrade_acknowledgements_for = "4.19"
 
 # 4. Apply the upgrade
 terraform apply -var-file=prod.tfvars
@@ -801,11 +801,11 @@ rosa describe cluster --cluster=<cluster-name>
 rosa list machinepool --cluster=<cluster-name>
 
 # 2. Update tfvars with target version
-openshift_version = "4.17.0"
+openshift_version = "4.19.0"
 
-# 3. If upgrading to a new minor version (e.g., 4.16 → 4.17), add acknowledgement
+# 3. If upgrading to a new minor version (e.g., 4.18 → 4.19), add acknowledgement
 # This confirms you've reviewed breaking API changes
-upgrade_acknowledgements_for = "4.17"
+upgrade_acknowledgements_for = "4.19"
 
 # 4. Apply to upgrade control plane first
 terraform apply -var-file=prod.tfvars
@@ -817,7 +817,7 @@ terraform apply -var-file=prod.tfvars
 **HCP Version Constraints**:
 - Machine pools cannot use a **newer** version than the control plane
 - Machine pools must be within **2 minor versions** (n-2) of the control plane
-- Example: Control plane 4.17.x supports machine pools 4.15.x, 4.16.x, 4.17.x
+- Example: Control plane 4.19.x supports machine pools 4.17.x, 4.18.x, 4.19.x
 
 #### Upgrade Acknowledgements
 
@@ -826,7 +826,7 @@ changes (removed APIs, deprecations). The RHCS provider surfaces this as:
 
 ```hcl
 # Add to your cluster resource or tfvars when required
-upgrade_acknowledgements_for = "4.17"  # Target minor version
+upgrade_acknowledgements_for = "4.19"  # Target minor version
 ```
 
 If you don't add this and it's required, Terraform will error with a message
@@ -1112,7 +1112,7 @@ oc get route -n openshift-authentication oauth-openshift -o jsonpath='{.spec.hos
 | OCP 4.x / ROSA Classic | `https://oauth-openshift.apps.<cluster>.<domain>` |
 | HCP with managed auth | `https://oauth-openshift.apps.<cluster>.<domain>` |
 | HCP with external auth | Varies - use discovery command above |
-| GovCloud (4.16+) | `https://oauth-openshift.apps.<cluster>.<domain>` |
+| GovCloud (4.18+) | `https://oauth-openshift.apps.<cluster>.<domain>` |
 
 **Step 2: Test OAuth Manually**
 

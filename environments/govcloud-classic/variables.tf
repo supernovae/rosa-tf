@@ -123,15 +123,15 @@ variable "openshift_version" {
     
     Example output:
       VERSION         DEFAULT  AVAILABLE UPGRADES
-      4.16.50         no
-      4.16.49         no       4.16.50
-      4.16.48         no       4.16.49, 4.16.50
+      4.18.34         no
+      4.18.33         no       4.18.34
+      4.18.32         no       4.18.33, 4.18.34
   EOT
-  default     = "4.16.50"
+  default     = "4.18.34"
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
-    error_message = "OpenShift version must be in x.y.z format (e.g., 4.16.50). Run 'rosa list versions' to see available versions."
+    error_message = "OpenShift version must be in x.y.z format (e.g., 4.18.34). Run 'rosa list versions' to see available versions."
   }
 }
 
@@ -141,7 +141,7 @@ variable "channel_group" {
     Update channel group for the cluster. Only two options are supported:
 
     - "eus" (default): Extended Update Support - Recommended for GovCloud/FedRAMP.
-      Provides extended lifecycle support for even-numbered releases (4.14, 4.16, etc).
+      Provides extended lifecycle support for even-numbered releases (4.16, 4.18, etc).
       EUS releases receive security patches and critical fixes for up to 24 months.
 
     - "stable": Standard support channel for all releases.
@@ -149,9 +149,9 @@ variable "channel_group" {
       you want access to the latest features without EUS lifecycle.
 
     LIFECYCLE GUIDANCE:
-    - Start with channel_group = "eus" and openshift_version = "4.16"
+    - Start with channel_group = "eus" and openshift_version = "4.18"
     - When ready to upgrade beyond EUS, change to channel_group = "stable"
-    - After upgrading to the next EUS version (e.g., 4.18), switch back to "eus"
+    - After upgrading to the next EUS version (e.g., 4.20), switch back to "eus"
 
     See: https://access.redhat.com/support/policy/updates/openshift-eus
   EOT
@@ -660,7 +660,7 @@ variable "gitops_oauth_url" {
       OAuth URL: https://oauth-openshift.apps.<cluster>.<domain>
     
     Set this if:
-    - Older OpenShift version with different OAuth routing (e.g., 4.16)
+    - Older OpenShift version with different OAuth routing (e.g., pre-4.18)
     - Custom OAuth configuration
     
     Discovery: oc get route -n openshift-authentication oauth-openshift -o jsonpath='{.spec.host}'
