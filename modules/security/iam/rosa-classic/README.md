@@ -59,7 +59,7 @@ module "iam_roles" {
   source = "../../modules/security/iam/rosa-classic"
 
   cluster_name         = "my-cluster"
-  openshift_version    = "4.16.50"
+  openshift_version    = "4.18.34"
   
   # Optional: External operator role management
   # create_operator_roles = false
@@ -73,7 +73,7 @@ module "iam_roles" {
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|----------|
 | `cluster_name` | Name of the ROSA cluster | `string` | - | yes |
-| `openshift_version` | OpenShift version (e.g., 4.16.50) | `string` | - | yes |
+| `openshift_version` | OpenShift version (e.g., 4.18.34) | `string` | - | yes |
 | `account_role_prefix` | Prefix for account IAM role names | `string` | `cluster_name` | no |
 | `operator_role_prefix` | Prefix for operator IAM role names | `string` | `cluster_name` | no |
 | `create_operator_roles` | Create operator roles via Terraform | `bool` | `true` | no |
@@ -123,7 +123,7 @@ module "iam_roles" {
   source = "../../modules/security/iam/rosa-classic"
 
   cluster_name          = "my-cluster"
-  openshift_version     = "4.16.50"
+  openshift_version     = "4.18.34"
   create_operator_roles = false  # Skip operator role creation
 }
 

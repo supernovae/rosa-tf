@@ -195,9 +195,9 @@ The custom IngressController supports configurable visibility (public/private), 
 HCP machine pools must stay within **n-2 minor versions** of control plane:
 
 ```
-Control Plane: 4.16.x
-Valid:   4.16.x, 4.15.x, 4.14.x
-Invalid: 4.13.x (too old)
+Control Plane: 4.18.x
+Valid:   4.18.x, 4.17.x, 4.16.x
+Invalid: 4.15.x (too old)
 ```
 
 **Upgrade sequence**: Control plane first, then machine pools.

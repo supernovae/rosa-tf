@@ -80,7 +80,7 @@ cluster_autoscaler_enabled = false # Set to true for production autoscaling
 #------------------------------------------------------------------------------
 
 aws_region        = "us-gov-west-1"
-openshift_version = "4.16.50"
+openshift_version = "4.18.34"
 channel_group     = "eus"
 
 #------------------------------------------------------------------------------
