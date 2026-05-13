@@ -347,6 +347,11 @@ module "vpc" {
   flow_logs_retention_days   = var.flow_logs_retention_days
   infrastructure_kms_key_arn = local.infra_kms_key_arn
 
+  # Route53 Resolver Query Logging (optional)
+  enable_resolver_query_logging     = var.enable_route53_query_logging
+  resolver_query_log_retention_days = var.resolver_query_log_retention_days
+  resolver_query_log_group_name     = var.resolver_query_log_group_name
+
   tags = local.common_tags
 }
 

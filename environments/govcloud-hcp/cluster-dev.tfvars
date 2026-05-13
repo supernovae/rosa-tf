@@ -46,6 +46,9 @@ channel_group = "eus"
 vpc_cidr = "10.0.0.0/16"
 multi_az = false # Single AZ, single NAT
 
+# Route53 Resolver query logging (captures all DNS lookups from the VPC)
+enable_route53_query_logging = false
+
 #------------------------------------------------------------------------------
 # KMS Configuration
 # Note: GovCloud requires customer-managed KMS (FedRAMP compliance)

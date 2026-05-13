@@ -36,6 +36,9 @@ channel_group = "stable"
 vpc_cidr = "10.0.0.0/16"
 multi_az = true # 3 AZs, NAT per AZ for HA
 
+# Route53 Resolver query logging (captures all DNS lookups from the VPC)
+enable_route53_query_logging = false
+
 #------------------------------------------------------------------------------
 # Cluster Configuration
 # Private cluster for security

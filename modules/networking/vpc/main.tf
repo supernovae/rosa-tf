@@ -375,6 +375,87 @@ resource "aws_flow_log" "this" {
 }
 
 #------------------------------------------------------------------------------
+# Route53 Resolver Query Logging (Optional)
+# Captures all DNS queries originating from this VPC for security auditing
+# and understanding outbound network dependencies.
+#------------------------------------------------------------------------------
+
+data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
+locals {
+  resolver_log_group_name = coalesce(var.resolver_query_log_group_name, "/aws/route53resolver/${var.cluster_name}-vpc")
+}
+
+resource "aws_cloudwatch_log_group" "resolver_query_logs" {
+  count = var.enable_resolver_query_logging ? 1 : 0
+
+  name              = local.resolver_log_group_name
+  retention_in_days = var.resolver_query_log_retention_days
+  kms_key_id        = var.infrastructure_kms_key_arn
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.cluster_name}-resolver-query-logs"
+    }
+  )
+}
+
+resource "aws_cloudwatch_log_resource_policy" "resolver_query_logging" {
+  count = var.enable_resolver_query_logging ? 1 : 0
+
+  policy_name = "${var.cluster_name}-resolver-query-logging"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Route53ResolverQueryLogging"
+        Effect = "Allow"
+        Principal = {
+          Service = "route53resolver.amazonaws.com"
+        }
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:${local.resolver_log_group_name}:*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_route53_resolver_query_log_config" "this" {
+  count = var.enable_resolver_query_logging ? 1 : 0
+
+  name            = "${var.cluster_name}-vpc-resolver-query-log"
+  destination_arn = aws_cloudwatch_log_group.resolver_query_logs[0].arn
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.cluster_name}-resolver-query-log-config"
+    }
+  )
+
+  depends_on = [aws_cloudwatch_log_resource_policy.resolver_query_logging]
+}
+
+resource "aws_route53_resolver_query_log_config_association" "this" {
+  count = var.enable_resolver_query_logging ? 1 : 0
+
+  resolver_query_log_config_id = aws_route53_resolver_query_log_config.this[0].id
+  resource_id                  = aws_vpc.this.id
+}
+
+#------------------------------------------------------------------------------
 # Data Sources
 #------------------------------------------------------------------------------
 

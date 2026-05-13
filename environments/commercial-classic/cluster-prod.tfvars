@@ -115,6 +115,9 @@ egress_type = "nat"
 enable_vpc_flow_logs     = true
 flow_logs_retention_days = 90
 
+# Route53 Resolver query logging (captures all DNS lookups from the VPC)
+enable_route53_query_logging = false
+
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)
 # Private container registry for custom images

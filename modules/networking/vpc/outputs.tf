@@ -91,3 +91,13 @@ output "flow_logs_log_group_arn" {
   description = "ARN of the CloudWatch log group for VPC flow logs (null if disabled)."
   value       = var.enable_flow_logs ? aws_cloudwatch_log_group.flow_logs[0].arn : null
 }
+
+output "resolver_query_logging_enabled" {
+  description = "Whether Route53 Resolver query logging is enabled."
+  value       = var.enable_resolver_query_logging
+}
+
+output "resolver_query_log_group_arn" {
+  description = "ARN of the CloudWatch log group for Route53 Resolver query logs (null if disabled)."
+  value       = var.enable_resolver_query_logging ? aws_cloudwatch_log_group.resolver_query_logs[0].arn : null
+}

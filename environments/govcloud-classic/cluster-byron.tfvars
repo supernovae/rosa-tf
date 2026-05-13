@@ -1,29 +1,29 @@
 #------------------------------------------------------------------------------
-# ROSA Classic GovCloud - Production Environment (Cluster Phase)
+# ROSA Classic GovCloud - Development Environment (Cluster Phase)
 #------------------------------------------------------------------------------
-# Multi-AZ deployment with full high availability.
+# Single-AZ deployment optimized for cost and development workflows.
 #
-# Production characteristics:
-# - 3 availability zones for HA
-# - 3 NAT gateways (survives AZ failure)
-# - Minimum 3 worker nodes (1 per AZ)
-# - VPC flow logs enabled for compliance
-# - All security features enabled (FIPS, KMS, private cluster, STS)
+# Security posture is IDENTICAL to production:
+# - FIPS enabled
+# - KMS encryption for EBS and etcd
+# - Private cluster (no public API endpoint)
+# - STS mode
 #
-# ⚠️ TWO-PHASE DEPLOYMENT REQUIRED FOR GOVCLOUD:
-# All GovCloud clusters are private - GitOps requires VPN connectivity.
-# Phase 1: Deploy cluster (and VPN if needed). Phase 2: Connect VPN, apply gitops overlay.
+# Cost savings vs production:
+# - Single AZ (~$64/month NAT savings)
+# - Fewer worker nodes
+# - Smaller instance types (optional)
 #
 # TWO-PHASE WORKFLOW:
 #   Phase 1 (cluster only):
-#     terraform apply -var-file="cluster-prod.tfvars"
+#     terraform apply -var-file="cluster-dev.tfvars"
 #   Phase 2 (with GitOps, after VPN connected):
-#     terraform apply -var-file="cluster-prod.tfvars" -var-file="gitops-prod.tfvars"
+#     terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
 #
 # Usage:
 #   cd environments/govcloud-classic
-#   terraform plan -var-file="cluster-prod.tfvars"
-#   terraform apply -var-file="cluster-prod.tfvars"
+#   terraform plan -var-file="cluster-dev.tfvars"
+#   terraform apply -var-file="cluster-dev.tfvars"
 #
 # Prerequisites:
 #   export TF_VAR_ocm_token="your-token-from-console.openshiftusgov.com"
@@ -33,30 +33,30 @@
 # Cluster Identity
 #------------------------------------------------------------------------------
 
-cluster_name = "prod-classic-gov" # Change this for your cluster
-environment  = "prod"
+cluster_name = "classic418" # Change this for your cluster
+environment  = "dev"
 
 #------------------------------------------------------------------------------
-# Topology: Multi-AZ for Production
+# Topology: Single-AZ for Development
 #------------------------------------------------------------------------------
 
-multi_az = true # 3 AZs, NAT per AZ for HA
+multi_az = false # Single AZ, single NAT
 
-# Auto-select 3 AZs (or specify explicitly)
+# Auto-select first available AZ (or specify one)
 availability_zones = null
-# availability_zones = ["us-gov-west-1a", "us-gov-west-1b", "us-gov-west-1c"]
+# availability_zones = ["us-gov-west-1a"]
 
 #------------------------------------------------------------------------------
-# Compute: Production sizing
+# Compute: Smaller footprint for dev
 #------------------------------------------------------------------------------
 
-compute_machine_type = "m6i.xlarge"
-worker_node_count    = 3 # 1 per AZ minimum, scale as needed
-worker_disk_size     = 300
+compute_machine_type = "m6i.xlarge" # Or m6i.large for smaller dev
+worker_node_count    = 2            # Minimum for single-AZ
+worker_disk_size     = 150
 
 #------------------------------------------------------------------------------
 # Cluster Autoscaler (Optional)
-# Configures cluster-wide autoscaling behavior for production workloads
+# Configures cluster-wide autoscaling behavior
 #
 # IMPORTANT: autoscaler_max_nodes_total MUST be >= worker_node_count
 # The autoscaler cannot allow fewer nodes than currently deployed.
@@ -66,21 +66,21 @@ worker_disk_size     = 300
 #   - Set higher than worker_node_count to allow scale-up headroom
 #------------------------------------------------------------------------------
 
-cluster_autoscaler_enabled = false # Set to true for production autoscaling
+cluster_autoscaler_enabled = false # Set to true to enable autoscaling
 
-# Production autoscaler settings (when cluster_autoscaler_enabled = true):
-# autoscaler_max_nodes_total                  = 50    # Must be >= worker_node_count (3)
-# autoscaler_scale_down_enabled               = true  # Enable scale down during off-peak
+# Autoscaler settings (when cluster_autoscaler_enabled = true):
+# autoscaler_max_nodes_total                  = 10    # Must be >= worker_node_count (2)
+# autoscaler_scale_down_enabled               = true  # Enable scale down of idle nodes
 # autoscaler_scale_down_utilization_threshold = "0.5" # Scale down if < 50% utilized
-# autoscaler_scale_down_delay_after_add       = "10m" # Stabilization period after scale up
-# autoscaler_scale_down_unneeded_time         = "10m" # Grace period before scale down
+# autoscaler_scale_down_delay_after_add       = "10m" # Wait before considering new nodes
+# autoscaler_scale_down_unneeded_time         = "10m" # How long node must be idle
 
 #------------------------------------------------------------------------------
 # Region and Version
 #------------------------------------------------------------------------------
 
-aws_region        = "us-gov-west-1"
-openshift_version = "4.18.34"
+aws_region        = "us-gov-east-1"
+openshift_version = "4.16.50"
 channel_group     = "eus"
 
 #------------------------------------------------------------------------------
@@ -90,9 +90,8 @@ channel_group     = "eus"
 vpc_cidr    = "10.0.0.0/16"
 egress_type = "nat"
 
-# Enable flow logs for compliance/audit
-enable_vpc_flow_logs     = true
-flow_logs_retention_days = 90
+# Disable flow logs for dev (cost savings)
+enable_vpc_flow_logs = false
 
 # Route53 Resolver query logging (captures all DNS lookups from the VPC)
 enable_route53_query_logging = false
@@ -109,10 +108,9 @@ enable_route53_query_logging = false
 # "provider_managed" is NOT available in GovCloud
 #------------------------------------------------------------------------------
 
-cluster_kms_mode        = "create" # Terraform creates cluster KMS key
-infra_kms_mode          = "create" # Terraform creates infrastructure KMS key
-kms_key_deletion_window = 30       # Days before keys are permanently deleted
-etcd_encryption         = true     # Always recommended for GovCloud
+cluster_kms_mode = "create" # Terraform creates cluster KMS key
+infra_kms_mode   = "create" # Terraform creates infrastructure KMS key
+etcd_encryption  = true     # Always recommended for GovCloud
 
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)
@@ -149,31 +147,25 @@ managed_oidc       = true
 
 #------------------------------------------------------------------------------
 # Access
-#
-# htpasswd admin user -- required for initial bootstrap (creates OAuth token).
-# After bootstrap, Terraform uses the SA token (gitops_cluster_token).
-# To harden: set to false and run terraform apply to remove htpasswd IDP.
-# See docs/OPERATIONS.md for the full credential lifecycle.
 #------------------------------------------------------------------------------
 
 create_admin_user = true
 create_jumphost   = true
 
-# Consider VPN for production (better UX than SSM)
-create_client_vpn = false # Enable if budget allows (~$116/month)
+# VPN optional for dev (SSM is sufficient)
+create_client_vpn = true
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Phase 1: Cluster only. Phase 2: Use gitops-prod.tfvars overlay.
+# Phase 1: Cluster only. Phase 2: Use gitops-dev.tfvars overlay.
 #------------------------------------------------------------------------------
 
-install_gitops = false # Use gitops-prod.tfvars overlay for Phase 2
+install_gitops = false # Use gitops-dev.tfvars overlay for Phase 2
 
 #------------------------------------------------------------------------------
-# Machine Pools (optional - disabled by default)
+# Machine Pools (Optional)
 #
 # Generic list - define any pool type by configuration.
-# Production pools should use autoscaling for resilience.
 # Classic supports spot instances for cost optimization.
 # Note: Check GovCloud availability for specific instance types.
 # See docs/MACHINE-POOLS.md for detailed guidance.
@@ -181,22 +173,15 @@ install_gitops = false # Use gitops-prod.tfvars overlay for Phase 2
 
 machine_pools = []
 
-# GovCloud production examples (uncomment to enable):
+# GovCloud examples (uncomment to enable):
 #
 # machine_pools = [
-#   # General worker pool with autoscaling
-#   # {
-#   #   name          = "workers"
-#   #   instance_type = "m6i.xlarge"
-#   #   autoscaling   = { enabled = true, min = 2, max = 6 }
-#   # },
-#   #
 #   # GPU Spot Pool - cost-effective ML/batch (up to 90% savings)
 #   # {
 #   #   name          = "gpu-spot"
 #   #   instance_type = "p3.2xlarge"  # GovCloud: p3.2xlarge, p3.8xlarge, g4dn.xlarge
 #   #   spot          = { enabled = true }
-#   #   autoscaling   = { enabled = true, min = 0, max = 4 }
+#   #   autoscaling   = { enabled = true, min = 0, max = 3 }
 #   #   multi_az      = false
 #   #   labels = {
 #   #     "node-role.kubernetes.io/gpu" = ""
@@ -212,7 +197,7 @@ machine_pools = []
 #   # {
 #   #   name          = "metal"
 #   #   instance_type = "m6i.metal"
-#   #   replicas      = 3
+#   #   replicas      = 2
 #   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints        = [{ key = "node-role.kubernetes.io/metal", value = "true", schedule_type = "NoSchedule" }]
 #   # },
@@ -221,7 +206,7 @@ machine_pools = []
 #   # {
 #   #   name          = "highmem"
 #   #   instance_type = "r5.2xlarge"
-#   #   autoscaling   = { enabled = true, min = 2, max = 8 }
+#   #   replicas      = 2
 #   #   labels        = { "node-role.kubernetes.io/highmem" = "" }
 #   # },
 # ]
@@ -230,15 +215,14 @@ machine_pools = []
 # Debug / Timing
 #------------------------------------------------------------------------------
 
-enable_timing = false # Set to true to see deployment duration
+enable_timing = true # Show deployment duration in outputs
 
 #------------------------------------------------------------------------------
 # Tags
 #------------------------------------------------------------------------------
 
 tags = {
-  Environment = "production"
+  Environment = "development"
   Project     = "rosa-govcloud"
-  CostCenter  = "prod"
-  Compliance  = "fedramp-high"
+  CostCenter  = "dev"
 }
