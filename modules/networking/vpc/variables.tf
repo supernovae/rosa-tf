@@ -82,7 +82,25 @@ variable "flow_logs_retention_days" {
 
 variable "infrastructure_kms_key_arn" {
   type        = string
-  description = "ARN of the KMS key for infrastructure encryption (flow logs). Required if enable_flow_logs is true."
+  description = "ARN of the KMS key for infrastructure encryption (flow logs, resolver logs). Required if enable_flow_logs or enable_resolver_query_logging is true."
+  default     = null
+}
+
+variable "enable_resolver_query_logging" {
+  type        = bool
+  description = "Enable Route53 Resolver query logging for this VPC. Logs all DNS queries originating from the VPC to CloudWatch."
+  default     = false
+}
+
+variable "resolver_query_log_retention_days" {
+  type        = number
+  description = "Number of days to retain Route53 Resolver query logs in CloudWatch."
+  default     = 30
+}
+
+variable "resolver_query_log_group_name" {
+  type        = string
+  description = "Custom CloudWatch log group name for Resolver query logs. Defaults to /aws/route53resolver/{cluster_name}-vpc."
   default     = null
 }
 

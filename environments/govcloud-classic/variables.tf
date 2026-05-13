@@ -241,6 +241,24 @@ variable "flow_logs_retention_days" {
   default     = 30
 }
 
+variable "enable_route53_query_logging" {
+  type        = bool
+  description = "Enable Route53 Resolver query logging for the VPC. Logs all DNS queries originating from the VPC to CloudWatch."
+  default     = false
+}
+
+variable "resolver_query_log_retention_days" {
+  type        = number
+  description = "Number of days to retain Route53 Resolver query logs in CloudWatch."
+  default     = 30
+}
+
+variable "resolver_query_log_group_name" {
+  type        = string
+  description = "Custom CloudWatch log group name for Resolver query logs. Defaults to /aws/route53resolver/{cluster_name}-vpc."
+  default     = null
+}
+
 #------------------------------------------------------------------------------
 # BYO-VPC Configuration (Optional)
 #

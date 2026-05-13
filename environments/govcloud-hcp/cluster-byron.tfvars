@@ -1,93 +1,94 @@
 #------------------------------------------------------------------------------
-# ROSA HCP - Commercial AWS - Development Environment (Cluster Only)
+# ROSA HCP - AWS GovCloud - Development Environment (Cluster Phase)
 #
 # Cost-optimized single-AZ configuration for development and testing.
-# Estimated monthly cost: ~$500-700 (vs ~$1500+ for prod)
+# All GovCloud security requirements are ENFORCED (FIPS, private, KMS).
 #
-# Two-phase workflow:
-#   Phase 1: terraform apply -var-file="cluster-dev.tfvars"
-#   Phase 2: terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
+# Estimated monthly cost: ~$600-800 (vs ~$1500+ for prod)
+#
+# TWO-PHASE WORKFLOW:
+#   Phase 1 (cluster only):
+#     terraform apply -var-file="cluster-dev.tfvars"
+#   Phase 2 (with GitOps, after VPN connected):
+#     terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
+#
+# Usage:
+#   export TF_VAR_ocm_token="your-token-from-console.openshiftusgov.com"
+#   terraform init
+#   terraform plan -var-file="cluster-dev.tfvars"
+#   terraform apply -var-file="cluster-dev.tfvars"
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
 # Cluster Identification
 #------------------------------------------------------------------------------
 
-cluster_name = "dev-hcp"
+cluster_name = "dev-hcp-gov"
 environment  = "dev"
-aws_region   = "us-east-1"
+aws_region   = "us-gov-east-1"
 
 #------------------------------------------------------------------------------
 # OpenShift Version
 # Control plane and machine pools use same version by default
 # For upgrades: set machine_pool_version to upgrade pools separately
+# EUS recommended for GovCloud stability
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.14"
-# machine_pool_version = "4.20.14"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
-channel_group = "stable"
+openshift_version = "4.18.40"
+# machine_pool_version = "4.18.34"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
+channel_group = "eus"
 
 #------------------------------------------------------------------------------
 # Network Configuration
-# Single-AZ for cost savings
+# Single-AZ for cost savings (still private, still secure)
 #------------------------------------------------------------------------------
 
 vpc_cidr = "10.0.0.0/16"
 multi_az = false # Single AZ, single NAT
 
-# Route53 Resolver query logging (captures all DNS lookups from the VPC)
-enable_route53_query_logging = false
+# Route53 Resolver query logging - enabled to capture DNS lookups and
+# identify what internet endpoints the GovCloud HCP cluster accesses
+enable_route53_query_logging      = true
+resolver_query_log_retention_days = 14
 
 #------------------------------------------------------------------------------
-# Cluster Configuration
-# Public cluster for easy development access
-#------------------------------------------------------------------------------
-
-private_cluster      = false
-compute_machine_type = "m6i.xlarge"
-worker_node_count    = 2
-
-#------------------------------------------------------------------------------
-# Encryption Configuration
+# KMS Configuration
+# Note: GovCloud requires customer-managed KMS (FedRAMP compliance)
 #
 # Two separate keys for blast radius containment:
 # - cluster_kms_*: For ROSA workers and etcd ONLY
 # - infra_kms_*: For jump host, CloudWatch, S3/OADP, VPN ONLY
 #
-# Mode options (same for both keys):
-#   "provider_managed" (DEFAULT) - Uses AWS managed aws/ebs key
-#     - Encryption at rest enabled by default
-#     - No KMS key costs (~$1/month per key)
-#     - Simplest configuration
-#
-#   "create" - Terraform creates customer-managed KMS key
-#     - Full control over key policies
-#     - Enables etcd encryption option
-#     - Required for strict compliance
-#
-#   "existing" - Use your own KMS key ARN
-#     - Set cluster_kms_key_arn or infra_kms_key_arn
+# Options: "create" (default) or "existing"
+# "provider_managed" is NOT available in GovCloud
 #------------------------------------------------------------------------------
 
-cluster_kms_mode = "provider_managed" # Use AWS default for ROSA
-infra_kms_mode   = "provider_managed" # Use AWS default for infrastructure
+cluster_kms_mode = "create" # Terraform creates cluster KMS key
+infra_kms_mode   = "create" # Terraform creates infrastructure KMS key
 
-# etcd_encryption only applies when cluster_kms_mode = "create" or "existing"
-etcd_encryption = false
+#------------------------------------------------------------------------------
+# Cluster Configuration
+# Note: FIPS, private, KMS are MANDATORY - not configurable
+#------------------------------------------------------------------------------
+
+compute_machine_type = "m6i.4xlarge"
+worker_node_count    = 4
 
 #------------------------------------------------------------------------------
 # Zero Egress Configuration (HCP Only)
 # Enable for fully air-gapped operation with no outbound internet
 #------------------------------------------------------------------------------
 
-zero_egress = false # Set to true for air-gapped environments
+# Zero-egress mode (NOT YET AVAILABLE in GovCloud - requires OpenShift 4.18+)
+# TODO: Enable when 4.18 ships for GovCloud
+zero_egress = false # ⚠️ Must be false until 4.18 is available
 
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)
 # Private container registry for custom images or operator mirroring
 #------------------------------------------------------------------------------
 
-create_ecr = false # Set to true to create ECR repository
+create_ecr = true # Set to true to create ECR repository
 # ecr_repository_name = "custom-name"  # Optional: defaults to {cluster_name}-registry
 # ecr_prevent_destroy = true           # Preserve ECR when cluster is destroyed
 
@@ -98,17 +99,12 @@ create_ecr = false # Set to true to create ECR repository
 # See docs/IAM-LIFECYCLE.md for architecture details.
 #
 # Create account roles via:
-#   cd environments/account-hcp && terraform apply -var-file=commercial.tfvars
+#   cd environments/account-hcp && terraform apply -var-file=govcloud.tfvars
 # Or:
 #   rosa create account-roles --hosted-cp --mode auto
 #------------------------------------------------------------------------------
 
 account_role_prefix = "ManagedOpenShift"
-
-# For explicit ARNs (optional, overrides auto-discovery):
-# installer_role_arn = "arn:aws:iam::123456789012:role/ManagedOpenShift-HCP-ROSA-Installer-Role"
-# support_role_arn   = "arn:aws:iam::123456789012:role/ManagedOpenShift-HCP-ROSA-Support-Role"
-# worker_role_arn    = "arn:aws:iam::123456789012:role/ManagedOpenShift-HCP-ROSA-Worker-Role"
 
 #------------------------------------------------------------------------------
 # OIDC Configuration
@@ -125,28 +121,21 @@ managed_oidc       = true
 
 # Pre-created managed OIDC (faster deploys, share across clusters)
 # create_oidc_config = false
-# oidc_config_id     = "abc123def456..."  # From: rosa list oidc-config
-# oidc_endpoint_url  = "rh-oidc.s3.us-east-1.amazonaws.com/abc123..."
+# oidc_config_id     = "abc123def456..."
+# oidc_endpoint_url  = "rh-oidc.s3.us-gov-west-1.amazonaws.com/abc123..."
 
 # Unmanaged OIDC (customer-managed, full control)
 # create_oidc_config          = true
 # managed_oidc                = false
-# oidc_private_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789:secret:oidc-key"
-# installer_role_arn_for_oidc = "arn:aws:iam::123456789:role/Installer-Role"
+# oidc_private_key_secret_arn = "arn:aws-us-gov:secretsmanager:us-gov-west-1:123456789:secret:oidc-key"
+# installer_role_arn_for_oidc = "arn:aws-us-gov:iam::123456789:role/Installer-Role"
 
 #------------------------------------------------------------------------------
 # External Authentication (HCP Only)
-#
-# Replace built-in OpenShift OAuth with external OIDC IdP (Entra ID, Keycloak)
-# IMPORTANT: Cannot be changed after cluster creation!
+# Replace built-in OpenShift OAuth with external OIDC IdP
 #------------------------------------------------------------------------------
 
 external_auth_providers_enabled = false
-
-# When enabling external auth:
-# - Set create_admin_user = false (OAuth server is replaced)
-# - Configure external provider via rosa CLI after cluster creation
-# - See docs/OIDC.md for setup guide
 
 #------------------------------------------------------------------------------
 # Admin User
@@ -159,19 +148,19 @@ admin_username    = "cluster-admin"
 # Machine Pools (Optional)
 #
 # Generic list - define any pool type by configuration.
-# Uncomment and customize examples as needed.
+# Note: Check GovCloud availability for specific instance types.
 # See docs/MACHINE-POOLS.md for detailed guidance.
 #------------------------------------------------------------------------------
 
 machine_pools = []
 
-# Example configurations (uncomment to enable):
+# GovCloud examples (uncomment to enable):
 #
 # machine_pools = [
-#   # GPU Pool (NVIDIA) - for ML/AI workloads
+#   # GPU Pool - for ML/AI workloads (check GovCloud availability)
 #   # {
 #   #   name          = "gpu"
-#   #   instance_type = "g4dn.xlarge"  # or p3.2xlarge, p4d.24xlarge
+#   #   instance_type = "p3.2xlarge"  # GovCloud: p3.2xlarge, p3.8xlarge, g4dn.xlarge
 #   #   replicas      = 1
 #   #   labels = {
 #   #     "node-role.kubernetes.io/gpu"    = ""
@@ -184,39 +173,25 @@ machine_pools = []
 #   #   }]
 #   # },
 #   #
-#   # ARM/Graviton Pool - cost optimization (up to 40% savings)
+#   # High Memory Pool - for data-intensive workloads
 #   # {
-#   #   name          = "graviton"
-#   #   instance_type = "m6g.xlarge"  # or m7g.xlarge for Graviton3
-#   #   autoscaling   = { enabled = true, min = 1, max = 5 }
-#   #   labels = {
-#   #     "kubernetes.io/arch" = "arm64"
-#   #   }
+#   #   name          = "highmem"
+#   #   instance_type = "r5.2xlarge"
+#   #   replicas      = 2
+#   #   labels        = { "node-role.kubernetes.io/highmem" = "" }
 #   # },
 #   #
-#   # Bare Metal Pool - for OpenShift Virtualization (when enable_layer_virtualization = true)
+#   # Bare Metal Pool - for OpenShift Virtualization
 #   # {
 #   #   name          = "metal"
-#   #   instance_type = "m6i.metal"  # or c5.metal, m5zn.metal
+#   #   instance_type = "m6i.metal"
 #   #   replicas      = 2
-#   #   labels = {
-#   #     "node-role.kubernetes.io/metal" = ""
-#   #   }
+#   #   labels        = { "node-role.kubernetes.io/metal" = "" }
 #   #   taints = [{
 #   #     key           = "node-role.kubernetes.io/metal"
 #   #     value         = "true"
 #   #     schedule_type = "NoSchedule"
 #   #   }]
-#   # },
-#   #
-#   # High Memory Pool - for memory-intensive workloads
-#   # {
-#   #   name          = "highmem"
-#   #   instance_type = "r5.2xlarge"  # or x2idn.xlarge
-#   #   replicas      = 2
-#   #   labels = {
-#   #     "node-role.kubernetes.io/highmem" = ""
-#   #   }
 #   # },
 # ]
 
@@ -249,18 +224,21 @@ machine_pools = []
 
 #------------------------------------------------------------------------------
 # Access Configuration
-# No VPN or jump host needed for public cluster
+# Jump host recommended for private cluster access
 #------------------------------------------------------------------------------
 
-create_jumphost   = false
-create_client_vpn = false
+create_jumphost        = true
+jumphost_instance_type = "t3.micro"
+
+# VPN optional for dev
+create_client_vpn = true
 
 #------------------------------------------------------------------------------
 # GitOps Configuration
-# Set install_gitops = false for Phase 1. Use gitops-dev.tfvars overlay for Phase 2.
+# Phase 1: Cluster only. Phase 2: Use gitops-dev.tfvars overlay.
 #------------------------------------------------------------------------------
 
-install_gitops = false
+install_gitops = false # Use gitops-dev.tfvars overlay for Phase 2
 
 #------------------------------------------------------------------------------
 # Debug / Timing
@@ -275,4 +253,6 @@ enable_timing = true # Show deployment duration in outputs
 tags = {
   Environment = "dev"
   CostCenter  = "development"
+  Compliance  = "fedramp-high"
+  DataClass   = "cui"
 }

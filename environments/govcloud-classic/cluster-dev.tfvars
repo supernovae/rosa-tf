@@ -79,7 +79,7 @@ cluster_autoscaler_enabled = false # Set to true to enable autoscaling
 # Region and Version
 #------------------------------------------------------------------------------
 
-aws_region        = "us-gov-west-1"
+aws_region        = "us-gov-east-1"
 openshift_version = "4.18.34"
 channel_group     = "eus"
 
@@ -92,6 +92,9 @@ egress_type = "nat"
 
 # Disable flow logs for dev (cost savings)
 enable_vpc_flow_logs = false
+
+# Route53 Resolver query logging (captures all DNS lookups from the VPC)
+enable_route53_query_logging = false
 
 #------------------------------------------------------------------------------
 # KMS Configuration

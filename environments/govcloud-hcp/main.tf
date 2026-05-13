@@ -330,6 +330,12 @@ module "vpc" {
   transit_gateway_id         = var.transit_gateway_id
   transit_gateway_route_cidr = var.transit_gateway_route_cidr
 
+  # Route53 Resolver Query Logging (optional) - uses infrastructure KMS
+  enable_resolver_query_logging     = var.enable_route53_query_logging
+  resolver_query_log_retention_days = var.resolver_query_log_retention_days
+  resolver_query_log_group_name     = var.resolver_query_log_group_name
+  infrastructure_kms_key_arn        = local.infra_kms_key_arn
+
   tags = local.common_tags
 }
 

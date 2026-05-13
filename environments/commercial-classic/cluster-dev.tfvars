@@ -109,6 +109,9 @@ egress_type = "nat"
 # Disable flow logs for dev
 enable_vpc_flow_logs = false
 
+# Route53 Resolver query logging (captures all DNS lookups from the VPC)
+enable_route53_query_logging = false
+
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)
 # Private container registry for custom images
