@@ -26,8 +26,14 @@ Key benefits over machine pool autoscaling:
 ┌──────────────────────────────────────────────────────────┐
 │  Terraform (this module)                                 │
 │                                                          │
-│  modules/cluster/autonode/        IAM role + policy,     │
-│                                   subnet discovery tags  │
+│  modules/cluster/autonode/        IAM role + policy      │
+│                                   (created before cluster)│
+│                                                          │
+│  rhcs_cluster_rosa_hcp            auto_node block        │
+│                                   (enables Karpenter)    │
+│                                                          │
+│  aws_ec2_tag                      subnet discovery tags  │
+│                                   (applied after cluster)│
 │                                                          │
 │  modules/cluster/autonode-pool/   Karpenter NodePool     │
 │                                   CRDs on the cluster    │
@@ -49,43 +55,29 @@ Key benefits over machine pool autoscaling:
 ## Requirements
 
 - ROSA HCP cluster on OpenShift 4.19+
-- `us-east-1` region (private preview limitation)
-- ROSA CLI (`rosa`) installed for the manual enablement step
-- For private preview: cluster provisioned on the AutoNode shard via `cluster_properties`
+- Commercial AWS only (not available in GovCloud)
+- RHCS Terraform provider >= 1.7.5
 
 ## Deployment Workflow
 
-AutoNode requires a **three-phase deployment** because Karpenter CRDs only exist on the cluster after the manual enablement step.
+AutoNode uses a **two-phase deployment**. No manual CLI step is required -- AutoNode is enabled natively via the RHCS provider's `auto_node` block on the cluster resource.
 
-### Phase 1: Infrastructure + IAM
+### Phase 1: Infrastructure + Cluster + AutoNode
 
-Create the cluster and AutoNode IAM resources:
+Create the cluster with AutoNode enabled in a single apply:
 
 ```bash
-cd environments/commercial-hcp   # or stage-hcp
+cd environments/commercial-hcp
 
 terraform apply -var-file=cluster-dev.tfvars
 ```
 
-This creates:
-- VPC, ROSA HCP cluster, IAM roles
-- Karpenter controller IAM role with OIDC trust
-- Karpenter IAM policy (EC2, IAM, SSM, SQS, Pricing)
-- `ec2:CreateTags` permission on the control-plane-operator role
-- `karpenter.sh/discovery` tags on private subnets
-
-### Phase 2: Enable AutoNode (manual)
-
-Run the output command to enable AutoNode on the cluster:
-
-```bash
-terraform output -raw rosa_enable_autonode_command | bash
-```
-
-This executes:
-```bash
-rosa edit cluster -c <cluster_id> --autonode=enabled --autonode-iam-role-arn=<role_arn>
-```
+This creates (in dependency order):
+1. VPC, KMS, IAM roles
+2. Karpenter controller IAM role with OIDC trust (before the cluster)
+3. ROSA HCP cluster with `auto_node` block enabled
+4. `karpenter.sh/discovery` tags on private subnets (after cluster)
+5. `ec2:CreateTags` permission on the control-plane-operator role
 
 Wait ~5 minutes for Karpenter CRDs to appear:
 
@@ -94,7 +86,7 @@ oc get crd | grep karpenter
 # Expected: ec2nodeclasses.karpenter.k8s.aws, nodeclaims.karpenter.sh, nodepools.karpenter.sh
 ```
 
-### Phase 3: Deploy NodePools + GitOps Layers
+### Phase 2: Deploy NodePools + GitOps Layers
 
 Apply with GitOps and your pool definitions:
 
@@ -208,15 +200,19 @@ These limitations apply during the Technology Preview period:
 
 1. **ARM/Graviton not available** -- the default `EC2NodeClass` only contains amd64 AMIs. ARM instance types (c7g, m7g, etc.) will fail to launch with "Instance launch failed" errors.
 
-2. **Manual enablement step** -- `rosa edit cluster --autonode=enabled` must be run manually between Phase 1 and Phase 3. There is no Terraform resource for this today.
+2. **`kubernetes.io` label restriction** -- Karpenter rejects `kubernetes.io` and `k8s.io` domain labels in `spec.template.metadata.labels`. The module automatically filters these out. Use custom domains instead (e.g. `node-role.autonode/gpu` instead of `node-role.kubernetes.io/gpu`).
 
-3. **`kubernetes.io` label restriction** -- Karpenter rejects `kubernetes.io` and `k8s.io` domain labels in `spec.template.metadata.labels`. The module automatically filters these out. Use custom domains instead (e.g. `node-role.autonode/gpu` instead of `node-role.kubernetes.io/gpu`).
+3. **NodePool CRD references** -- During private preview, NodePools must reference `EC2NodeClass` (group: `karpenter.k8s.aws`), not `OpenshiftEC2NodeClass`. The module defaults handle this correctly.
 
-4. **NodePool CRD references** -- During private preview, NodePools must reference `EC2NodeClass` (group: `karpenter.k8s.aws`), not `OpenshiftEC2NodeClass`. The module defaults handle this correctly.
+4. **No migration path guaranteed** -- Red Hat does not guarantee a migration path from Technology Preview to GA. You may need to fully reinstall the cluster.
 
-5. **No migration path guaranteed** -- Red Hat does not guarantee a migration path from Technology Preview to GA. You may need to fully reinstall the cluster.
+5. **Commercial AWS only** -- AutoNode is not available in GovCloud.
 
-6. **Region restriction** -- Currently limited to `us-east-1`.
+## Migration from Manual CLI Enablement
+
+If you previously enabled AutoNode manually via `rosa edit cluster --autonode=enabled`, Terraform will detect `auto_node` as already matching desired state (no-op). The `auto_node` attribute is in `ignore_changes`, so no drift will be reported.
+
+For clusters without AutoNode, setting `enable_autonode = true` will create the IAM role and enable AutoNode in a single `terraform apply`.
 
 ## Teardown
 

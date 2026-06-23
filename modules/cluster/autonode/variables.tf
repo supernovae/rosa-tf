@@ -12,7 +12,9 @@ variable "cluster_id" {
   description = <<-EOT
     OCM cluster ID (the internal identifier, not the cluster name).
     Used as the value for karpenter.sh/discovery subnet tags.
+    When null, subnet tagging is skipped (IAM-only mode).
   EOT
+  default     = null
 }
 
 variable "oidc_endpoint_url" {

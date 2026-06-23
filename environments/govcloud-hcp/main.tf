@@ -495,6 +495,7 @@ module "rosa_cluster" {
 
   # GovCloud Security (MANDATORY - not configurable)
   private_cluster = true # Always private in GovCloud
+  fips            = true # GovCloud: FIPS required for FedRAMP
   zero_egress     = var.zero_egress
   etcd_encryption = true # Always encrypted
 

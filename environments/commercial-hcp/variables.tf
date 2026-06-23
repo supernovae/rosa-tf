@@ -357,6 +357,20 @@ variable "private_cluster" {
   default     = true
 }
 
+variable "fips" {
+  type        = bool
+  description = <<-EOT
+    Enable FIPS-validated cryptographic modules on the cluster.
+
+    - Immutable after cluster creation (cannot be changed later)
+    - Required for GovCloud (automatically set to true there)
+    - Optional for Commercial (default false)
+
+    When enabled, all cluster nodes use FIPS-validated crypto libraries.
+  EOT
+  default     = false
+}
+
 variable "zero_egress" {
   type        = bool
   description = <<-EOT
@@ -1498,16 +1512,6 @@ variable "skip_k8s_destroy" {
 # AutoNode (Karpenter) Configuration
 #------------------------------------------------------------------------------
 
-variable "cluster_properties" {
-  type        = map(string)
-  description = <<-EOT
-    Additional cluster properties passed to the OCM API.
-    For stage shard targeting (AutoNode private preview), set:
-      cluster_properties = { "provision_shard_id" = "<shard-id>" }
-  EOT
-  default     = {}
-}
-
 variable "enable_autonode" {
   type        = bool
   description = <<-EOT
@@ -1518,13 +1522,13 @@ variable "enable_autonode" {
     - Karpenter IAM policy with EC2/IAM/SSM/SQS permissions
     - ec2:CreateTags permission on the control-plane-operator role
     - Karpenter discovery tags on private subnets
+    - Enables AutoNode on the cluster via native RHCS provider auto_node block
 
-    After terraform apply, enable AutoNode:
-      terraform output -raw rosa_enable_autonode_command | bash
+    No manual CLI step required -- AutoNode is fully managed by Terraform.
 
     Requirements:
     - OpenShift 4.19+
-    - us-east-1 region (private preview)
+    - Commercial AWS only
   EOT
   default     = false
 }
@@ -1552,7 +1556,7 @@ variable "autonode_pools" {
   description = <<-EOT
     Karpenter NodePool definitions. Applied in Phase 2 (requires
     install_gitops = true) because NodePool CRDs only exist after
-    manually enabling AutoNode between phases.
+    Karpenter is initialized on the cluster (~5 min after Phase 1).
 
     Simple pool:
       autonode_pools = [{ name = "general", instance_type = "m6a.2xlarge" }]

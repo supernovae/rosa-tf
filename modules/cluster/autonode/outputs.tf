@@ -13,11 +13,11 @@ output "karpenter_policy_arn" {
 }
 
 output "rosa_enable_command" {
-  description = "Command to enable AutoNode on the cluster (run after terraform apply)."
-  value       = "rosa edit cluster -c ${var.cluster_id} --autonode=enabled --autonode-iam-role-arn=${aws_iam_role.karpenter.arn}"
+  description = "DEPRECATED: AutoNode is now enabled via Terraform auto_node block. This output is retained for backward compatibility."
+  value       = ""
 }
 
 output "tagged_subnet_ids" {
-  description = "Subnet IDs tagged with Karpenter discovery tags."
-  value       = var.private_subnet_ids
+  description = "Subnet IDs tagged with Karpenter discovery tags (empty in IAM-only mode)."
+  value       = var.cluster_id != null ? var.private_subnet_ids : []
 }

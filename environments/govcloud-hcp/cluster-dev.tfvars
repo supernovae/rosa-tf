@@ -34,7 +34,7 @@ aws_region   = "us-gov-west-1"
 # EUS recommended for GovCloud stability
 #------------------------------------------------------------------------------
 
-openshift_version = "4.18.34"
+openshift_version = "4.18.40"
 # machine_pool_version = "4.18.34"  # Uncomment to upgrade pools separately (must be within n-2 of control plane)
 channel_group = "eus"
 
@@ -47,7 +47,7 @@ vpc_cidr = "10.0.0.0/16"
 multi_az = false # Single AZ, single NAT
 
 # Route53 Resolver query logging (captures all DNS lookups from the VPC)
-enable_route53_query_logging = false
+enable_route53_query_logging = true
 
 #------------------------------------------------------------------------------
 # KMS Configuration

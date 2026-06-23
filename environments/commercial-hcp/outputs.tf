@@ -409,8 +409,8 @@ output "autonode_role_arn" {
 }
 
 output "rosa_enable_autonode_command" {
-  description = "Command to enable AutoNode on the cluster."
-  value       = var.enable_autonode && length(module.autonode) > 0 ? module.autonode[0].rosa_enable_command : "echo 'AutoNode is not enabled. Set enable_autonode = true in tfvars.'"
+  description = "DEPRECATED: AutoNode is now enabled natively via Terraform. No manual CLI step required."
+  value       = "echo 'AutoNode is now managed by Terraform via the auto_node block. No manual step required.'"
 }
 
 output "autonode_pool_names" {
