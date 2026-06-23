@@ -1,7 +1,7 @@
 #------------------------------------------------------------------------------
 # OpenShift AI Example Configuration
 #
-# Enables Red Hat OpenShift AI with GPU support.
+# Enables Red Hat OpenShift AI 3.4 with GPU and Kueue support.
 # Requires a GPU machine pool and the GitOps layer stack.
 #
 # Usage:
@@ -23,6 +23,7 @@ enable_layer_openshift_ai = true
 # Sub-toggles
 # openshift_ai_install_nfd            = true    # Disable if NFD already installed
 # openshift_ai_install_gpu_operator   = true    # Disable for CPU-only AI workloads
+# openshift_ai_install_kueue          = true    # Disable if Kueue operator already installed
 # openshift_ai_create_s3              = false   # Enable only if using AI Pipelines (default: false)
 
 #------------------------------------------------------------------------------
@@ -71,29 +72,34 @@ enable_layer_openshift_ai = true
 #------------------------------------------------------------------------------
 # DataScienceCluster Component Overrides (optional)
 #
-# By default, core components are Managed and optional ones are Removed.
-# Override individual components here.
+# RHOAI 3.4 DSC API v2 components:
+#   dashboard, workbenches, aipipelines, kserve, ray, trustyai,
+#   trainingoperator, modelregistry, feastoperator, llamastackoperator,
+#   mlflowoperator, kueue
+#
+# Default-Managed: dashboard, workbenches, aipipelines, kserve, ray, modelregistry
+# Default-Unmanaged: kueue (integrates with external Red Hat build of Kueue Operator)
+# Default-Removed: trustyai, trainingoperator, feastoperator, llamastackoperator, mlflowoperator
 #------------------------------------------------------------------------------
 
-# KServe is Managed by default (RHOAI v3 auto-manages Service Mesh).
-# To disable KServe:
-#   openshift_ai_components = { kserve = "Removed" }
-
 # openshift_ai_components = {
-#   # Enable model registry for model versioning
-#   modelregistry = "Managed"
+#   # Enable MLflow for experiment tracking (requires external DB/S3)
+#   mlflowoperator = "Managed"
 #
-#   # Enable feature store (Technology Preview)
+#   # Enable feature store (requires external infra)
 #   feastoperator = "Managed"
 #
-#   # Enable Llama Stack (Technology Preview)
+#   # Enable Llama Stack (Technology Preview, not for production)
 #   llamastackoperator = "Managed"
 #
 #   # Disable KServe if not serving models
 #   # kserve = "Removed"
 #
 #   # Disable pipelines if not using them (avoids S3 requirement)
-#   # datasciencepipelines = "Removed"
+#   # aipipelines = "Removed"
+#
+#   # Disable Kueue integration (set to Removed if Kueue operator not installed)
+#   # kueue = "Removed"
 # }
 
 #------------------------------------------------------------------------------
@@ -104,7 +110,7 @@ enable_layer_openshift_ai = true
 #
 # To enable pipelines with S3:
 #   openshift_ai_create_s3  = true
-#   openshift_ai_components = { datasciencepipelines = "Managed" }  # (Managed by default)
+#   openshift_ai_components = { aipipelines = "Managed" }  # (Managed by default)
 #
 # For shared notebook datasets, consider enabling the NetApp Storage layer
 # which provides RWX (NFS) storage.

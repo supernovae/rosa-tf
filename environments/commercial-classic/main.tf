@@ -854,6 +854,7 @@ module "gitops" {
   enable_layer_openshift_ai         = var.enable_layer_openshift_ai
   openshift_ai_install_nfd          = var.openshift_ai_install_nfd
   openshift_ai_install_gpu_operator = var.openshift_ai_install_gpu_operator
+  openshift_ai_install_kueue        = var.openshift_ai_install_kueue
   openshift_ai_create_s3            = var.openshift_ai_create_s3
   openshift_ai_enable_fips          = var.openshift_ai_enable_fips
   openshift_ai_components           = var.openshift_ai_components

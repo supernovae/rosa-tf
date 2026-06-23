@@ -1522,9 +1522,15 @@ variable "openshift_ai_install_gpu_operator" {
   default     = true
 }
 
+variable "openshift_ai_install_kueue" {
+  type        = bool
+  description = "Install the Red Hat build of Kueue Operator for workload management. Required when kueue DSC component is Unmanaged."
+  default     = true
+}
+
 variable "openshift_ai_create_s3" {
   type        = bool
-  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when datasciencepipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
+  description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when aipipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
   default     = false
 }
 
@@ -1537,11 +1543,12 @@ variable "openshift_ai_enable_fips" {
 variable "openshift_ai_components" {
   type        = map(string)
   description = <<-EOT
-    DataScienceCluster component states. Override individual components:
-      dashboard, workbenches, datasciencepipelines, modelmeshserving,
-      kserve, ray, codeflare, kueue, trustyai, trainingoperator,
-      modelregistry, feastoperator, llamastackoperator
-    Values: "Managed" or "Removed"
+    DataScienceCluster component states (RHOAI 3.4, DSC API v2).
+    Override individual components:
+      dashboard, workbenches, aipipelines, kserve, ray, trustyai,
+      trainingoperator, modelregistry, feastoperator, llamastackoperator,
+      mlflowoperator, kueue
+    Values: "Managed", "Removed", or "Unmanaged" (kueue only)
   EOT
   default     = {}
 }

@@ -21,9 +21,10 @@
 
 locals {
   # Gate expressions
-  ai_enabled  = !var.skip_k8s_destroy && var.enable_layer_openshift_ai
-  nfd_enabled = local.ai_enabled && var.openshift_ai_install_nfd
-  gpu_enabled = local.ai_enabled && var.openshift_ai_install_gpu_operator
+  ai_enabled    = !var.skip_k8s_destroy && var.enable_layer_openshift_ai
+  nfd_enabled   = local.ai_enabled && var.openshift_ai_install_nfd
+  gpu_enabled   = local.ai_enabled && var.openshift_ai_install_gpu_operator
+  kueue_enabled = local.ai_enabled && var.openshift_ai_install_kueue
 
   # NFD templates
   nfd_subscription = templatefile("${local.layers_path}/openshift-ai/nfd-subscription.yaml.tftpl", {
@@ -36,24 +37,31 @@ locals {
   })
   gpu_clusterpolicy = file("${local.layers_path}/openshift-ai/gpu-clusterpolicy.yaml.tftpl")
 
+  # Kueue templates
+  kueue_subscription = templatefile("${local.layers_path}/openshift-ai/kueue-subscription.yaml.tftpl", {
+    operator_channel = local.operator_channels.kueue
+  })
+
   # RHOAI templates
   rhoai_subscription = templatefile("${local.layers_path}/openshift-ai/rhoai-subscription.yaml.tftpl", {
     operator_channel = local.operator_channels.openshift_ai
   })
 
-  # Component defaults (RHOAI v3). Deprecated components (modelmeshserving,
-  # codeflare, kueue) are omitted — the operator manages their defaults.
+  # Component defaults (RHOAI 3.4, DSC API v2).
+  # kueue = "Unmanaged" integrates with the external Red Hat build of Kueue Operator.
   ai_default_components = {
-    dashboard            = "Managed"
-    workbenches          = "Managed"
-    datasciencepipelines = "Managed"
-    kserve               = "Managed"
-    ray                  = "Managed"
-    trustyai             = "Removed"
-    trainingoperator     = "Removed"
-    modelregistry        = "Removed"
-    feastoperator        = "Removed"
-    llamastackoperator   = "Removed"
+    dashboard          = "Managed"
+    workbenches        = "Managed"
+    aipipelines        = "Managed"
+    kserve             = "Managed"
+    ray                = "Managed"
+    trustyai           = "Removed"
+    trainingoperator   = "Removed"
+    modelregistry      = "Managed"
+    feastoperator      = "Removed"
+    llamastackoperator = "Removed"
+    mlflowoperator     = "Removed"
+    kueue              = "Unmanaged"
   }
   ai_components = merge(local.ai_default_components, var.openshift_ai_components)
 
@@ -182,10 +190,73 @@ resource "kubectl_manifest" "gpu_clusterpolicy" {
 }
 
 #==============================================================================
-# STAGE 3: Red Hat OpenShift AI (RHOAI)
+# STAGE 3: Red Hat build of Kueue Operator
+#
+# External Kueue operator required for RHOAI 3.4+ workload management.
+# The DSC kueue component is set to "Unmanaged" to integrate with this.
+#==============================================================================
+
+resource "kubectl_manifest" "kueue_namespace" {
+  count = local.kueue_enabled ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/openshift-ai/kueue-namespace.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [
+    kubectl_manifest.gpu_clusterpolicy,
+    kubectl_manifest.nfd_nodefeaturediscovery,
+    time_sleep.wait_for_argocd_ready
+  ]
+}
+
+resource "kubectl_manifest" "kueue_operatorgroup" {
+  count = local.kueue_enabled ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/openshift-ai/kueue-operatorgroup.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.kueue_namespace]
+}
+
+resource "kubectl_manifest" "kueue_subscription" {
+  count = local.kueue_enabled ? 1 : 0
+
+  yaml_body = local.kueue_subscription
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [kubectl_manifest.kueue_operatorgroup]
+}
+
+resource "time_sleep" "wait_for_kueue_operator" {
+  count = local.kueue_enabled ? 1 : 0
+
+  create_duration = "90s"
+
+  depends_on = [kubectl_manifest.kueue_subscription]
+}
+
+resource "kubectl_manifest" "kueue_cr" {
+  count = local.kueue_enabled ? 1 : 0
+
+  yaml_body = file("${local.layers_path}/openshift-ai/kueue-cr.yaml")
+
+  server_side_apply = true
+  force_conflicts   = true
+
+  depends_on = [time_sleep.wait_for_kueue_operator]
+}
+
+#==============================================================================
+# STAGE 4: Red Hat OpenShift AI (RHOAI)
 #
 # RHOAI v3+ uses KServe RawDeployment mode (Headed) which does NOT require
-# Service Mesh or Serverless operators. Simplified from 6 stages to 3.
+# Service Mesh or Serverless operators.
 #==============================================================================
 
 resource "kubectl_manifest" "rhoai_namespace" {
@@ -198,6 +269,7 @@ resource "kubectl_manifest" "rhoai_namespace" {
 
   depends_on = [
     kubectl_manifest.gpu_clusterpolicy,
+    kubectl_manifest.kueue_cr,
     kubectl_manifest.nfd_nodefeaturediscovery,
     time_sleep.wait_for_argocd_ready
   ]
