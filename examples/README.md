@@ -102,7 +102,7 @@ certmanager_certificate_domains = [
 
 ### `autonode.tfvars`
 
-> **Technology Preview** -- AutoNode is not supported for production use. Clusters with AutoNode enabled should be treated as disposable test environments. See [Red Hat Technology Preview scope](https://access.redhat.com/support/offerings/techpreview).
+> AutoNode (Red Hat build of Karpenter) is GA and fully supported on ROSA HCP. Requires OpenShift 4.19+ and ROSA CLI >= 1.2.61.
 
 AutoNode (Karpenter) node autoscaling on ROSA HCP. Replaces traditional machine pool autoscaling with Karpenter's bin-packing scheduler. See [docs/AUTONODE.md](../docs/AUTONODE.md) for the full guide.
 

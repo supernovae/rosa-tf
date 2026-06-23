@@ -1,12 +1,8 @@
 # AutoNode (Karpenter) on ROSA HCP
 
-> **Technology Preview -- Not for Production Use**
->
-> AutoNode (Karpenter) on ROSA HCP is a **Technology Preview** feature. Technology Preview features are not fully supported under Red Hat subscription service level agreements, may not be functionally complete, and are not intended for production use. Red Hat does not guarantee the stability of Technology Preview features or that a migration path will exist from Technology Preview to General Availability (GA). Clusters with AutoNode enabled should be treated as **disposable test environments**.
->
-> Support cases for Technology Preview features are limited to Severity 3 and 4. There may not be any migration path from Technology Preview to GA -- a full reinstall of the GA version may be required and customer data may need to be migrated or may be lost.
->
-> For full details see: https://access.redhat.com/support/offerings/techpreview
+> **Generally Available** -- AutoNode (Red Hat build of Karpenter) is GA and fully supported
+> on ROSA HCP clusters in all AWS regions where ROSA is available. Requires OpenShift 4.19+
+> and ROSA CLI >= 1.2.61.
 
 ## Overview
 
