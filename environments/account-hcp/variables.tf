@@ -124,6 +124,38 @@ variable "kms_key_arns" {
 }
 
 #------------------------------------------------------------------------------
+# OCM Role
+#------------------------------------------------------------------------------
+
+variable "create_ocm_role" {
+  type        = bool
+  description = "Create and link the OCM IAM role for this account."
+  default     = true
+}
+
+variable "ocm_role_profile" {
+  type        = string
+  description = <<-EOT
+    OCM role permission profile. Controls what OCM can do in your AWS account:
+      - "no-console": Minimal permissions, CLI-only (default, least privilege)
+      - "standard": Full OCM permissions for console + CLI usage
+      - "admin": Enhanced permissions (auto-creates operator roles/OIDC via console)
+  EOT
+  default     = "no-console"
+
+  validation {
+    condition     = contains(["no-console", "standard", "admin"], var.ocm_role_profile)
+    error_message = "ocm_role_profile must be no-console, standard, or admin."
+  }
+}
+
+variable "ocm_role_prefix" {
+  type        = string
+  description = "Prefix for the OCM IAM role name."
+  default     = "ManagedOpenShift"
+}
+
+#------------------------------------------------------------------------------
 # Optional Features
 #------------------------------------------------------------------------------
 

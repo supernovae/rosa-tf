@@ -214,8 +214,10 @@ If you attempt an unsupported deployment, Terraform will show a helpful error me
 | IAM Policies | Customer managed | AWS managed |
 | Account Roles | 4 (cluster-scoped) | 3 (account-level, shared) |
 | IAM Lifecycle | Created/destroyed with cluster | Persist independently |
-| Spot Instances | ✅ Supported | ❌ Not supported |
+| Spot Instances | ✅ Supported | ✅ Via AutoNode* |
 | Version Drift | Independent | Machine pools n-2 of CP |
+
+> \*HCP spot instances are available via AutoNode (Karpenter). Traditional machine pool spot is not yet available on HCP. See [AutoNode docs](docs/AUTONODE.md).
 
 > **HCP IAM Note:** HCP account roles must exist before deploying HCP clusters. See [HCP Account Roles](#hcp-account-roles-required-before-hcp-clusters).
 

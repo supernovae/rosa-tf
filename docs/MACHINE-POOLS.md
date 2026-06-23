@@ -23,7 +23,7 @@ machine_pools = [
 
 | Feature | HCP | Classic |
 |---------|-----|---------|
-| Spot Instances | Coming soon | Supported |
+| Spot Instances | Via [AutoNode](AUTONODE.md) (Karpenter) | Supported |
 | Version Control | Must be within n-2 of control plane | Matches cluster |
 | Multi-AZ | Single subnet per pool | Configurable |
 | Disk Size | Fixed | Configurable |
