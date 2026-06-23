@@ -55,6 +55,20 @@ output "worker_role_name" {
 }
 
 #------------------------------------------------------------------------------
+# OCM Role
+#------------------------------------------------------------------------------
+
+output "ocm_role_arn" {
+  description = "ARN of the OCM IAM role (if created)."
+  value       = var.create_ocm_role ? aws_iam_role.ocm_role[0].arn : null
+}
+
+output "ocm_role_profile" {
+  description = "OCM role permission profile in use."
+  value       = var.create_ocm_role ? var.ocm_role_profile : null
+}
+
+#------------------------------------------------------------------------------
 # Usage Instructions
 #------------------------------------------------------------------------------
 

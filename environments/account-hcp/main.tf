@@ -128,6 +128,61 @@ module "hcp_account_roles" {
 }
 
 #------------------------------------------------------------------------------
+# OCM Role (links Red Hat's OCM to this AWS account)
+#
+# The OCM role grants Red Hat's OpenShift Cluster Manager permissions to
+# manage resources in this AWS account. The profile controls the scope:
+#   - no-console: CLI-only, least privilege (recommended for automation)
+#   - standard:   Console + CLI
+#   - admin:      Auto-creates operator roles and OIDC via console
+#------------------------------------------------------------------------------
+
+locals {
+  ocm_role_name = "${var.ocm_role_prefix}-OCM-Role"
+
+  ocm_role_policy_map = {
+    "no-console" = data.rhcs_hcp_policies.ocm[0].ocm_role_policies.sts_ocm_no_console_permission_policy
+    "standard"   = data.rhcs_hcp_policies.ocm[0].ocm_role_policies.sts_ocm_permission_policy
+    "admin"      = data.rhcs_hcp_policies.ocm[0].ocm_role_policies.sts_ocm_admin_permission_policy
+  }
+}
+
+data "rhcs_hcp_policies" "ocm" {
+  count = var.create_ocm_role ? 1 : 0
+}
+
+data "rhcs_info" "ocm" {
+  count = var.create_ocm_role ? 1 : 0
+}
+
+resource "aws_iam_role" "ocm_role" {
+  count = var.create_ocm_role ? 1 : 0
+
+  name               = local.ocm_role_name
+  path               = var.path
+  assume_role_policy = data.rhcs_hcp_policies.ocm[0].ocm_role_policies.sts_ocm_trust_policy
+
+  tags = merge(local.common_tags, {
+    rosa_ocm_role    = "true"
+    ocm_role_profile = var.ocm_role_profile
+  })
+}
+
+resource "aws_iam_role_policy" "ocm_role" {
+  count = var.create_ocm_role ? 1 : 0
+
+  name   = "${var.ocm_role_prefix}-OCM-Policy"
+  role   = aws_iam_role.ocm_role[0].id
+  policy = local.ocm_role_policy_map[var.ocm_role_profile]
+}
+
+resource "rhcs_rosa_ocm_role_link" "ocm" {
+  count = var.create_ocm_role ? 1 : 0
+
+  role_arn = aws_iam_role.ocm_role[0].arn
+}
+
+#------------------------------------------------------------------------------
 # Optional: Shared KMS Keys
 # Uncomment if you want account-wide KMS keys for all HCP clusters
 #------------------------------------------------------------------------------

@@ -169,9 +169,9 @@ All modules in this framework use **local paths** (no external registry modules)
 | Provider | Source | Min Lock Version | Used For |
 |----------|--------|------------------|----------|
 | aws | `hashicorp/aws` | 6.28.0 | VPC, IAM, Route53, S3, KMS |
-| rhcs | `terraform-redhat/rhcs` | 1.7.6 | ROSA cluster lifecycle via OCM API |
+| rhcs | `terraform-redhat/rhcs` | 1.7.7 | ROSA cluster lifecycle via OCM API |
 | kubernetes | `hashicorp/kubernetes` | 3.0.1 | Namespaces, ServiceAccounts, Secrets, ConfigMaps |
-| kubectl | `alekc/kubectl` | 2.1.3 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
+| kubectl | `alekc/kubectl` | 2.2.0 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
 | external | `hashicorp/external` | 2.3.5 | OAuth token retrieval (bootstrap only) |
 | null | `hashicorp/null` | 3.2.4 | Validation preconditions |
 | time | `hashicorp/time` | 0.13.1 | Operator readiness waits |

@@ -1,10 +1,7 @@
 # AutoNode Pool Module
 
-> **Technology Preview -- Not for Production Use**
->
-> AutoNode (Karpenter) on ROSA HCP is a Technology Preview feature. Technology Preview features are not fully supported under Red Hat subscription service level agreements, may not be functionally complete, and are not intended for production use. Clusters with AutoNode enabled should be treated as disposable test environments.
->
-> See: https://access.redhat.com/support/offerings/techpreview
+> AutoNode (Red Hat build of Karpenter) is GA and fully supported on ROSA HCP.
+> Requires OpenShift 4.19+ and ROSA CLI >= 1.2.61.
 
 Creates Karpenter `NodePool` custom resources on the cluster. Each pool maps to a single NodePool CR controlling instance type(s), capacity type, labels, taints, resource limits, and consolidation behavior.
 
