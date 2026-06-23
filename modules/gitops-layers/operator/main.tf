@@ -67,9 +67,10 @@ locals {
     gitops         = "latest" # OpenShift GitOps operator
 
     # OpenShift AI stack (v3+ uses RawDeployment, no Service Mesh/Serverless needed)
-    nfd          = "stable"   # Node Feature Discovery
-    nvidia_gpu   = "v24.9"    # NVIDIA GPU Operator (certified-operators)
-    openshift_ai = "fast-3.x" # Red Hat OpenShift AI v3+ (RHOAI)
+    nfd          = "stable"     # Node Feature Discovery
+    nvidia_gpu   = "v26.3"     # NVIDIA GPU Operator (certified-operators)
+    openshift_ai = "stable-3.x" # Red Hat OpenShift AI 3.4 GA (RHOAI)
+    kueue        = "stable-v1.0" # Red Hat build of Kueue Operator
   }
 
   # Whether the user has provided a custom GitOps repo for additional resources.

@@ -1,4 +1,4 @@
-apiVersion: datasciencecluster.opendatahub.io/v1
+apiVersion: datasciencecluster.opendatahub.io/v2
 kind: DataScienceCluster
 metadata:
   name: default-dsc
@@ -8,8 +8,8 @@ spec:
       managementState: ${dashboard}
     workbenches:
       managementState: ${workbenches}
-    datasciencepipelines:
-      managementState: ${datasciencepipelines}
+    aipipelines:
+      managementState: ${aipipelines}
     kserve:
       managementState: ${kserve}
     ray:
@@ -25,3 +25,7 @@ spec:
       managementState: ${feastoperator}
     llamastackoperator:
       managementState: ${llamastackoperator}
+    mlflowoperator:
+      managementState: ${mlflowoperator}
+    kueue:
+      managementState: ${kueue}

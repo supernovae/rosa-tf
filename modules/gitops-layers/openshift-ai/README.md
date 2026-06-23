@@ -10,7 +10,7 @@ Provisions the full Red Hat OpenShift AI (RHOAI) v3+ stack with GPU support:
 > **RHOAI v3+ Changes**: KServe now uses **RawDeployment (Headed)** mode.
 > Service Mesh and Serverless are **no longer required** as prerequisites.
 > Model serving uses **OCI images** or **PVC** storage — S3 is only needed
-> for the `datasciencepipelines` component.
+> for the `aipipelines` component.
 
 ## Quick Start
 
@@ -101,21 +101,20 @@ Serverless operators are **not required**.
 
 Override defaults via `openshift_ai_components`:
 
-| Component              | Default   | Description                            |
-|------------------------|-----------|----------------------------------------|
-| `dashboard`            | Managed   | OpenShift AI web dashboard             |
-| `workbenches`          | Managed   | JupyterLab notebook environments       |
-| `datasciencepipelines` | Managed   | Kubeflow Pipelines (**requires** `openshift_ai_create_s3 = true` for artifact storage) |
-| `modelmeshserving`     | Managed   | Multi-model serving (ModelMesh)        |
-| `kserve`               | Managed   | Single-model serving (RawDeployment)   |
-| `ray`                  | Managed   | Distributed computing (Ray clusters)   |
-| `codeflare`            | Managed   | Distributed workload orchestration     |
-| `kueue`                | Managed   | Job queue and quota management         |
-| `trustyai`             | Removed   | AI model explainability (opt-in)       |
-| `trainingoperator`     | Removed   | Distributed training (opt-in)          |
-| `modelregistry`        | Removed   | Model versioning registry (opt-in)     |
-| `feastoperator`        | Removed   | Feature store (opt-in, Tech Preview)   |
-| `llamastackoperator`   | Removed   | Llama Stack / RAG / Agentic (opt-in, Tech Preview) |
+| Component              | Default     | Description                            |
+|------------------------|-------------|----------------------------------------|
+| `dashboard`            | Managed     | OpenShift AI web dashboard             |
+| `workbenches`          | Managed     | JupyterLab notebook environments       |
+| `aipipelines`          | Managed     | AI Pipelines (**requires** `openshift_ai_create_s3 = true` for artifact storage) |
+| `kserve`               | Managed     | Single-model serving (RawDeployment)   |
+| `ray`                  | Managed     | Distributed computing (Ray clusters)   |
+| `modelregistry`        | Managed     | Model versioning registry              |
+| `kueue`                | Unmanaged   | Workload management (integrates with external Red Hat build of Kueue Operator) |
+| `trustyai`             | Removed     | AI model explainability (opt-in)       |
+| `trainingoperator`     | Removed     | Distributed training (v1 deprecated)   |
+| `feastoperator`        | Removed     | Feature store (opt-in, requires external infra) |
+| `llamastackoperator`   | Removed     | Llama Stack / RAG / Agentic (Technology Preview) |
+| `mlflowoperator`       | Removed     | MLflow experiment tracking (opt-in, requires DB/S3) |
 
 **Changed in v3**: `kserve.serving` subfield removed (Service Mesh now
 auto-managed by RHOAI operator). `feastoperator` and `llamastackoperator`
@@ -469,7 +468,7 @@ For shared datasets across notebooks, enable the
 ## S3 Bucket (Opt-In for AI Pipelines)
 
 > **Only needed if** `openshift_ai_create_s3 = true` and
-> `datasciencepipelines = "Managed"` (both default to their respective values).
+> `aipipelines = "Managed"` (both default to their respective values).
 
 If you enable S3, Terraform creates a bucket and IAM role with IRSA.
 Retrieve the bucket details after apply:
