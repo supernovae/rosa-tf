@@ -76,12 +76,17 @@ resource "rhcs_cluster_rosa_hcp" "this" {
 
   # Properties including required rosa_creator_arn and optional zero_egress
   properties = merge(
-    var.cluster_properties,
     {
       rosa_creator_arn = var.creator_arn
     },
     var.zero_egress ? { zero_egress = "true" } : {}
   )
+
+  # AutoNode (Karpenter) - enables native node autoscaling via Karpenter
+  auto_node = var.autonode_role_arn != null ? {
+    mode     = "enabled"
+    role_arn = var.autonode_role_arn
+  } : null
 
   # Network configuration
   # Private clusters: only private subnets needed
@@ -122,6 +127,9 @@ resource "rhcs_cluster_rosa_hcp" "this" {
   # IMPORTANT: Cannot be changed after cluster creation.
   external_auth_providers_enabled = var.external_auth_providers_enabled
 
+  # FIPS mode (immutable after creation)
+  fips = var.fips
+
   # Wait configuration
   wait_for_create_complete            = var.wait_for_create_complete
   wait_for_std_compute_nodes_complete = var.wait_for_std_compute_nodes_complete
@@ -142,6 +150,8 @@ resource "rhcs_cluster_rosa_hcp" "this" {
     # via Hybrid Cloud Console or automatic z-stream updates
     ignore_changes = [
       version,
+      auto_node,
+      fips,
     ]
   }
 }

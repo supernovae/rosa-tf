@@ -459,6 +459,31 @@ module "ecr" {
 }
 
 #------------------------------------------------------------------------------
+# AutoNode (Karpenter) IAM (Optional)
+#
+# Creates the Karpenter controller IAM role and policy BEFORE the cluster.
+# The role_arn is passed to the cluster's auto_node block, enabling AutoNode
+# natively via the RHCS provider without manual CLI steps.
+#
+# Subnet discovery tags are applied separately after the cluster is created
+# (see aws_ec2_tag.karpenter_subnet_discovery below).
+#------------------------------------------------------------------------------
+
+module "autonode" {
+  source = "../../modules/cluster/autonode"
+  count  = var.enable_autonode ? 1 : 0
+
+  cluster_name         = var.cluster_name
+  cluster_id           = null # IAM-only mode; subnet tags handled separately post-cluster
+  oidc_endpoint_url    = module.iam_roles.oidc_endpoint_url
+  operator_role_prefix = var.cluster_name
+  private_subnet_ids   = local.effective_private_subnet_ids
+  enable_ecr_pull      = var.create_ecr && var.enable_autonode
+
+  tags = local.common_tags
+}
+
+#------------------------------------------------------------------------------
 # ROSA HCP Cluster
 #------------------------------------------------------------------------------
 
@@ -528,14 +553,15 @@ module "rosa_cluster" {
   compute_machine_type         = var.compute_machine_type
   replicas                     = var.worker_node_count
 
-  # Cluster properties (e.g. provision_shard_id for AutoNode preview)
-  cluster_properties = var.cluster_properties
+  # AutoNode (Karpenter) - native provider support
+  autonode_role_arn = var.enable_autonode ? module.autonode[0].karpenter_role_arn : null
 
   # Partition detection (affects billing account handling)
   is_govcloud = local.is_govcloud
 
   # Security configuration
   private_cluster = var.private_cluster
+  fips            = var.fips
   zero_egress     = var.zero_egress
 
   # Additional security groups (can only be set at cluster creation time)
@@ -628,29 +654,18 @@ module "machine_pools" {
 }
 
 #------------------------------------------------------------------------------
-# AutoNode (Karpenter) Support (Optional)
+# AutoNode (Karpenter) Subnet Discovery Tags
 #
-# Creates the IAM role, policy, and subnet discovery tags required for
-# the ROSA HCP AutoNode feature.
-#
-# After terraform apply, run the output command to enable AutoNode:
-#   terraform output -raw rosa_enable_autonode_command | bash
+# Tags private subnets with karpenter.sh/discovery = <cluster_id> after
+# the cluster is created. The IAM role is created before the cluster
+# (see module.autonode above module.rosa_cluster).
 #------------------------------------------------------------------------------
 
-module "autonode" {
-  source = "../../modules/cluster/autonode"
-  count  = var.enable_autonode ? 1 : 0
-
-  cluster_name         = var.cluster_name
-  cluster_id           = module.rosa_cluster.cluster_id
-  oidc_endpoint_url    = module.iam_roles.oidc_endpoint_url
-  operator_role_prefix = var.cluster_name
-  private_subnet_ids   = local.effective_private_subnet_ids
-  enable_ecr_pull      = var.create_ecr && var.enable_autonode
-
-  tags = local.common_tags
-
-  depends_on = [module.rosa_cluster]
+resource "aws_ec2_tag" "karpenter_subnet_discovery" {
+  for_each    = var.enable_autonode ? toset(local.effective_private_subnet_ids) : toset([])
+  resource_id = each.value
+  key         = "karpenter.sh/discovery"
+  value       = module.rosa_cluster.cluster_id
 }
 
 #------------------------------------------------------------------------------
@@ -658,7 +673,7 @@ module "autonode" {
 #
 # Creates Karpenter NodePool CRDs for workload pools.
 # Gated on install_gitops (Phase 2) because NodePool CRDs only exist
-# after the manual `rosa edit cluster --autonode=enabled` step.
+# after Karpenter initializes on the cluster (~5 min after Phase 1).
 #------------------------------------------------------------------------------
 
 module "autonode_pools" {

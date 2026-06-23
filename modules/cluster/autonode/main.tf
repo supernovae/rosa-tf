@@ -1,15 +1,15 @@
 #------------------------------------------------------------------------------
-# AutoNode (Karpenter) Private Preview - IAM and Subnet Discovery
+# AutoNode (Karpenter) - IAM and Subnet Discovery
 #
-# Creates the IAM resources required for the ROSA HCP AutoNode private preview:
+# Creates the IAM resources required for ROSA HCP AutoNode:
 # 1. Karpenter controller IAM policy (EC2, IAM, SSM, SQS, Pricing)
 # 2. Karpenter IAM role with OIDC trust for kube-system:karpenter SA
 # 3. ec2:CreateTags inline policy on the control-plane-operator role
-# 4. Karpenter discovery tags on private subnets
+# 4. Karpenter discovery tags on private subnets (when cluster_id is provided)
 #
-# After terraform apply, the user must manually run:
-#   rosa edit cluster -c <cluster_id> --autonode=enabled \
-#     --autonode-iam-role-arn=<karpenter_role_arn>
+# When cluster_id is null, only IAM resources are created (IAM-only mode).
+# This allows the role to be created before the cluster, breaking dependency
+# cycles when the role ARN is passed to the cluster's auto_node block.
 #------------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
@@ -40,7 +40,7 @@ resource "aws_iam_policy" "karpenter" {
   #checkov:skip=CKV_AWS_290:Karpenter requires EC2 write actions (RunInstances, CreateFleet) scoped by karpenter.sh/nodepool condition tags. AWS Describe/List/SQS actions inherently require Resource="*".
   #checkov:skip=CKV_AWS_355:AWS EC2 Describe*, pricing:GetProducts, and sqs:ReceiveMessage do not support resource-level constraints and require Resource="*". This is the AWS-documented Karpenter controller policy.
   name        = "${var.cluster_name}-autonode-karpenter"
-  description = "ROSA HCP AutoNode private preview - Karpenter controller permissions"
+  description = "ROSA HCP AutoNode - Karpenter controller permissions"
   path        = "/"
 
   policy = jsonencode({
@@ -243,8 +243,7 @@ resource "aws_iam_policy" "karpenter" {
   })
 
   tags = merge(var.tags, {
-    Name     = "${var.cluster_name}-autonode-karpenter"
-    autonode = "private-preview"
+    Name = "${var.cluster_name}-autonode-karpenter"
   })
 }
 
@@ -279,8 +278,7 @@ resource "aws_iam_role" "karpenter" {
   path               = "/"
 
   tags = merge(var.tags, {
-    Name     = "${var.cluster_name}-autonode-karpenter"
-    autonode = "private-preview"
+    Name = "${var.cluster_name}-autonode-karpenter"
   })
 }
 
@@ -357,12 +355,13 @@ resource "aws_iam_role_policy" "control_plane_create_tags" {
 # Tags each private subnet with karpenter.sh/discovery = <cluster_id>
 # so the Karpenter controller can auto-discover subnets for node placement.
 # The cluster_id (OCM internal ID) is used as the discovery value.
+#
+# Skipped when cluster_id is null (IAM-only mode).
 #------------------------------------------------------------------------------
 
 resource "aws_ec2_tag" "karpenter_subnet_discovery" {
-  count = length(var.private_subnet_ids)
-
-  resource_id = var.private_subnet_ids[count.index]
+  for_each    = var.cluster_id != null ? toset(var.private_subnet_ids) : toset([])
+  resource_id = each.value
   key         = "karpenter.sh/discovery"
   value       = var.cluster_id
 }

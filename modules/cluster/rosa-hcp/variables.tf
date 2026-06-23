@@ -324,10 +324,16 @@ variable "wait_for_std_compute_nodes_complete" {
 # Additional Configuration
 #------------------------------------------------------------------------------
 
-variable "cluster_properties" {
-  type        = map(string)
-  description = "Additional cluster properties."
-  default     = {}
+variable "autonode_role_arn" {
+  type        = string
+  description = "ARN of the Karpenter controller IAM role for AutoNode. When set, enables AutoNode on the cluster."
+  default     = null
+}
+
+variable "fips" {
+  type        = bool
+  description = "Enable FIPS-validated cryptographic modules. Immutable after creation."
+  default     = false
 }
 
 variable "tags" {

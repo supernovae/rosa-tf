@@ -14,23 +14,20 @@
 # AutoNode replaces traditional machine pool autoscaling with Karpenter's
 # bin-packing scheduler for faster, more efficient scaling.
 #
-# Usage:
-#   # Phase 1: Create cluster + IAM
+# Usage (two-phase deployment):
+#   # Phase 1: Create cluster + IAM + AutoNode
 #   terraform apply -var-file=cluster-dev.tfvars
-#
-#   # Enable AutoNode (manual step between phases)
-#   terraform output -raw rosa_enable_autonode_command | bash
 #   # Wait ~5 min for Karpenter CRDs: oc get crd | grep karpenter
 #
 #   # Phase 2: Deploy NodePools + GitOps layers
 #   terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 #
 # Where gitops-dev.tfvars includes install_gitops = true and the pools below.
+# No manual CLI step required -- AutoNode is enabled via Terraform.
 #
 # Requirements:
 #   - OpenShift 4.19+
-#   - us-east-1 region (private preview)
-#   - Cluster on AutoNode shard (set cluster_properties)
+#   - Commercial AWS only
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -38,11 +35,6 @@
 #------------------------------------------------------------------------------
 
 enable_autonode = true
-
-# For private preview, target the AutoNode shard
-# cluster_properties = {
-#   "provision_shard_id" = "YOUR-SHARD-ID"
-# }
 
 #------------------------------------------------------------------------------
 # AutoNode Pool Examples

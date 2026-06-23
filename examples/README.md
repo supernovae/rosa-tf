@@ -133,9 +133,10 @@ autonode_pools = [{
 ```
 
 **After deployment:**
-1. Run `terraform output -raw rosa_enable_autonode_command | bash`
-2. Wait ~5 min for CRDs: `oc get crd | grep karpenter`
-3. Re-apply with `install_gitops = true` to deploy NodePools
+1. Wait ~5 min for Karpenter CRDs: `oc get crd | grep karpenter`
+2. Re-apply with `install_gitops = true` to deploy NodePools
+
+AutoNode is enabled automatically via Terraform -- no manual CLI step required.
 
 ### `byovpc.tfvars`
 
