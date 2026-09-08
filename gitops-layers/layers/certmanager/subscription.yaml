@@ -4,6 +4,7 @@ metadata:
   name: openshift-cert-manager-operator
   namespace: cert-manager-operator
 spec:
+  # Latest supported catalog release; verified baseline Operator 1.19.1 (2026-09-08).
   channel: stable-v1
   name: openshift-cert-manager-operator
   source: redhat-operators

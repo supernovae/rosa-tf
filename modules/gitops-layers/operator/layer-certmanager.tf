@@ -95,7 +95,7 @@ resource "kubectl_manifest" "certmanager_operatorgroup" {
 resource "kubectl_manifest" "certmanager_subscription" {
   count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
 
-  yaml_body = file("${local.layers_path}/certmanager/subscription.yaml")
+  yaml_body = templatefile("${local.layers_path}/certmanager/subscription.yaml.tftpl", { config = var.certmanager_operator_config })
 
   server_side_apply = true
   force_conflicts   = true
@@ -142,31 +142,25 @@ resource "kubectl_manifest" "certmanager_sa_irsa" {
 }
 
 #------------------------------------------------------------------------------
-# Step 6: Patch CertManager CR for external DNS nameservers
+# Step 6: Operator-managed HA and optional approved DNS resolver settings
 #
-# cert-manager DNS01 challenges need external nameservers since cluster DNS
-# may not resolve public challenge records.
+# Cluster DNS is the default. Use explicit recursive resolvers only when needed
+# for split-horizon DNS and approved by the network owner.
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_dns_config" {
   count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
 
-  yaml_body = <<-YAML
-    apiVersion: operator.openshift.io/v1alpha1
-    kind: CertManager
-    metadata:
-      name: cluster
-    spec:
-      controllerConfig:
-        overrideArgs:
-          - "--dns01-recursive-nameservers-only"
-          - "--dns01-recursive-nameservers=1.1.1.1:53,8.8.8.8:53"
-  YAML
+  yaml_body = templatefile("${local.layers_path}/certmanager/controller-config.yaml.tftpl", {
+    config         = var.certmanager_operator_config
+    nameservers    = var.certmanager_dns01_recursive_nameservers
+    recursive_only = var.certmanager_dns01_recursive_nameservers_only
+  })
 
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [time_sleep.wait_for_certmanager_operator]
+  depends_on = [kubectl_manifest.certmanager_sa_irsa]
 }
 
 #------------------------------------------------------------------------------
@@ -229,9 +223,20 @@ resource "kubectl_manifest" "certmanager_certificate" {
   server_side_apply = true
   force_conflicts   = true
 
-  depends_on = [kubectl_manifest.certmanager_issuer_production]
+  wait_for {
+    condition {
+      type   = "Ready"
+      status = "True"
+    }
+  }
+  timeouts {
+    create = "20m"
+    update = "20m"
+  }
+  depends_on = [kubectl_manifest.certmanager_issuer_production, kubectl_manifest.certmanager_issuer_staging]
 }
 
+# Certificate Ready is checked before attaching its Secret to the router.
 #------------------------------------------------------------------------------
 # Step 11: Routes integration (optional)
 #
@@ -329,16 +334,14 @@ resource "kubectl_manifest" "certmanager_routes_integration" {
 }
 
 #------------------------------------------------------------------------------
-# Step 12: Wait for TLS certificate to be issued
-#
-# cert-manager needs time to complete the ACME DNS01 challenge.
-# Typically 1-3 minutes for the first certificate.
+# Step 12: Preserve the legacy wait address; Certificate Ready now gates progress
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_certmanager_cert" {
   count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_ingress_enabled && length(var.certmanager_certificate_domains) > 0 ? 1 : 0
 
-  create_duration = "180s"
+  # Preserve this state address for upgrades; readiness is enforced above.
+  create_duration = "0s"
 
   depends_on = [kubectl_manifest.certmanager_certificate]
 }
@@ -410,8 +413,7 @@ resource "aws_route53_record" "certmanager_wildcard" {
   ttl     = 300
   records = [data.kubernetes_service_v1.custom_apps_router[0].status[0].load_balancer[0].ingress[0].hostname]
 
-  # ROSA creates a default *.apps.<domain> record for the built-in ingress.
-  # allow_overwrite lets Terraform take ownership and point it to the custom
-  # IngressController's NLB (with cert-manager TLS) instead.
-  allow_overwrite = true
+  # Never silently take ownership of an existing (possibly ROSA-managed) record.
+  # Import an approved dedicated-domain record explicitly before managing it.
+  allow_overwrite = false
 }

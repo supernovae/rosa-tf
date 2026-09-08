@@ -1,462 +1,194 @@
-# Cert-Manager GitOps Layer
+# cert-manager layer
 
-This module provides automated TLS certificate lifecycle management for ROSA clusters using the **OpenShift cert-manager operator** and **Let's Encrypt** with DNS01 challenges via Route53.
+## Supported baseline
 
-## Overview
+Verified September 8, 2026: Red Hat cert-manager Operator **1.19.1**, based on
+upstream **1.19.6**. The default `stable-v1` subscription follows the latest
+supported release offered by the selected catalog. Do not substitute an upstream
+Helm chart or assume the operator and operand have identical version numbers.
+Check the [Red Hat release notes and channels](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/security_and_compliance/cert-manager-operator-for-red-hat-openshift)
+and [support matrix](https://access.redhat.com/support/policy/updates/openshift_operators).
 
-The cert-manager layer:
+Terraform configures the subscription; it cannot prove a live cluster upgraded.
+Verify the installed CSV and operands:
 
-1. **Installs** the OpenShift cert-manager operator from OperatorHub
-2. **Configures** IRSA (IAM Roles for Service Accounts) for Route53 access
-3. **Creates** Let's Encrypt ClusterIssuers (production + staging)
-4. **Optionally creates** Certificate resources for specified domains
-5. **Optionally installs** the OpenShift Routes integration for automatic TLS
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│  Terraform (this module)                         │
-│                                                  │
-│  ┌──────────────┐  ┌──────────────────────────┐ │
-│  │ IAM Role     │  │ Route53 Hosted Zone      │ │
-│  │ (IRSA)       │  │ (optional create)        │ │
-│  └──────┬───────┘  └──────────┬───────────────┘ │
-└─────────┼──────────────────────┼─────────────────┘
-          │                      │
-          ▼                      ▼
-┌─────────────────────────────────────────────────┐
-│  OpenShift Cluster                               │
-│                                                  │
-│  ┌──────────────┐  ┌──────────────────────────┐ │
-│  │ cert-manager │  │ ClusterIssuer            │ │
-│  │ operator     │──│ (Let's Encrypt DNS01)    │ │
-│  └──────────────┘  └──────────┬───────────────┘ │
-│                               │                  │
-│                               ▼                  │
-│                    ┌──────────────────────────┐  │
-│                    │ Certificate resources    │  │
-│                    │ (auto-renewed by LE)     │  │
-│                    └──────────────────────────┘  │
-└─────────────────────────────────────────────────┘
+```bash
+oc get subscription openshift-cert-manager-operator -n cert-manager-operator -o yaml
+oc get csv -n cert-manager-operator
+oc get certmanager cluster -o yaml
+oc get deployments -n cert-manager
 ```
 
-## Prerequisites
+## Preferred deployment
 
-- **Outbound internet access** - DNS01 challenge requires HTTPS to Let's Encrypt ACME servers
-- **Route53 hosted zone** - Either provide an existing zone ID or let the module create one
-- **ROSA cluster with STS** - OIDC provider is required for IRSA
-- **NOT compatible with zero-egress clusters** - Use manually provided certificates instead
+Use the Red Hat operator with short-lived STS credentials, explicit Certificate
+resources, and a scoped IngressController consuming the wildcard Secret.
+The optional community Routes controller is disabled by default. OpenShift 4.18
+Route external-certificate support is documented as Technology Preview; this layer
+does not enable feature gates or represent that path as production-supported.
 
-## Certificate Lifecycle
+1. Create the cluster and infrastructure using the cluster tfvars.
+2. Establish private API connectivity and approved outbound ACME/DNS/AWS access.
+3. Prefer an existing, publicly delegated Route53 zone. If creating one, provision
+   the zone before requesting certificates; verify delegation first.
+4. Apply the GitOps overlay with staging issuance and confirm Certificate readiness.
+5. Switch staging off, review the plan, and verify the production certificate.
 
-When using Let's Encrypt (default):
-
-- cert-manager handles **all certificate lifecycle** automatically
-- Certificates are valid for **90 days**
-- Auto-renewal triggers **30 days before expiry**
-- DNS01 challenge uses Route53 TXT records (no inbound HTTP needed)
-- Works on both **public and private clusters** (only needs outbound HTTPS)
-
-When using `cert_mode=provided` (zero-egress):
-
-- **Users must manage certificate lifecycle manually**
-- Provide TLS certificates and keys directly to the ingress controller
-- Monitor certificate expiry dates
-- Renew certificates before they expire
-
-### Staging vs Production Issuer
-
-Both ClusterIssuers are always created. By default, certificates use **production** Let's Encrypt. For dev/test environments, set `certmanager_use_staging_issuer = true` to use the **staging** issuer instead.
-
-| | Production | Staging |
-|---|---|---|
-| **Issuer** | `letsencrypt-production` | `letsencrypt-staging` |
-| **Browser trusted** | Yes | No (Fake LE Intermediate X1) |
-| **Rate limit** | 50 certs/week per domain set | 30,000 certs/week |
-| **Use case** | Production, user-facing | Dev, test, CI/CD |
+See [the full scenario example](../../../examples/certmanager.tfvars).
+For a certificate-only setup, set `certmanager_ingress_enabled = false`; this
+avoids creating another router/NLB.
 
 ```hcl
-# Dev/test -- avoid rate limits during iteration
-certmanager_use_staging_issuer = true
+install_gitops                      = true
+enable_layer_certmanager            = true
+certmanager_create_hosted_zone      = false
+certmanager_hosted_zone_id          = "Z0123456789ABCDEF"
+certmanager_hosted_zone_domain      = "example.com"
+certmanager_acme_email              = "platform-team@example.com"
+certmanager_use_staging_issuer      = true
+certmanager_enable_routes_integration = false
+certmanager_ingress_enabled         = true
+certmanager_ingress_visibility      = "private"
 
-# Production -- real certificates (default)
-certmanager_use_staging_issuer = false
+certmanager_certificate_domains = [{
+  name        = "apps-wildcard"
+  namespace   = "openshift-ingress"
+  secret_name = "custom-apps-default-cert"
+  domains     = ["*.apps.example.com"]
+}]
 ```
 
-> **Tip:** If you hit `429 rateLimited` errors from Let's Encrypt during development, switch to staging. The ACME flow is identical -- only the trust chain differs.
+Staging certificates are intentionally untrusted. ACME account email is not an
+expiry-monitoring strategy: monitor Certificate status, renewal time and expiry.
 
-## DNS01 Challenge Flow
-
-1. cert-manager requests a certificate from Let's Encrypt
-2. Let's Encrypt issues a DNS01 challenge (expects a TXT record)
-3. cert-manager creates the TXT record in Route53 (using IRSA credentials)
-4. Let's Encrypt verifies the TXT record
-5. Certificate is issued and stored as a Kubernetes Secret
-6. cert-manager cleans up the TXT record
-
-## IAM Permissions
-
-The IAM role created by this module has least-privilege Route53 access:
-
-- `route53:GetChange` - Check DNS propagation status
-- `route53:ChangeResourceRecordSets` - Create/delete TXT records (scoped to hosted zone)
-- `route53:ListResourceRecordSets` - List records (scoped to hosted zone)
-- `route53:ListHostedZonesByName` - Discover hosted zones
-
-## Routes Integration
-
-When `certmanager_enable_routes_integration = true` (default), you can annotate OpenShift Routes for automatic TLS:
-
-```bash
-oc annotate route my-app \
-  cert-manager.io/issuer-kind=ClusterIssuer \
-  cert-manager.io/issuer-name=letsencrypt-production
-```
-
-This triggers cert-manager to:
-1. Request a certificate for the Route's hostname
-2. Store it as a Secret
-3. Configure the Route's TLS termination
-
-## Custom Ingress Integration
-
-When a custom domain is configured, the cert-manager layer automatically creates a **scoped IngressController** that keeps user workload traffic isolated from the default ROSA ingress (which serves console, oauth, monitoring).
-
-### What Gets Created
-
-1. **IngressController** (`custom-apps`) -- scoped to your domain via `spec.domain`
-2. **NLB** -- separate load balancer (private or public, configurable)
-3. **Wildcard TLS certificate** -- issued by Let's Encrypt, auto-renewed by cert-manager
-4. **Route53 wildcard CNAME** -- `*.yourdomain.com` pointing to the custom NLB (upsert)
-
-### DNS Record Behavior
-
-The Route53 wildcard CNAME (`*.apps.<domain>`) is created using **upsert** semantics
-(`allow_overwrite = true`). This means:
-
-- If the record **does not exist**, it is created pointing to the custom IngressController's NLB.
-- If the record **already exists** (e.g., ROSA pre-creates `*.apps.<domain>` for its default ingress), Terraform takes ownership and **updates it** to point to the custom NLB instead.
-
-This is the expected behavior when the custom ingress domain matches the cluster's default
-apps domain. The custom IngressController replaces the default ROSA ingress for that domain,
-serving routes with a valid Let's Encrypt wildcard certificate instead of the default
-self-signed certificate.
-
-On `terraform destroy`, Terraform removes the record. If the cluster is still running,
-ROSA's ingress operator will recreate the default record on its own.
-
-### Traffic Isolation
-
-When a **separate custom domain** is used (different from the ROSA apps domain):
-
-```
-Default ROSA Ingress (untouched):
-  *.apps.cluster-name.xxxx.openshiftapps.com
-  -> console, oauth, monitoring, internal routes
-
-Custom Ingress (cert-manager layer):
-  *.yourdomain.com
-  -> user workload routes only (scoped by domain + optional selectors)
-```
-
-When the **custom domain matches the ROSA apps domain** (e.g., `apps.example.com`):
-
-```
-Custom Ingress (replaces default for this domain):
-  *.apps.example.com
-  -> all routes on this domain, now served with Let's Encrypt TLS
-  -> Route53 CNAME is upserted to point to the custom NLB
-
-Default ROSA Ingress (still active):
-  *.apps.cluster-name.xxxx.openshiftapps.com
-  -> console, oauth, monitoring (via the cluster's built-in domain)
-```
-
-### Configuration
+## Operator configuration
 
 ```hcl
-# Custom ingress is enabled by default when certmanager has a domain
-certmanager_ingress_enabled    = true      # default: true
-certmanager_ingress_domain     = ""        # default: "apps.<hosted_zone_domain>"
-certmanager_ingress_visibility = "private" # or "public"
-certmanager_ingress_replicas   = 2
-
-# Optional: additional scoping beyond domain-based matching
-certmanager_ingress_route_selector     = {}  # e.g., { "ingress" = "custom-apps" }
-certmanager_ingress_namespace_selector = {}  # e.g., { "apps-domain" = "custom" }
+certmanager_operator_config = {
+  channel               = "stable-v1"
+  source                = "redhat-operators"
+  source_namespace      = "openshift-marketplace"
+  install_plan_approval = "Automatic"
+  controller_replicas   = 2
+  webhook_replicas      = 3
+  cainjector_replicas    = 2
+}
 ```
 
-The `certmanager_hosted_zone_domain` is the **root Route53 zone** (e.g., `example.com`).
-The `certmanager_ingress_domain` controls what the IngressController serves and defaults
-to `apps.<root>`. This keeps zone management and ingress scoping cleanly separated.
+Use a mirrored catalog name/namespace for restricted deployments. A versioned
+channel such as `stable-v1.19` holds the minor line when available in your catalog.
+Manual approval requires an administrator to approve the relevant InstallPlan;
+a first apply can stop while waiting. Do not blindly approve every plan.
 
-### Creating Routes on the Custom Ingress
+Controller/webhook/CA injector replica settings are applied through the supported
+`CertManager` CR, not by replacing the operator-managed Deployments. Schedule
+replicas across failure domains in your platform policy; counts alone do not
+guarantee availability.
 
-Routes matching the custom domain are automatically served by the custom IngressController:
+## DNS and credentials
 
-```bash
-# Routes with hostnames under the custom domain use the custom ingress
-oc create route edge my-app \
-  --service=my-app \
-  --hostname=my-app.apps.example.com
-
-# Routes under the default *.apps.cluster.openshiftapps.com domain
-# continue to use the default ROSA ingress (unchanged)
-```
-
-If `certmanager_ingress_route_selector` is set, routes also need the matching labels:
-
-```bash
-oc label route my-app ingress=custom-apps
-```
-
-### Quick Verification
-
-After deployment, verify the custom ingress is working end-to-end with a simple test app:
-
-```bash
-# 1. Create a test namespace
-oc new-project test-custom-ingress
-
-# 2. Deploy a simple web server
-oc new-app --image=registry.access.redhat.com/ubi9/httpd-24:latest --name=hello-app
-
-# 3. Create a route on the custom apps domain
-oc create route edge hello-app \
-  --service=hello-app \
-  --hostname=hello.apps.example.com \
-  --port=8080
-
-# 4. Verify the route is using the custom IngressController
-oc get route hello-app -o jsonpath='{.status.ingress[0].routerName}'
-# Expected output: custom-apps
-
-# 5. Test HTTPS (certificate should be valid, issued by Let's Encrypt)
-curl -sv https://hello.apps.example.com 2>&1 | grep -E 'subject:|issuer:|HTTP/'
-
-# 6. Clean up
-oc delete project test-custom-ingress
-```
-
-If the route shows `routerName: custom-apps` and curl shows a valid Let's Encrypt
-certificate, the full chain is working: cert-manager -> wildcard cert -> custom
-IngressController -> NLB -> Route53 CNAME -> your app.
-
-### Domain Flexibility
-
-The `certmanager_hosted_zone_domain` is your root Route53 zone (e.g., `example.com`).
-The `certmanager_ingress_domain` controls what the IngressController serves and defaults
-to `apps.<root>`. Override it to use a different pattern:
-
-| `certmanager_ingress_domain` | IngressController serves | Use Case |
-|------------------------------|--------------------------|----------|
-| `""` (default)               | `apps.example.com`       | **Recommended.** Apps subdomain (`myapp.apps.example.com`) |
-| `"example.com"`              | `example.com`            | Root domain ingress (`myapp.example.com`) |
-| `"dev.example.com"`          | `dev.example.com`        | Environment-scoped (`myapp.dev.example.com`) |
-
-### Defaulting Namespaces to the Custom Ingress
-
-To have all Routes in a namespace automatically use the custom ingress domain, label
-the namespace. Combined with `certmanager_ingress_namespace_selector`, this scopes
-which namespaces the custom IngressController watches:
-
-```bash
-# Label a namespace to be served by the custom ingress
-oc label namespace my-project apps-domain=custom
-
-# Then set the namespace selector in your tfvars:
-# certmanager_ingress_namespace_selector = { "apps-domain" = "custom" }
-```
-
-Routes created in labeled namespaces with hostnames matching the custom domain are
-automatically served by the custom IngressController with TLS from the wildcard cert.
-Unlabeled namespaces continue to use the default ROSA ingress.
-
-### Disabling the Custom Ingress
-
-To use cert-manager for certificate management only (without a custom IngressController):
+By default, DNS01 self-checks use cluster DNS. If split-horizon DNS requires
+different resolvers, supply approved addresses rather than silently opening
+public resolver access:
 
 ```hcl
-certmanager_ingress_enabled = false
+certmanager_dns01_recursive_nameservers      = ["10.0.0.2:53"]
+certmanager_dns01_recursive_nameservers_only = true
 ```
 
-## DNS Delegation
+The IAM trust policy binds the cert-manager ServiceAccount subject and STS
+audience. DNS writes are TXT-only in the configured zone; discovery of all zones
+is not granted because the solver specifies `hostedZoneID`. See the
+[upstream Route53 guidance](https://cert-manager.io/docs/configuration/acme/dns01/route53/).
 
-When using `certmanager_create_hosted_zone = true`, Terraform creates a Route53 hosted zone with a **unique set of 4 nameservers**. Your domain registrar (Squarespace, GoDaddy, Namecheap, etc.) must be updated to delegate DNS to these nameservers before cert-manager can issue certificates.
-
-### Understanding the Workflow
-
-There is an intentional ordering dependency:
-
-1. **`terraform apply`** creates the hosted zone, cluster, cert-manager, and ClusterIssuers
-2. cert-manager immediately attempts to issue certificates via DNS01 challenges
-3. **These will fail** until DNS delegation is complete -- this is expected
-4. You update your registrar with the nameservers from Terraform output
-5. DNS propagates (typically 15-60 minutes, can take up to 48 hours)
-6. cert-manager retries and successfully issues certificates
-
-> **If you provide an existing hosted zone** (`certmanager_hosted_zone_id`), DNS delegation is already done and cert-manager will work immediately after apply. This is the simplest path if you manage DNS ahead of time.
-
-### Step 1: Get the Nameservers
-
-After `terraform apply` completes:
+After first installation or a role change, confirm controller pods received the
+web-identity environment and token mount. An SA annotation does not retroactively
+inject credentials into existing pods. If needed, perform a controlled rollout:
 
 ```bash
-# Get the Route53 nameservers for the new hosted zone
-terraform output certmanager_hosted_zone_nameservers
+oc rollout restart deployment/cert-manager -n cert-manager
+oc rollout status deployment/cert-manager -n cert-manager --timeout=5m
 ```
 
-Output example:
-```
-[
-  "ns-1234.awsdns-26.org",
-  "ns-567.awsdns-10.net",
-  "ns-890.awsdns-47.co.uk",
-  "ns-12.awsdns-01.com",
-]
-```
+No static AWS keys are supplied by this layer. Do not add unsupported AWS
+environment overrides to the CertManager CR; the operator validates allowed
+override fields. Do not print token files or private key Secrets into logs.
 
-### Step 2: Update Your Domain Registrar
+## Certificate lifecycle and readiness
 
-Set the nameservers at your registrar for the domain (e.g., `apps.example.com`):
+Certificates use `cert-manager.io/v1`, RSA-2048, explicit
+`privateKey.rotationPolicy: Always`, `revisionHistoryLimit: 1`, and
+`renewBeforePercentage: 33`. Renewal uses the actual issued lifetime, which can
+differ from the requested 90 days. Workloads must reload renewed Secrets.
+See [Certificate lifecycle guidance](https://cert-manager.io/docs/usage/certificate/).
 
-| Registrar | Where to Update |
-|-----------|----------------|
-| **Squarespace** | Domains > your domain > DNS Settings > Custom nameservers |
-| **GoDaddy** | Domain Settings > Nameservers > Change |
-| **Namecheap** | Domain List > Manage > Nameservers > Custom DNS |
-| **Cloudflare** | (must use full zone transfer or CNAME setup) |
-| **AWS Route53** (parent zone) | Add NS record for the subdomain |
-
-> **Subdomain delegation:** If you're delegating a subdomain like `apps.example.com` and the parent zone (`example.com`) is already in Route53, add an NS record set in the parent zone instead of changing registrar nameservers.
-
-### Step 3: Verify DNS Propagation
+Terraform waits up to 20 minutes for Certificate `Ready=True` before connecting
+its Secret to the custom router. Missing delegation, denied DNS/ACME access or
+bad credentials now produce a failure instead of a successful fixed sleep.
+Operator-installation and NLB provisioning still have bounded staging delays;
+check actual readiness if a slow installation requires another apply.
 
 ```bash
-# Check if nameservers are responding (replace with your domain)
-dig +short NS apps.example.com
-
-# Expected: the 4 Route53 nameservers from Step 1
-# If you see your old nameservers, propagation is still in progress
+oc get clusterissuers
+oc get certificates,certificaterequests,orders,challenges -A
+oc describe certificate apps-wildcard -n openshift-ingress
+# After fixing the underlying problem, request renewal explicitly:
+cmctl renew apps-wildcard -n openshift-ingress
 ```
 
-### Step 4: Force cert-manager to Retry
+Do not delete TLS Secrets as a routine renewal mechanism. There is no supported
+`cert-manager.io/manual-trigger` annotation in this workflow.
 
-cert-manager has an exponential backoff that can delay retries up to hours after initial failures. Once DNS is live, force an immediate retry:
+## Custom ingress and DNS delegation
 
-```bash
-# Option A: Delete and recreate the CertificateRequest (fastest)
-# List pending certificate requests
-oc get certificaterequests -A
+The custom router is named `custom-apps`; it does not replace the ROSA router.
+Its domain defaults to `apps.<hosted-zone-domain>`. The Certificate must cover
+that domain and reside in `openshift-ingress`, with Secret name
+`custom-apps-default-cert`. Use a dedicated domain and review wildcard DNS
+ownership before applying. New records cannot overwrite existing DNS records;
+import only an approved dedicated-domain record. Do not take over ROSA-owned domains.
 
-# Delete the failed request -- cert-manager will create a new one immediately
-oc delete certificaterequest <name> -n <namespace>
+`certmanager_ingress_route_selector` and
+`certmanager_ingress_namespace_selector` further restrict router selection.
+Routes relying on its wildcard certificate should not carry stale inline
+certificates. Per-route custom certificates require a separately designed
+renewal workflow.
 
-# Option B: Annotate the Certificate to trigger reconciliation
-oc annotate certificate <name> -n <namespace> \
-  cert-manager.io/manual-trigger="$(date +%s)" --overwrite
+For a new zone, obtain `certmanager_hosted_zone_nameservers` and delegate from the
+parent/registrar. When DNSSEC is enabled, publish the generated
+`certmanager_dnssec_ds_record` only after confirming signing is healthy.
+DNSSEC and public DNS query logging have AWS region/partition constraints; do not
+assume a commercial DNS configuration can be copied to GovCloud.
 
-# Option C: Restart cert-manager (nuclear option, retries everything)
-oc rollout restart deployment cert-manager -n cert-manager
-```
+## GovCloud and zero-egress
 
-### Step 5: Verify Certificate Issuance
+This Terraform layer includes public Let's Encrypt ACME issuance. It is therefore
+blocked for zero-egress HCP even though cert-manager itself supports private CA
+and other issuers. Do not disable zero-egress merely to install the operator for
+an internal PKI. Use a separately managed operator/private issuer design instead;
+this layer does not yet expose an internal-PKI-only mode.
 
-```bash
-# Check certificate status
-oc get certificates -A
+GovCloud public DNS may require a separately approved commercial DNS account and
+cross-account credential architecture. This module uses its configured AWS
+provider account/partition for Route53; do not assume it implements that split.
+Validate the issuer, DNS hosting, cryptographic requirements and endpoint paths
+before enabling public ACME. FIPS mode is not automatic FedRAMP authorization.
 
-# Expected: READY = True
-# NAME             READY   SECRET              AGE
-# apps-wildcard    True    apps-wildcard-tls   5m
+## Upgrade and migration cautions
 
-# If still not ready, check the challenge status
-oc get challenges -A
-oc describe challenge <name> -n <namespace>
-```
+Maintainers: run `terraform -chdir=tests/certmanager test` and
+`uv run scripts/check-certmanager-schemas.py`. The schema check uses upstream
+1.19.6 CRDs and a pinned Red Hat 1.19 operator commit; it does not emulate
+admission webhooks, OLM upgrades or real DNS issuance.
 
-### DNSSEC DS Record (Optional)
-
-If `certmanager_enable_dnssec = true` (default), you should also add the DS record to your registrar to complete the DNSSEC chain of trust:
-
-```bash
-terraform output certmanager_dnssec_ds_record
-```
-
-Add this as a **DS record** at your registrar. This is not required for cert-manager to work -- it protects against DNS spoofing attacks.
-
-### Troubleshooting DNS Delegation
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `dig NS apps.example.com` returns old nameservers | DNS propagation not complete | Wait, or flush local DNS cache (`sudo dscacheutil -flushcache` on macOS) |
-| Challenge stuck in `pending` state | DNS not resolving | Verify nameservers with `dig`, check registrar settings |
-| `ACME server error: dns problem` | Route53 zone not reachable | Confirm NS records propagated; try `dig @ns-1234.awsdns-26.org apps.example.com` |
-| Certificate shows `False` READY after DNS is working | cert-manager backoff | Force retry (Step 4 above) |
-| `Forbidden: route53:ChangeResourceRecordSets` | IAM role issue | Verify OIDC provider and role trust policy |
-
-## Usage
-
-### Basic (with existing hosted zone)
-
-```hcl
-enable_layer_certmanager    = true
-certmanager_hosted_zone_id  = "Z0123456789ABCDEF"
-certmanager_acme_email      = "platform-team@example.com"
-```
-
-### Create hosted zone + custom ingress + wildcard certificate
-
-```hcl
-enable_layer_certmanager       = true
-certmanager_create_hosted_zone = true
-certmanager_hosted_zone_domain = "example.com"   # Root zone
-certmanager_acme_email         = "platform-team@example.com"
-
-# Custom ingress (enabled by default, domain defaults to apps.example.com)
-certmanager_ingress_visibility = "private"
-
-# Wildcard certificate for the apps domain
-certmanager_certificate_domains = [
-  {
-    name        = "apps-wildcard"
-    namespace   = "openshift-ingress"
-    secret_name = "custom-apps-default-cert"
-    domains     = ["*.apps.example.com"]
-  }
-]
-```
-
-> **Important:** The certificate `secret_name` should be `custom-apps-default-cert` to match the IngressController's `defaultCertificate` reference.
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `enable_layer_certmanager` | Enable the cert-manager layer | `bool` | `false` | No |
-| `certmanager_hosted_zone_id` | Existing Route53 zone ID | `string` | `""` | When not creating |
-| `certmanager_hosted_zone_domain` | Domain for the hosted zone | `string` | `""` | When creating |
-| `certmanager_create_hosted_zone` | Create a new hosted zone | `bool` | `false` | No |
-| `certmanager_acme_email` | Let's Encrypt registration email | `string` | `""` | Yes (when enabled) |
-| `certmanager_use_staging_issuer` | Use staging LE (untrusted, high rate limits) | `bool` | `false` | No |
-| `certmanager_certificate_domains` | Certificate resources to create | `list(object)` | `[]` | No |
-| `certmanager_enable_routes_integration` | Install Routes integration | `bool` | `true` | No |
-| `certmanager_ingress_enabled` | Create a custom IngressController | `bool` | `true` | No |
-| `certmanager_ingress_domain` | Ingress domain (empty = `apps.<root>`) | `string` | `""` | No |
-| `certmanager_ingress_visibility` | NLB scope: `"private"` or `"public"` | `string` | `"private"` | No |
-| `certmanager_ingress_replicas` | Router replicas for custom ingress | `number` | `2` | No |
-| `certmanager_ingress_route_selector` | Additional route label selector | `map(string)` | `{}` | No |
-| `certmanager_ingress_namespace_selector` | Namespace label selector | `map(string)` | `{}` | No |
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| `certmanager_role_arn` | IAM role ARN for cert-manager |
-| `certmanager_hosted_zone_id` | Route53 hosted zone ID |
-| `certmanager_hosted_zone_domain` | Hosted zone domain |
-| `certmanager_hosted_zone_nameservers` | NS records (when zone is created) |
-| `certmanager_ingress_enabled` | Whether custom IngressController was created |
-| `certmanager_ingress_domain` | Domain served by the custom ingress |
-| `certmanager_ingress_visibility` | NLB visibility (private/public) |
+- Existing community Routes users must explicitly retain
+  `certmanager_enable_routes_integration = true` and supply
+  `certmanager_routes_image` as an approved `@sha256:` image until migration is
+  complete. Changing to the new default removes that controller and stops its
+  renewals; migrate dependent Routes first.
+- Removing forced public resolvers can expose split-DNS issues. Preserve your
+  approved resolver list explicitly when needed.
+- Key rotation and Certificate spec changes can trigger reissuance. Test staging,
+  account for CA rate limits, and verify reload behavior.
+- Review InstallPlans and mirrored catalog availability before upgrade. Do not
+  delete/recreate the operator or its CRDs to upgrade: those CRDs own certificates.

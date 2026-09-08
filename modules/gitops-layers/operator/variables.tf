@@ -480,30 +480,18 @@ variable "certmanager_certificate_domains" {
 
 variable "certmanager_enable_routes_integration" {
   type        = bool
-  description = <<-EOT
-    Enable the cert-manager OpenShift Routes integration.
-    
-    When enabled, you can annotate OpenShift Routes to automatically
-    provision TLS certificates:
-    
-      oc annotate route <name> \
-        cert-manager.io/issuer-kind=ClusterIssuer \
-        cert-manager.io/issuer-name=letsencrypt-production
-    
-    Default: true (enabled when cert-manager layer is active)
-  EOT
-  default     = true
+  description = "Opt in to a separately reviewed community Routes controller (not the Red Hat operator). Prefer Certificate resources and IngressController TLS."
+  default     = false
 }
 
 variable "certmanager_routes_image" {
   type        = string
-  description = <<-EOT
-    Container image for the cert-manager OpenShift Routes integration controller.
-    
-    Override this for GovCloud or air-gapped environments to point to an
-    approved registry mirror. Pin to a specific tag for reproducibility.
-  EOT
-  default     = "ghcr.io/cert-manager/cert-manager-openshift-routes:v0.6.1"
+  description = "Explicitly approved, digest-pinned community Routes controller image; required only for opt-in legacy integration."
+  default     = ""
+  validation {
+    condition     = !var.certmanager_enable_routes_integration || can(regex("@sha256:[0-9a-f]{64}$", var.certmanager_routes_image))
+    error_message = "The optional community Routes controller requires an approved digest-pinned image."
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -831,4 +819,41 @@ variable "openshift_version" {
     Format: "4.XX" (e.g., "4.16", "4.20")
   EOT
   default     = "4.20"
+}
+
+variable "certmanager_operator_config" {
+  description = "Red Hat OLM subscription and operand replica settings. stable-v1 tracks the latest supported catalog release; use a mirrored catalog in restricted environments."
+  type = object({
+    channel               = optional(string, "stable-v1")
+    source                = optional(string, "redhat-operators")
+    source_namespace      = optional(string, "openshift-marketplace")
+    install_plan_approval = optional(string, "Automatic")
+    controller_replicas   = optional(number, 2)
+    webhook_replicas      = optional(number, 3)
+    cainjector_replicas   = optional(number, 2)
+  })
+  default = {}
+  validation {
+    condition = contains(["Automatic", "Manual"], var.certmanager_operator_config.install_plan_approval) && alltrue([
+      for replicas in [var.certmanager_operator_config.controller_replicas, var.certmanager_operator_config.webhook_replicas, var.certmanager_operator_config.cainjector_replicas] :
+      replicas >= 1 && floor(replicas) == replicas
+    ])
+    error_message = "Approval must be Automatic or Manual, and replica counts must be positive integers."
+  }
+}
+
+variable "certmanager_dns01_recursive_nameservers" {
+  type        = list(string)
+  description = "Optional approved DNS resolvers in host:port format. Empty uses cluster DNS; no public resolvers are forced."
+  default     = []
+}
+
+variable "certmanager_dns01_recursive_nameservers_only" {
+  type        = bool
+  description = "Use only the configured recursive resolvers for DNS01 self-checks."
+  default     = false
+  validation {
+    condition     = !var.certmanager_dns01_recursive_nameservers_only || length(var.certmanager_dns01_recursive_nameservers) > 0
+    error_message = "Recursive-only DNS requires at least one approved resolver."
+  }
 }

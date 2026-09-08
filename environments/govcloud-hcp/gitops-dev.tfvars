@@ -28,7 +28,7 @@ enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples
 # certmanager_acme_email                = "platform-team@example.com"
 # certmanager_enable_dnssec             = true
 # certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = true
+# certmanager_enable_routes_integration = false
 # certmanager_certificate_domains = [
 #   {
 #     name        = "apps-wildcard"
