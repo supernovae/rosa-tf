@@ -327,6 +327,13 @@ module "vpc" {
   egress_type        = var.zero_egress ? "none" : var.egress_type
   single_nat_gateway = local.use_single_nat
 
+  # Core zero-egress AWS APIs; keep existing ECR endpoint ownership when enabled.
+  interface_endpoint_services = var.zero_egress ? toset(concat(
+    ["ec2", "sts", "kms"],
+    var.create_ecr && var.ecr_create_vpc_endpoints ? [] : ["ecr.api", "ecr.dkr"],
+    var.create_jumphost ? ["ssm", "ssmmessages", "ec2messages", "logs"] : []
+  )) : toset([])
+
   transit_gateway_id         = var.transit_gateway_id
   transit_gateway_route_cidr = var.transit_gateway_route_cidr
 
@@ -533,6 +540,7 @@ module "rosa_cluster" {
     module.vpc,
     module.kms,
     module.additional_security_groups,
+    module.ecr,
     null_resource.wait_for_cluster_destroy,
   ]
 }

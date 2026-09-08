@@ -1,6 +1,48 @@
 # Zero-Egress ROSA HCP Clusters
 
-This guide covers deploying and operating ROSA HCP clusters in zero-egress (air-gapped) mode, where clusters have no outbound internet connectivity.
+This guide covers ROSA HCP without public outbound connectivity from worker
+subnets. It is not a physically air-gapped system: private AWS service paths and
+the managed control plane remain necessary.
+
+## GovCloud defaults and provider support
+
+New `environments/govcloud-hcp` deployments and cluster examples default to
+`zero_egress = true`. The existing stable RHCS **1.7.7** accepts the documented
+`properties = { zero_egress = "true" }` setting; a preview provider or a GitHub
+feature switch is not needed to represent this request. OCM still decides
+service availability for the account, region and release. See the
+[stable provider schema](https://github.com/terraform-redhat/terraform-provider-rhcs/blob/v1.7.7/docs/resources/cluster_rosa_hcp.md)
+and [Red Hat installation procedure](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/html/install_clusters/rosa-hcp-egress-zero-install).
+
+Confirm the available 4.18 patch **against the GovCloud OCM session**, not the
+commercial release catalog. The AWS region flag alone does not switch OCM:
+
+```bash
+# After authenticating to https://api.openshiftusgov.com:
+rosa list versions --channel-group eus -o json
+rosa list versions --hosted-cp --channel-group eus -o json
+```
+
+Choose the highest enabled 4.18 patch separately for Classic and HCP in the
+intended channel. A public OpenShift release does not prove GovCloud availability.
+Existing clusters must explicitly keep `zero_egress = false` until their
+migration/replacement and network changes are approved. See the
+[FedRAMP rationale and evidence checklist](FEDRAMP.md#govcloud-hcp-zero-egress-default).
+
+Managed GovCloud HCP VPCs add EC2, STS and KMS interface endpoints. ECR endpoints
+remain in the ECR module when that module manages them; otherwise the VPC module
+creates them. The S3 gateway endpoint is retained. SSM, SSM Messages, EC2
+Messages and Logs endpoints are added when a jump host is requested. These
+endpoints do not supply offline OS package repositories for the jump host.
+BYO VPC owners must pre-provision equivalent connectivity and verify no alternate
+public egress route exists; this root does not change BYO route tables.
+
+Before applying any GitOps overlay, mirror the GitOps operator and other selected
+operators, configure private catalog sources, and use a privately reachable Git
+repository. The repository's public Git URL defaults will not work without egress.
+The Terraform runner still needs approved access to OCM/AWS APIs and provider
+artifacts. Client VPN, Direct Connect or another private management path is
+required; a jump host alone does not establish a path to it.
 
 ## Overview
 
@@ -52,13 +94,15 @@ Use the provided example tfvars for a complete zero-egress configuration:
 ```bash
 cp examples/zeroegress.tfvars environments/commercial-hcp/my-cluster.tfvars
 # Edit cluster_name, aws_region, etc.
+cd environments/commercial-hcp
+terraform init -lockfile=readonly
 terraform apply -var-file="my-cluster.tfvars"
 ```
 
 ### Terraform Configuration
 
 ```hcl
-# environments/commercial-hcp/dev.tfvars or environments/govcloud-hcp/dev.tfvars
+# Set in the appropriate HCP cluster-*.tfvars; GovCloud already defaults to true.
 
 # Enable zero-egress mode
 zero_egress     = true
@@ -246,7 +290,7 @@ When upgrading a zero-egress cluster:
 1. **Mirror new version first** - Update `ImageSetConfiguration` with new version range
 2. **Push to ECR** - Follow the mirror workflow
 3. **Verify IDMS** - Ensure IDMS covers the new release images
-4. **Upgrade control plane** - Via Terraform or OCM Console
+4. **Upgrade control plane** - Via ROSA CLI or OCM Console (these modules ignore version changes)
 5. **Upgrade machine pools** - Within n-2 of control plane
 
 ```bash
@@ -257,9 +301,10 @@ When upgrading a zero-egress cluster:
 oc-mirror --config ./mirror-workspace/imageset-config-layers.yaml file://./mirror-data
 oc-mirror --from ./mirror-data docker://$ECR_URL
 
-# Update Terraform
-# openshift_version = "4.18.x"
-terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
+# Select an upgrade offered for the actual GovCloud cluster.
+rosa list upgrade --cluster=<cluster-name>
+rosa upgrade cluster --cluster=<cluster-name> --version=<available-version>
+# After completion, reconcile the tfvars version and review the Terraform plan.
 ```
 
 ## Troubleshooting

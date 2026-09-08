@@ -9,7 +9,9 @@
 #   terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
 #
 # NOTE: For private/GovCloud clusters, VPN connectivity is required before
-# applying this overlay. See docs/OPERATIONS.md for the deployment workflow.
+# applying this overlay. With the default zero-egress cluster, first mirror the
+# GitOps/selected operators and configure private catalogs and a reachable Git
+# repository. Public GitHub defaults will not work. See docs/ZERO-EGRESS.md.
 #------------------------------------------------------------------------------
 
 install_gitops           = true

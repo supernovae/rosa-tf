@@ -75,6 +75,8 @@ def main():
                 assert pool["min_replicas"] <= pool["max_replicas"], filename
         if path.name.startswith("cluster-"):
             assert values.get("install_gitops") is False, filename
+            if path.parts[:2] == ("environments", "govcloud-hcp"):
+                assert values.get("zero_egress") is True, filename
         if path.name.startswith("gitops-"):
             assert values.get("install_gitops") is True, filename
     print(f"PASS: {len(tracked)} tfvars parsed; {checks} environment input contracts checked")

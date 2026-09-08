@@ -85,7 +85,7 @@ no_proxy    = ".cluster.local,.svc,10.128.0.0/14,172.30.0.0/16"
 additional_trust_bundle = file("corporate-ca-bundle.pem")  # if proxy uses custom CA
 ```
 
-> **Zero-egress HCP clusters** do not require firewall rules or proxy configuration -- they use AWS PrivateLink and VPC endpoints exclusively. However, you must still ensure the required VPC endpoints are created. See the zero-egress example tfvars for details.
+> **Zero-egress HCP clusters** avoid public outbound dependencies for the platform, but still require approved endpoints, private DNS, route controls, endpoint policies and private operator/Git sources. Management and mirroring hosts have separate connectivity requirements. GovCloud HCP defaults to this posture for new clusters; see [zero-egress prerequisites](ZERO-EGRESS.md).
 
 ### BYO-VPC Considerations
 

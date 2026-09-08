@@ -5,6 +5,7 @@ This guide covers how to deploy and operate this ROSA Terraform framework in a F
 ## Table of Contents
 
 - [Overview](#overview)
+- [GovCloud HCP zero-egress default](#govcloud-hcp-zero-egress-default)
 - [Fork and Control the Repository](#fork-and-control-the-repository)
 - [Disable Terraform Telemetry](#disable-terraform-telemetry)
 - [Security Scanning](#security-scanning)
@@ -28,6 +29,46 @@ The GovCloud environments (`govcloud-classic`, `govcloud-hcp`) are already confi
 This guide focuses on the **operational controls** around the Terraform framework itself -- how to manage the code, prevent data leakage, and operate in restricted networks.
 
 ---
+
+## GovCloud HCP zero-egress default
+
+For **new GovCloud HCP clusters**, this repository defaults `zero_egress = true`.
+Classic retains its supported controlled-egress architecture. This is our
+defense-in-depth design choice, not a claim that FedRAMP mandates this feature or
+that enabling it grants an authorization.
+
+The rationale maps to **SC-7 (Boundary Protection)** and **SC-7(5)
+(Deny by Default / Allow by Exception)**: remove general public outbound routes
+and retain explicitly required private service paths. This reduces public
+exfiltration paths and the operational burden of maintaining public destination
+allowlists. It supports, but does not by itself satisfy, these controls. See
+[NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final).
+
+Red Hat describes zero-egress-ready HCP as a foundation that must be combined
+with customer routing and egress controls; setting the cluster property alone
+does not block public traffic. See [Red Hat's architecture guidance](https://cloud.redhat.com/experts/rosa/best-practices-recommendations/).
+
+In our managed VPC, the default omits NAT, IGW and public subnets, uses S3 and
+regional interface endpoints, and limits the new endpoint security group to
+HTTPS from the VPC CIDR. Endpoint policies still need organizational tailoring:
+private connectivity alone does not stop access to unauthorized AWS resources.
+For BYO VPCs, the network owner must validate endpoints, private DNS, route
+tables, peering/TGW paths and any alternate internet access.
+
+Document the following in the system security plan and deployment evidence:
+
+- Approved endpoint destinations, IAM/resource policies and data-flow boundaries.
+- Tested denial of public outbound access and successful required private flows.
+- Private Git, image registry, identity, update and operator-mirroring paths.
+- Logging, vulnerability scanning, image provenance and patch procedures.
+- Any exception (`zero_egress = false`), its mission need, owner, compensating
+  controls and review date.
+
+**Existing clusters:** explicitly preserve `zero_egress = false` until an approved
+migration or replacement. Adopting the new default may remove NAT/routes from
+Terraform-managed networks. Do not apply it blindly to existing state. The
+cluster property is not evidence of a supported in-place conversion. See the
+[zero-egress deployment guide](ZERO-EGRESS.md).
 
 ## Fork and Control the Repository
 
