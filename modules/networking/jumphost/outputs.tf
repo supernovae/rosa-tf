@@ -29,7 +29,7 @@ output "iam_instance_profile_name" {
 
 output "ssm_session_command" {
   description = "AWS CLI command to start an SSM session to the jump host."
-  value       = "aws ssm start-session --target ${aws_instance.jumphost.id} --region ${data.aws_region.current.id}"
+  value       = "aws ssm start-session --target ${aws_instance.jumphost.id} --region ${data.aws_region.current.region}"
 }
 
 output "ssm_access_instructions" {
@@ -51,7 +51,7 @@ output "ssm_access_instructions" {
     The jumphost is inside the VPC and can access all cluster endpoints.
     
     # Start SSM session to jumphost:
-    aws ssm start-session --target ${aws_instance.jumphost.id} --region ${data.aws_region.current.id}
+    aws ssm start-session --target ${aws_instance.jumphost.id} --region ${data.aws_region.current.region}
     
     # Once connected, login to the cluster:
     oc login https://api.${var.cluster_domain}:6443 -u cluster-admin

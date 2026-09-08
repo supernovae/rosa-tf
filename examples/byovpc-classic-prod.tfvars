@@ -122,7 +122,7 @@ create_client_vpn = false # First cluster's VPN covers the VPC
 #------------------------------------------------------------------------------
 
 install_gitops              = false
-enable_layer_terminal       = true
+enable_layer_terminal       = false # Enable in the GitOps phase
 enable_layer_oadp           = false
 enable_layer_virtualization = false
 enable_layer_monitoring     = false

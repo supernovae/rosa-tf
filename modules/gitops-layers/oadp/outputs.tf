@@ -14,7 +14,7 @@ output "bucket_arn" {
 
 output "bucket_region" {
   description = "Region of the S3 bucket."
-  value       = data.aws_region.current.id
+  value       = data.aws_region.current.region
 }
 
 output "role_arn" {
@@ -34,7 +34,7 @@ output "gitops_config" {
     oadp_bucket_name = local.bucket_name
     oadp_bucket_arn  = local.bucket_arn
     oadp_role_arn    = aws_iam_role.oadp.arn
-    oadp_region      = data.aws_region.current.id
+    oadp_region      = data.aws_region.current.region
   }
 }
 

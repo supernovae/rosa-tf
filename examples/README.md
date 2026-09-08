@@ -1,8 +1,16 @@
 # Example tfvars Files
 
-Complete, standalone example configurations showing specific use cases. These mirror the structure of `dev.tfvars` with targeted configurations for each scenario.
+Scenario configurations and overlays for the environment roots. Use Terraform pinned in `.terraform-version` and the committed provider lockfiles; see [provider upgrade notes](../docs/PROVIDER-UPGRADE.md).
 
-**Usage:** Copy to your environment folder, customize `cluster_name`/`aws_region`, and apply.
+| Files | Kind | Target |
+| --- | --- | --- |
+| zeroegress, observability, ocpvirtualization, certmanager, byovpc | Complete cluster scenarios | commercial-hcp |
+| byovpc-classic-prod | Complete cluster scenario | commercial-classic |
+| openshiftai, netappstorage | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
+| autonode | Compute overlay; requires a cluster tfvars base | commercial-hcp |
+| cluster-only | Phase 1 safety overlay, passed last | All four cluster roots |
+
+File names above have the `.tfvars` extension. Replace example names, domains, IDs and CIDRs before use. Do not commit credentials or customized private tfvars.
 
 ## Available Examples
 
@@ -28,7 +36,7 @@ install_gitops  = false  # Disabled until operators mirrored
 ### `observability.tfvars`
 
 Dedicated monitoring nodes on Graviton (ARM) for cost-efficient observability (Prometheus + Loki).
-Uses `c7g.4xlarge` instances (~30% cheaper than equivalent x86) with `PreferNoSchedule` taints.
+Uses `c7g.4xlarge` instances (verify workload ARM support and regional availability) with `PreferNoSchedule` taints.
 
 **Key configuration:**
 ```hcl
@@ -98,7 +106,7 @@ certmanager_certificate_domains = [
 2. ClusterIssuer `letsencrypt-production` is ready
 3. Annotate Routes for auto-TLS: `oc annotate route <name> cert-manager.io/issuer-kind=ClusterIssuer cert-manager.io/issuer-name=letsencrypt-production`
 
-**Note:** Cannot be used on zero-egress clusters (requires outbound HTTPS for ACME).
+**Note:** This public ACME example requires outbound HTTPS. cert-manager itself can use internal issuers in restricted networks; that requires a different issuer configuration.
 
 ### `autonode.tfvars`
 
@@ -181,6 +189,8 @@ See `docs/BYO-VPC.md` for workspace requirements and destroy order.
 
 ## Usage
 
+Maintainers can check tracked tfvars syntax and input names with `uv run scripts/check-examples.py`. This does not replace a reviewed plan against the intended account and region.
+
 ### Step 1: Copy to your environment
 
 ```bash
@@ -211,13 +221,34 @@ Edit the copied file and change:
 
 ```bash
 cd environments/commercial-hcp
-terraform init
+terraform init -lockfile=readonly
+
+# Phase 1: provision infrastructure without contacting the new cluster API.
+terraform plan -var-file="my-cluster.tfvars" -var-file="../../examples/cluster-only.tfvars"
+terraform apply -var-file="my-cluster.tfvars" -var-file="../../examples/cluster-only.tfvars"
+
+# Establish VPN/private API connectivity before Phase 2.
+# For examples already enabling GitOps, omit the safety overlay:
+terraform plan -var-file="my-cluster.tfvars"
 terraform apply -var-file="my-cluster.tfvars"
 ```
 
+For examples that leave GitOps disabled (zero-egress and Classic BYO-VPC), complete their prerequisites and add a matching environment GitOps overlay in Phase 2. Zero-egress also requires mirrored operators.
+
+Feature-only overlays are not standalone. For example, after provisioning the cluster and GPU pool as described in `openshiftai.tfvars`:
+
+```bash
+terraform plan -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars -var-file=../../examples/openshiftai.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars -var-file=../../examples/openshiftai.tfvars
+```
+
+Later `-var-file` arguments replace earlier values; lists and maps are **not merged**. Combine machine pools in a single list. Keep the same base files and workspace on subsequent runs. Plans and state may contain secrets; protect saved artifacts.
+
+HCP examples keep `cluster_autoscaler_enabled = false`: RHCS 1.7.7 does not support HCP cluster-wide tuning. Use individual machine-pool autoscaling (`autoscaling_enabled`, `min_replicas`, `max_replicas`; omit `replicas`) or supported AutoNode configurations.
+
 ## How This Works
 
-The examples use the **standard `machine_pools` variable** - the same one used in `dev.tfvars`. This keeps things simple:
+The examples use the **standard `machine_pools` variable** - the same one used in `cluster-dev.tfvars`. This keeps things simple:
 
 1. **Machine pools** are defined in tfvars with labels and taints
 2. **Node selector** tells the operator where to schedule pods
@@ -261,7 +292,7 @@ virt_tolerations   = [{ key = "virtualization", value = "true", effect = "NoSche
 
 ## GovCloud Adjustments
 
-For GovCloud environments, also set:
+Start from the matching GovCloud environment sample; changing only the region is insufficient. Verify service, instance-type, operator and OpenShift-version availability in that partition. In particular, do not assume the commercial AutoNode overlay is supported there. Typical additional settings include:
 
 ```hcl
 aws_region       = "us-gov-west-1"
@@ -271,15 +302,9 @@ infra_kms_mode   = "create"
 create_client_vpn = true
 ```
 
-## Cost Estimates
+## Cost Planning
 
-| Configuration | Instance Types | Monthly Cost (approx) |
-|--------------|----------------|----------------------|
-| Base cluster (3 workers) | 3x m6i.xlarge | ~$500 |
-| Zero egress (no NAT) | 3x m6i.xlarge | ~$400 (no NAT costs) |
-| + Monitoring pool | 3x m6i.4xlarge | +$1,500 |
-| + Virtualization pool | 2x m6i.metal | +$6,700 |
-| + VPN (Client VPN) | per connection | ~$75 + $0.10/hr |
+Obtain current estimates for your region with the [AWS Pricing Calculator](https://calculator.aws/). Include ROSA fees, worker and bare-metal instances, storage, NAT/endpoints, data transfer, VPN, backups and optional managed services. These samples are topology demonstrations, not price quotes or sizing guarantees.
 
 ## Zero Egress Notes
 

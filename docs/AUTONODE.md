@@ -52,7 +52,7 @@ Key benefits over machine pool autoscaling:
 
 - ROSA HCP cluster on OpenShift 4.19+
 - Commercial AWS only (not available in GovCloud)
-- RHCS Terraform provider >= 1.7.5
+- RHCS Terraform provider >= 1.7.7, < 2.0
 
 ## Deployment Workflow
 

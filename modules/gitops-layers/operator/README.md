@@ -188,7 +188,7 @@ This module uses the Terraform `kubernetes` provider to create resources on the 
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Authentication Chain                          │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. Cluster created with htpasswd IDP (rhcs_identity_provider)  │
+│  1. Cluster created with native RHCS admin_credentials        │
 │  2. cluster-admin user created with password                     │
 │  3. cluster-auth module exchanges credentials for OAuth token   │
 │  4. kubernetes provider configured with token                   │
@@ -200,8 +200,7 @@ This module uses the Terraform `kubernetes` provider to create resources on the 
 
 | Component | Purpose | Provider |
 |-----------|---------|----------|
-| htpasswd IDP | Identity provider for cluster-admin user | `rhcs_identity_provider` |
-| cluster-admin user | User with cluster-admins group membership | `rhcs_group_membership` |
+| htpasswd IDP and admin user | Native creation-time admin bootstrap | RHCS cluster `admin_credentials` |
 | cluster-auth module | OAuth token exchange | `modules/utility/cluster-auth` |
 | kubernetes provider | Cluster resource management | `hashicorp/kubernetes` |
 
@@ -249,38 +248,23 @@ install_gitops = true  # Changed from false to true
 3. GitOps operator is installed
 4. Resources added to existing cluster
 
-### ⚠️ Critical Warning: htpasswd IDP Dependency
+### Bootstrap and subsequent authentication
 
-**This module depends on the htpasswd identity provider being present on the cluster.**
+Initial OAuth bootstrap needs the htpasswd administrator unless you supply a
+valid cluster token. After bootstrap, use the Terraform ServiceAccount token
+through `gitops_cluster_token`; subsequent applies do not require htpasswd.
 
-If you:
-- Remove the htpasswd IDP after cluster creation
-- Replace htpasswd with another IDP (LDAP, OIDC, etc.)
-- Delete the cluster-admin user
+| Scenario | Authentication |
+|----------|----------------|
+| New cluster | Native RHCS administrator for initial bootstrap |
+| Existing cluster with htpasswd | OAuth bootstrap or an existing ServiceAccount token |
+| Existing cluster without htpasswd | A valid token with permissions to manage the GitOps resources |
+| Retiring htpasswd | Verify ServiceAccount and alternate administrator access first |
 
-Then:
-- **Day 2 GitOps installation will FAIL**
-- The cluster-auth module cannot obtain an OAuth token
-- Terraform cannot authenticate to the cluster
-
-### Scenarios and Recommendations
-
-| Scenario | htpasswd Present | Recommendation |
-|----------|------------------|----------------|
-| New cluster, want GitOps | N/A (will be created) | ✅ Use Day 0: `install_gitops = true` |
-| Existing cluster with htpasswd | Yes | ✅ Day 2 works: enable `install_gitops = true` |
-| Existing cluster, htpasswd removed | No | ❌ Day 2 will fail - reinstall htpasswd first |
-| Want to remove htpasswd later | Currently present | ⚠️ Remove GitOps first, or use alternative auth |
-
-### Best Practice
-
-**For production clusters:**
-
-1. Install GitOps at Day 0 with the cluster
-2. If you must remove htpasswd IDP later:
-   - Ensure GitOps is already installed
-   - GitOps continues to work (uses service account)
-   - But you cannot modify GitOps via Terraform without re-enabling htpasswd
+Deleting the IDP is an explicit identity-management operation. Changing
+`create_admin_user` does not revoke a creation-time administrator. Follow the
+[credential lifecycle](../../../docs/OPERATIONS.md#retiring-the-bootstrap-login)
+and [provider migration notes](../../../docs/PROVIDER-UPGRADE.md).
 
 ## Private Cluster Considerations
 

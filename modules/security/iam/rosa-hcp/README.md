@@ -199,6 +199,6 @@ The module includes a 30-second wait after role creation to ensure IAM propagati
 
 | Name | Version |
 |------|---------|
-| terraform | >= 1.4.6 |
-| aws | >= 5.0 |
-| rhcs | >= 1.6.3 |
+| terraform | >= 1.16.1, < 2.0 |
+| aws | >= 6.63.0, < 7.0 |
+| rhcs | >= 1.7.7, < 2.0 |

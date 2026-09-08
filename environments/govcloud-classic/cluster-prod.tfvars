@@ -152,7 +152,8 @@ managed_oidc       = true
 #
 # htpasswd admin user -- required for initial bootstrap (creates OAuth token).
 # After bootstrap, Terraform uses the SA token (gitops_cluster_token).
-# To harden: set to false and run terraform apply to remove htpasswd IDP.
+# Admin creation is creation-only; changing this flag does not revoke access.
+# Retire the login explicitly after verifying alternate access (docs/OPERATIONS.md).
 # See docs/OPERATIONS.md for the full credential lifecycle.
 #------------------------------------------------------------------------------
 

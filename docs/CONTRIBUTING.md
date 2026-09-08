@@ -10,7 +10,7 @@ Please be respectful and constructive in all interactions. We're all working tow
 
 ### Prerequisites
 
-- Terraform >= 1.4.6
+- Terraform >= 1.16.1, < 2.0 (use `.terraform-version`)
 - AWS CLI with GovCloud access
 - Go >= 1.21 (for some tools)
 - Python >= 3.9 (for pre-commit and checkov)

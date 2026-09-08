@@ -1,10 +1,10 @@
 terraform {
-  required_version = ">= 1.4.6"
+  required_version = ">= 1.16.1, < 2.0.0"
 
   required_providers {
     external = {
       source  = "hashicorp/external"
-      version = ">= 2.0"
+      version = ">= 2.4.1, < 3.0.0"
     }
   }
 }

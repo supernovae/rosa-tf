@@ -55,8 +55,8 @@ module "rosa_cluster" {
 
 | Name | Version |
 |------|---------|
-| terraform | >= 1.4.6 |
-| rhcs | >= 1.6.3 |
+| terraform | >= 1.16.1, < 2.0 |
+| rhcs | >= 1.7.7, < 2.0 |
 
 ## Inputs
 

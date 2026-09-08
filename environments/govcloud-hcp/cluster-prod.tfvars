@@ -145,7 +145,8 @@ external_auth_providers_enabled = false
 #
 # htpasswd admin user -- required for initial bootstrap (creates OAuth token).
 # After bootstrap, Terraform uses the SA token (gitops_cluster_token).
-# To harden: set to false and run terraform apply to remove htpasswd IDP.
+# Admin creation is creation-only; changing this flag does not revoke access.
+# Retire the login explicitly after verifying alternate access (docs/OPERATIONS.md).
 # See docs/OPERATIONS.md for the full credential lifecycle.
 #------------------------------------------------------------------------------
 
@@ -212,28 +213,17 @@ machine_pools = []
 # ]
 
 #------------------------------------------------------------------------------
-# Cluster Autoscaler
+# HCP Machine-Pool Autoscaling
 #
-# The cluster autoscaler controls cluster-wide scaling behavior.
-# For HCP, it's fully managed by Red Hat (runs with control plane).
-#
-# IMPORTANT: Both cluster autoscaler AND machine pool autoscaling must be
-# enabled for automatic scaling to work.
+# RHCS 1.7.7 does not support cluster-wide HCP autoscaler tuning.
+# Pool autoscaling works independently; keep the cluster-wide flag false.
+# See docs/PROVIDER-UPGRADE.md.
 #------------------------------------------------------------------------------
 
-# Enable cluster autoscaler for production resilience
-cluster_autoscaler_enabled = true
+cluster_autoscaler_enabled = false
 
-# Maximum nodes across all autoscaling machine pools
-autoscaler_max_nodes_total = 100
-
-# Node provision timeout (how long to wait for a node)
-# autoscaler_max_node_provision_time = "25m"
-
-# Pod grace period during scale down (seconds)
-# autoscaler_max_pod_grace_period = 600
-
-# Example: Production configuration with autoscaling
+# Example: add or merge this pool into machine_pools above.
+# Do not set replicas on an autoscaling pool.
 # machine_pools = [
 #   {
 #     name          = "workers"

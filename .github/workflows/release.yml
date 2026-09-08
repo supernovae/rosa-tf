@@ -47,18 +47,40 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~> 1.6"
+          terraform_version: "1.16.1"
+          terraform_wrapper: false
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
       - name: Terraform Init
         working-directory: environments/${{ matrix.environment }}
-        run: terraform init -backend=false
+        run: terraform init -backend=false -lockfile=readonly
 
       - name: Terraform Validate
         working-directory: environments/${{ matrix.environment }}
-        run: terraform validate
+        run: terraform validate -json | jq -e 'if .valid and .warning_count == 0 then . else error(tojson) end'
+
+  bootstrap-tests:
+    name: Bootstrap migration (${{ matrix.cluster_type }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cluster_type: [classic, hcp]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.16.1"
+          terraform_wrapper: false
+      - name: Use verified environment provider selections
+        run: cp environments/commercial-hcp/.terraform.lock.hcl modules/cluster/rosa-${{ matrix.cluster_type }}/.terraform.lock.hcl
+      - name: Initialize test module
+        working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
+        run: terraform init -backend=false -lockfile=readonly
+      - name: Test native bootstrap and legacy state migration
+        working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
+        run: bash ../../../scripts/test-bootstrap.sh
 
   #----------------------------------------------------------------------------
   # Gate 2: Security Scanning
@@ -139,7 +161,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [validate, tfsec, grype, checkov, shellcheck, gitleaks]
+    needs: [validate, bootstrap-tests, tfsec, grype, checkov, shellcheck, gitleaks]
     steps:
       - uses: actions/checkout@v6
         with:

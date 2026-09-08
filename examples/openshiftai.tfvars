@@ -18,6 +18,7 @@
 # Enable the OpenShift AI Layer
 #------------------------------------------------------------------------------
 
+install_gitops            = true
 enable_layer_openshift_ai = true
 
 # Sub-toggles
@@ -120,7 +121,8 @@ enable_layer_openshift_ai = true
 # Storage Integration (optional)
 #
 # RHOAI 3.5 model serving uses OCI images or PVC — S3 is NOT required for
-# serving models. S3 is only needed for AI Pipelines artifact storage.
+# basic model serving. This layer's optional bucket supports Pipelines artifacts;
+# features such as OGX and MLflow need their own compatible storage configuration.
 #
 # To enable pipelines with S3:
 #   openshift_ai_create_s3  = true

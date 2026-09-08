@@ -395,17 +395,15 @@ variable "external_auth_providers_enabled" {
 variable "cluster_autoscaler_enabled" {
   type        = bool
   description = <<-EOT
-    Enable the cluster autoscaler for automatic cluster sizing.
-    
-    The cluster autoscaler:
-    - Adds nodes when pods can't be scheduled due to insufficient resources
-    - Removes underutilized nodes (default 50% utilization threshold)
-    - Only affects machine pools that have autoscaling enabled
-    
-    Both cluster autoscaler AND machine pool autoscaling must be enabled
-    for automatic scaling to occur.
+    Configure cluster-wide HCP autoscaler tuning. Currently unavailable in RHCS 1.7.7.
+    Keep false; HCP machine-pool autoscaling works independently of this setting.
   EOT
   default     = false
+
+  validation {
+    condition     = !var.cluster_autoscaler_enabled
+    error_message = "RHCS 1.7.7 does not support HCP cluster-wide autoscaler configuration. Set cluster_autoscaler_enabled = false and use machine-pool autoscaling."
+  }
 }
 
 variable "autoscaler_max_nodes_total" {

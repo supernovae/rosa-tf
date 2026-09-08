@@ -25,25 +25,27 @@ By default, Terraform stores state locally in `terraform.tfstate`. For team coll
 | Concern | Local State | Remote State (S3) |
 |---------|-------------|-------------------|
 | Team collaboration | ❌ Single user only | ✅ Shared access |
-| State locking | ❌ No protection | ✅ DynamoDB locking |
+| State locking | Local process locking only | ✅ S3 lockfile |
 | Backup/recovery | ❌ Manual | ✅ S3 versioning |
 | Secrets in state | ⚠️ On disk | ✅ Encrypted at rest |
 | CI/CD pipelines | ❌ State unavailable | ✅ Accessible |
 
 ### S3 Backend Setup
 
-#### 1. Create S3 Bucket and DynamoDB Table
+#### 1. Create a versioned, encrypted S3 bucket
 
 ```bash
 # Set your variables
 BUCKET_NAME="your-org-terraform-state"
 REGION="us-east-1"  # or us-gov-west-1 for GovCloud
-DYNAMODB_TABLE="terraform-locks"
 
-# Create S3 bucket with versioning
-aws s3api create-bucket \
-  --bucket $BUCKET_NAME \
-  --region $REGION
+# us-east-1 omits LocationConstraint; other regions require it.
+if [ "$REGION" = "us-east-1" ]; then
+  aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION"
+else
+  aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION" \
+    --create-bucket-configuration "LocationConstraint=$REGION"
+fi
 
 aws s3api put-bucket-versioning \
   --bucket $BUCKET_NAME \
@@ -62,13 +64,6 @@ aws s3api put-public-access-block \
   --public-access-block-configuration \
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 
-# Create DynamoDB table for state locking
-aws dynamodb create-table \
-  --table-name $DYNAMODB_TABLE \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region $REGION
 ```
 
 #### 2. Configure Backend in Terraform
@@ -84,7 +79,7 @@ terraform {
     key            = "rosa/commercial-hcp/dev/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "terraform-locks"
+    use_lockfile   = true
   }
 }
 ```
@@ -209,29 +204,27 @@ terraform state rm module.resource.aws_instance.example
 
 ### State Locking
 
-DynamoDB provides state locking to prevent concurrent modifications.
+Use native S3 locking (`use_lockfile = true`). Grant GetObject/PutObject on the state key, ListBucket for its prefix, and GetObject/PutObject/DeleteObject on its `.tflock` key. Include workspace prefixes where applicable.
+
+DynamoDB locking is deprecated. Existing deployments can temporarily configure both mechanisms until every runner has migrated; do not remove the old locking configuration while older runners still depend on it. See the [HashiCorp S3 backend documentation](https://developer.hashicorp.com/terraform/language/backend/s3).
 
 ```bash
-# If lock is stuck (e.g., process crashed)
+# Only after confirming the lock owner is no longer running:
 terraform force-unlock <LOCK_ID>
-
-# Or via AWS CLI
-aws dynamodb delete-item \
-  --table-name terraform-locks \
-  --key '{"LockID": {"S": "your-org-terraform-state/rosa/commercial-hcp/dev/terraform.tfstate"}}'
 ```
 
 **Lock Info:**
 ```bash
-# See who holds the lock
-aws dynamodb get-item \
-  --table-name terraform-locks \
-  --key '{"LockID": {"S": "your-org-terraform-state/rosa/commercial-hcp/dev/terraform.tfstate"}}'
+# Inspect the current S3 lock object in a private local file.
+lock_info_file=$(mktemp)
+aws s3api get-object --bucket "$BUCKET_NAME" \
+  --key "rosa/commercial-hcp/dev/terraform.tfstate.tflock" \
+  --region "$REGION" "$lock_info_file"
 ```
 
 ### GovCloud Considerations
 
-For GovCloud, use GovCloud-specific bucket and table:
+For GovCloud, use a separate GovCloud bucket and credentials:
 
 ```hcl
 terraform {
@@ -240,7 +233,7 @@ terraform {
     key            = "rosa/govcloud-hcp/prod/terraform.tfstate"
     region         = "us-gov-west-1"
     encrypt        = true
-    dynamodb_table = "terraform-locks"
+    use_lockfile   = true
   }
 }
 ```
@@ -274,10 +267,10 @@ aws s3api put-bucket-logging \
 
 | Practice | Recommendation |
 |----------|----------------|
-| State location | S3 with versioning + DynamoDB locking |
+| State location | S3 with versioning + native S3 locking |
 | Encryption | Always enable S3 SSE |
 | State per cluster | Separate state files for isolation |
-| Locking | Always use DynamoDB table |
+| Locking | Set `use_lockfile = true` |
 | Access control | IAM policies restricting state bucket access |
 | Backups | S3 versioning handles this automatically |
 | CI/CD | Store backend config, not state, in git |
@@ -613,16 +606,26 @@ This deletes the old Secret (immediately invalidating the token), creates a new 
 2. Update `gitops_cluster_token` in your tfvars
 3. Verify: `terraform plan` should show no changes
 
-### Removing the htpasswd IDP (Production Hardening)
+### Retiring the bootstrap login
 
-After bootstrap, the htpasswd IDP can be removed to reduce the cluster's attack surface:
+Native RHCS admin settings are creation-only. Changing `create_admin_user`
+to false does not remove an existing IDP, user, or admin grant.
 
-1. Set `create_admin_user = false` in your tfvars
-2. Ensure `gitops_cluster_token` is set (SA token is the sole auth method)
-3. Run `terraform apply` -- this removes the htpasswd IDP and cluster-admin group membership
-4. Verify: `oc get oauth cluster -o yaml` should not list htpasswd
+1. Configure and verify your production identity provider and administrator access.
+2. Verify Terraform access with `gitops_cluster_token` using both cluster and
+   GitOps tfvars. Keep the token in a secret store or environment variable.
+3. List IDPs with `rosa list idps --cluster=<cluster-name>` and identify the
+   bootstrap htpasswd IDP; do not assume its name.
+4. Remove that IDP explicitly with
+   `rosa delete idp <idp-id-or-name> --cluster=<cluster-name>`.
+5. Verify removal using `rosa list idps` and `oc get oauth cluster -o yaml`,
+   and confirm alternate administrator and Terraform access still works.
+   Review any remaining grants for the retired user.
 
-> **Note:** Do not remove htpasswd until you have verified the SA token works. Test with `terraform plan` using the SA token first.
+Use Red Hat's [identity-provider lifecycle commands](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws_classic_architecture/4/html/cli_tools/rosa-cli)
+and the [state migration notes](PROVIDER-UPGRADE.md). Preserve the old generated
+password during the migration; replacing its Terraform resource does not rotate
+the actual login.
 
 ### Destroy Workflow
 
@@ -725,7 +728,7 @@ open $(terraform output -raw cluster_console_url)
 worker_node_count = 5
 
 # Apply
-terraform apply -var-file=dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
 ### Add Machine Pool
@@ -745,7 +748,7 @@ machine_pools = [
 
 ```bash
 # Apply
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 ```
 
 See [Machine Pools Guide](MACHINE-POOLS.md) for GPU, bare metal, ARM/Graviton examples.
@@ -766,71 +769,28 @@ terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 
 Cluster upgrades differ between ROSA Classic and ROSA HCP architectures.
 
-#### ROSA Classic Upgrades
+#### Explicit upgrades for Classic and HCP
 
-Classic clusters upgrade as a single unit - control plane and workers upgrade together:
+Both cluster modules ignore changes to `version` to prevent unintended upgrades
+or downgrades. Editing `openshift_version` and applying Terraform alone **does not
+upgrade an existing cluster**.
+
+Use the supported ROSA CLI or Hybrid Cloud Console workflow. Select an available
+target for the actual cluster and review required acknowledgements and IAM policy
+updates before scheduling:
 
 ```bash
-# 1. Check available versions
 rosa list upgrade --cluster=<cluster-name>
-
-# 2. Update tfvars with target version
-openshift_version = "4.19.0"
-
-# 3. If upgrading to a new minor version (e.g., 4.18 → 4.19), add acknowledgement
-# This confirms you've reviewed breaking API changes
-upgrade_acknowledgements_for = "4.19"
-
-# 4. Apply the upgrade
-terraform apply -var-file=prod.tfvars
+rosa upgrade cluster --cluster=<cluster-name> --version=<available-version>
 ```
 
-> **Note**: For Classic clusters using STS, the RHCS provider automatically upgrades
-> IAM policies if they're incompatible with the target version.
+Classic upgrades cover control plane and workers. For HCP, complete the control
+plane upgrade first, then schedule machine-pool upgrades and verify supported
+version skew. Afterward update the tfvars version to match the intended baseline
+and review a refresh-only plan using the same cluster and GitOps overlays.
 
-#### ROSA HCP Upgrades
-
-HCP clusters have a **decoupled control plane and machine pools**. The upgrade order is:
-
-1. **Upgrade control plane FIRST** (does not impact worker nodes)
-2. **Then upgrade machine pools** (can upgrade multiple pools concurrently)
-
-```bash
-# 1. Check current versions
-rosa describe cluster --cluster=<cluster-name>
-rosa list machinepool --cluster=<cluster-name>
-
-# 2. Update tfvars with target version
-openshift_version = "4.19.0"
-
-# 3. If upgrading to a new minor version (e.g., 4.18 → 4.19), add acknowledgement
-# This confirms you've reviewed breaking API changes
-upgrade_acknowledgements_for = "4.19"
-
-# 4. Apply to upgrade control plane first
-terraform apply -var-file=prod.tfvars
-
-# 5. Then upgrade machine pools (if managed separately)
-# Machine pools must stay within n-2 of control plane version
-```
-
-**HCP Version Constraints**:
-- Machine pools cannot use a **newer** version than the control plane
-- Machine pools must be within **2 minor versions** (n-2) of the control plane
-- Example: Control plane 4.19.x supports machine pools 4.17.x, 4.18.x, 4.19.x
-
-#### Upgrade Acknowledgements
-
-When upgrading to certain versions, OpenShift requires acknowledgement of breaking
-changes (removed APIs, deprecations). The RHCS provider surfaces this as:
-
-```hcl
-# Add to your cluster resource or tfvars when required
-upgrade_acknowledgements_for = "4.19"  # Target minor version
-```
-
-If you don't add this and it's required, Terraform will error with a message
-explaining what changes require acknowledgement.
+Follow Red Hat's [Classic upgrade procedure](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws_classic_architecture/4/html/upgrading/rosa-upgrading-sts)
+and [HCP upgrade procedure](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/epub/upgrading/rosa-sts-upgrading-a-cluster-with-sts).
 
 #### Hybrid Management: Console + Terraform
 
@@ -846,7 +806,7 @@ If someone upgrades the cluster via the Hybrid Cloud Console instead of Terrafor
 rosa describe cluster --cluster=<cluster-name>
 
 # 2. Review what Terraform sees as drift
-terraform plan -refresh-only -var-file=prod.tfvars
+terraform plan -refresh-only -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 
 # 3. The plan will show version difference, but due to lifecycle ignore_changes,
 #    Terraform will NOT try to "downgrade" the cluster
@@ -855,7 +815,7 @@ terraform plan -refresh-only -var-file=prod.tfvars
 openshift_version = "4.17.3"  # Match what's actually deployed
 
 # 5. Apply to sync state (no changes to cluster)
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 ```
 
 The cluster modules include `lifecycle { ignore_changes = [version] }` which prevents
@@ -876,7 +836,7 @@ rosa describe cluster --cluster=<cluster-name>
 #    openshift_version = "4.17.0"
 
 # 3. Refresh state to pick up current version
-terraform apply -refresh-only -var-file=prod.tfvars
+terraform apply -refresh-only -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 # State now knows cluster is at 4.17.3
 
 # 4. For y-stream upgrade (4.17 → 4.18), update tfvars:
@@ -884,7 +844,7 @@ openshift_version = "4.18.0"
 upgrade_acknowledgements_for = "4.18"
 
 # 5. Apply the y-stream upgrade
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 ```
 
 ##### Understanding lifecycle ignore_changes
@@ -911,13 +871,13 @@ This design supports hybrid management where:
 
 ```bash
 # Preview what refresh would change (safe, read-only)
-terraform plan -refresh-only -var-file=prod.tfvars
+terraform plan -refresh-only -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 
 # Apply the refresh to sync state with actual infrastructure
-terraform apply -refresh-only -var-file=prod.tfvars
+terraform apply -refresh-only -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 
 # Full plan showing any drift including version (informational)
-terraform plan -var-file=prod.tfvars
+terraform plan -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 ```
 
 **Reference Documentation**:
@@ -935,14 +895,14 @@ terraform plan -var-file=prod.tfvars
 ```bash
 # Budget 15-20 minutes
 cd environments/<environment>
-terraform apply -var-file=prod.tfvars -target=module.client_vpn
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars -target=module.client_vpn
 ```
 
 ### Destroy VPN (Cost Savings)
 
 ```bash
 # Budget 15-25 minutes
-terraform destroy -var-file=prod.tfvars -target=module.client_vpn
+terraform destroy -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars -target=module.client_vpn
 ```
 
 ### VPN Troubleshooting
@@ -1191,25 +1151,26 @@ For private clusters, the Terraform runner must reach the OAuth server:
 # Two-phase approach
 # Phase 1: Deploy cluster without GitOps
 install_gitops = false
-terraform apply -var-file=dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 
 # Phase 2: Connect VPN, discover OAuth URL, enable GitOps
 install_gitops = true
 gitops_oauth_url = "https://oauth-openshift.apps...."  # discovered value
-terraform apply -var-file=dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
 ### State Lock Issues
 
-```bash
-# Local state
-rm -f .terraform.tfstate.lock.info
+Confirm that no active plan or apply owns the lock before unlocking. Inspect the
+lock details in Terraform's error output, then use Terraform's backend-aware
+command from the affected environment:
 
-# S3 + DynamoDB backend
-aws dynamodb delete-item \
-  --table-name terraform-locks \
-  --key '{"LockID": {"S": "your-state-path"}}'
+```bash
+terraform force-unlock <LOCK_ID>
 ```
+
+Do not directly delete a lock object or local lock file while another runner
+might still be using the state.
 
 ### VPC Destroy Stuck
 
