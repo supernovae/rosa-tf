@@ -73,8 +73,6 @@ jobs:
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - name: Use verified environment provider selections
-        run: cp environments/commercial-hcp/.terraform.lock.hcl modules/cluster/rosa-${{ matrix.cluster_type }}/.terraform.lock.hcl
       - name: Initialize test module
         working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
         run: terraform init -backend=false -lockfile=readonly

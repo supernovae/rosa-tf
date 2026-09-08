@@ -103,11 +103,17 @@ any delete/replacement and requires both legacy admin resources to be forgotten.
 The legacy test fixture intentionally uses the deprecated resource to represent
 old state; production configuration does not instantiate it.
 
+Each cluster module tracks a test lockfile containing only its required providers,
+with versions and platform hashes aligned to the environment lockfiles. Do not
+copy a full environment lockfile into a smaller module: read-only initialization
+rejects the dependency-set change. Refresh these test lockfiles when upgrading
+the corresponding environment providers.
+
 Run the regression tests after initializing each cluster module:
 
 ```sh
 cd modules/cluster/rosa-hcp
-terraform init -backend=false
+terraform init -backend=false -lockfile=readonly
 bash ../../../scripts/test-bootstrap.sh
 ```
 
