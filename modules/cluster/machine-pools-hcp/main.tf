@@ -99,7 +99,7 @@ locals {
   # Build map of pools that need ECR policy attached
   pools_with_ecr = {
     for name, pool in rhcs_hcp_machine_pool.pool : name => pool
-    if try(var.machine_pools[index(var.machine_pools.*.name, name)].attach_ecr_policy, false)
+    if try(var.machine_pools[index(var.machine_pools[*].name, name)].attach_ecr_policy, false)
   }
 }
 

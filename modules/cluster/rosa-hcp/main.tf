@@ -53,6 +53,12 @@ check "version_drift_check" {
 #------------------------------------------------------------------------------
 
 resource "rhcs_cluster_rosa_hcp" "this" {
+  # Native RHCS bootstrap creates the htpasswd user and grants admin access.
+  admin_credentials = var.create_admin_user ? {
+    username = var.admin_username
+    password = random_password.cluster_admin[0].result
+  } : null
+
   name = var.cluster_name
 
   # Cloud provider configuration
@@ -149,6 +155,8 @@ resource "rhcs_cluster_rosa_hcp" "this" {
     # This prevents Terraform from "downgrading" if cluster was upgraded
     # via Hybrid Cloud Console or automatic z-stream updates
     ignore_changes = [
+      # Creation-only field: preserve existing clusters during bootstrap migration.
+      admin_credentials,
       version,
       auto_node,
       fips,
@@ -157,7 +165,7 @@ resource "rhcs_cluster_rosa_hcp" "this" {
 }
 
 #------------------------------------------------------------------------------
-# Wait for cluster to be ready before configuring IDP
+# Wait for cluster endpoints and native admin bootstrap to settle
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "cluster_ready" {
@@ -198,37 +206,6 @@ resource "random_password" "cluster_admin" {
   override_special = "!@#$%^&*()_+-="
 }
 
-resource "rhcs_identity_provider" "htpasswd" {
-  count = var.create_admin_user ? 1 : 0
-
-  cluster = rhcs_cluster_rosa_hcp.this.id
-  name    = "htpasswd" # Consistent with rosa-classic
-
-  htpasswd = {
-    users = [
-      {
-        username = var.admin_username
-        password = random_password.cluster_admin[0].result
-      }
-    ]
-  }
-
-  # Wait for cluster to be ready before creating IDP
-  depends_on = [time_sleep.cluster_ready]
-}
-
-resource "rhcs_group_membership" "cluster_admin" {
-  count = var.create_admin_user ? 1 : 0
-
-  # Note: Using group membership is deprecated but still functional.
-  # The RHCS provider may migrate to a different resource in the future.
-  cluster = rhcs_cluster_rosa_hcp.this.id
-  group   = "cluster-admins"
-  user    = var.admin_username
-
-  depends_on = [rhcs_identity_provider.htpasswd]
-}
-
 #------------------------------------------------------------------------------
 # Cluster Autoscaler (Optional)
 # 
@@ -241,12 +218,12 @@ resource "rhcs_group_membership" "cluster_admin" {
 # - Fewer configuration options (simplified managed experience)
 # - Works with HCP machine pools that have autoscaling enabled
 #
-# Both components needed for full autoscaling:
-# 1. Cluster Autoscaler: Controls HOW autoscaling works (this resource)
-# 2. Machine Pool Autoscaling: Controls IF autoscaling is enabled (min/max)
+# RHCS 1.7.7 documents this HCP endpoint as unavailable. Input validation
+# rejects enabling this resource until the provider/API supports it.
+# Machine-pool autoscaling (min/max replicas) works without this resource.
 #------------------------------------------------------------------------------
 
-resource "rhcs_cluster_autoscaler" "this" {
+resource "rhcs_hcp_cluster_autoscaler" "this" {
   count = var.cluster_autoscaler_enabled ? 1 : 0
 
   cluster = rhcs_cluster_rosa_hcp.this.id

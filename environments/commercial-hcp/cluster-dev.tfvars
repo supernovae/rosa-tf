@@ -221,29 +221,22 @@ machine_pools = []
 # ]
 
 #------------------------------------------------------------------------------
-# Cluster Autoscaler
+# HCP Machine-Pool Autoscaling
 #
-# The cluster autoscaler controls cluster-wide scaling behavior.
-# For HCP, it's fully managed by Red Hat (runs with control plane).
-#
-# IMPORTANT: Both cluster autoscaler AND machine pool autoscaling must be
-# enabled for automatic scaling to work.
+# RHCS 1.7.7 does not support cluster-wide HCP autoscaler tuning.
+# Pool autoscaling works independently; keep the cluster-wide flag false.
+# See docs/PROVIDER-UPGRADE.md.
 #------------------------------------------------------------------------------
 
-# Enable cluster autoscaler (disabled by default for dev - cost control)
-# cluster_autoscaler_enabled = true
+cluster_autoscaler_enabled = false
 
-# Maximum nodes across all autoscaling machine pools
-# autoscaler_max_nodes_total = 50
-
-# Example: Enable autoscaling in dev
-# cluster_autoscaler_enabled = true
-# autoscaler_max_nodes_total = 20
+# Example: add or merge this pool into machine_pools above.
+# Do not set replicas on an autoscaling pool.
 # machine_pools = [
 #   {
 #     name          = "workers"
 #     instance_type = "m6i.xlarge"
-#     autoscaling   = { enabled = true, min = 2, max = 10 }
+#     autoscaling   = { enabled = true, min = 3, max = 20 }
 #   }
 # ]
 

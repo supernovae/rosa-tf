@@ -5,7 +5,7 @@
 [![Latest Release](https://img.shields.io/github/release/supernovae/rosa-tf)](https://github.com/supernovae/rosa-tf/releases)
 
 <!-- Terraform & ROSA -->
-![Terraform Version](https://img.shields.io/badge/Terraform-%3E%3D%201.6-623CE4?logo=terraform)
+![Terraform Version](https://img.shields.io/badge/Terraform-%3E%3D%201.16.1-623CE4?logo=terraform)
 ![AWS Provider](https://img.shields.io/badge/AWS%20Provider-%3E%3D%205.0-orange?logo=amazon-aws)
 ![ROSA](https://img.shields.io/badge/ROSA-HCP%20%7C%20Classic-red?logo=red-hat)
 
@@ -272,8 +272,11 @@ See [Deployment](#deployment) for the two-phase workflow, or the full **[GitOps 
 
 ## Prerequisites
 
+See [Terraform/provider versions and existing-cluster migration](docs/PROVIDER-UPGRADE.md)
+before upgrading an existing deployment.
+
 **Required:**
-- [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) >= 1.6
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.16.1, < 2.0 (CI uses 1.16.1; see `.terraform-version`)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) v2
 - [ROSA CLI](https://docs.openshift.com/rosa/cli_reference/rosa_cli/rosa-get-started-cli.html) >= 1.2.39
 - [OpenShift CLI (oc)](https://docs.openshift.com/rosa/cli_reference/openshift_cli/getting-started-cli.html) -- for cluster access and verification
@@ -370,7 +373,7 @@ oc login $(terraform output -raw cluster_api_url) \
 create_client_vpn = true
 
 # Apply then download config
-terraform apply -var-file=prod.tfvars
+terraform apply -var-file=cluster-prod.tfvars -var-file=gitops-prod.tfvars
 aws ec2 export-client-vpn-client-configuration \
   --client-vpn-endpoint-id $(terraform output -raw vpn_endpoint_id) \
   --output text > vpn-config.ovpn

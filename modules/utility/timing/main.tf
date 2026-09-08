@@ -14,15 +14,15 @@
 #------------------------------------------------------------------------------
 
 terraform {
-  required_version = ">= 1.4.6"
+  required_version = ">= 1.16.1, < 2.0.0"
   required_providers {
     time = {
       source  = "hashicorp/time"
-      version = ">= 0.9.0"
+      version = ">= 0.14.1, < 1.0.0"
     }
     null = {
       source  = "hashicorp/null"
-      version = ">= 3.0.0"
+      version = ">= 3.3.1, < 4.0.0"
     }
   }
 }

@@ -70,31 +70,31 @@ output "openshift_version" {
 
 output "admin_username" {
   description = "Cluster admin username."
-  value       = var.create_admin_user ? var.admin_username : null
+  value       = var.create_admin_user ? try(coalesce(rhcs_cluster_rosa_hcp.this.admin_credentials.username, var.admin_username), var.admin_username) : null
   # With two-phase deployment, OAuth has settled by the time Phase 2 runs.
   # No sleep needed -- the time gap between phases handles reconciliation.
-  depends_on = [rhcs_group_membership.cluster_admin]
+  depends_on = [time_sleep.cluster_ready]
 }
 
 output "admin_password" {
   description = "Cluster admin password."
-  value       = var.create_admin_user ? random_password.cluster_admin[0].result : null
+  value       = var.create_admin_user ? try(coalesce(rhcs_cluster_rosa_hcp.this.admin_credentials.password, random_password.cluster_admin[0].result), random_password.cluster_admin[0].result) : null
   sensitive   = true
-  depends_on  = [rhcs_group_membership.cluster_admin]
+  depends_on  = [time_sleep.cluster_ready]
 }
 
 # Aliases for backward compatibility
 output "cluster_admin_username" {
   description = "Cluster admin username (alias for admin_username)."
-  value       = var.create_admin_user ? var.admin_username : null
-  depends_on  = [rhcs_group_membership.cluster_admin]
+  value       = var.create_admin_user ? try(coalesce(rhcs_cluster_rosa_hcp.this.admin_credentials.username, var.admin_username), var.admin_username) : null
+  depends_on  = [time_sleep.cluster_ready]
 }
 
 output "cluster_admin_password" {
   description = "Cluster admin password (alias for admin_password)."
-  value       = var.create_admin_user ? random_password.cluster_admin[0].result : null
+  value       = var.create_admin_user ? try(coalesce(rhcs_cluster_rosa_hcp.this.admin_credentials.password, random_password.cluster_admin[0].result), random_password.cluster_admin[0].result) : null
   sensitive   = true
-  depends_on  = [rhcs_group_membership.cluster_admin]
+  depends_on  = [time_sleep.cluster_ready]
 }
 
 #------------------------------------------------------------------------------

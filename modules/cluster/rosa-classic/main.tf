@@ -23,6 +23,12 @@ data "aws_partition" "current" {}
 #------------------------------------------------------------------------------
 
 resource "rhcs_cluster_rosa_classic" "this" {
+  # Native RHCS bootstrap creates the htpasswd user and grants admin access.
+  admin_credentials = var.create_admin_user ? {
+    username = var.admin_username
+    password = random_password.admin[0].result
+  } : null
+
   name = var.cluster_name
 
   # OpenShift Version and Channel Group
@@ -96,9 +102,6 @@ resource "rhcs_cluster_rosa_classic" "this" {
   aws_additional_control_plane_security_group_ids = length(var.aws_additional_control_plane_security_group_ids) > 0 ? var.aws_additional_control_plane_security_group_ids : null
   aws_additional_infra_security_group_ids         = length(var.aws_additional_infra_security_group_ids) > 0 ? var.aws_additional_infra_security_group_ids : null
 
-  # Admin User - configured via rhcs_identity_provider (htpasswd) below
-  # This ensures proper IDP setup and cluster-admins group membership
-
   # Proxy Configuration (if provided)
   proxy = var.http_proxy != null || var.https_proxy != null ? {
     http_proxy              = var.http_proxy
@@ -121,6 +124,8 @@ resource "rhcs_cluster_rosa_classic" "this" {
 
   lifecycle {
     ignore_changes = [
+      # Creation-only field: preserve existing clusters during bootstrap migration.
+      admin_credentials,
       # Ignore version changes as upgrades should be explicit
       version,
     ]
@@ -141,47 +146,6 @@ resource "random_password" "admin" {
   min_upper        = 2
   min_numeric      = 2
   min_special      = 2
-}
-
-#------------------------------------------------------------------------------
-# HTPasswd Identity Provider
-# Creates an identity provider that allows cluster-admin login
-#------------------------------------------------------------------------------
-
-resource "rhcs_identity_provider" "htpasswd" {
-  count = var.create_admin_user ? 1 : 0
-
-  cluster = rhcs_cluster_rosa_classic.this.id
-  name    = "htpasswd"
-
-  htpasswd = {
-    users = [
-      {
-        username = var.admin_username
-        password = random_password.admin[0].result
-      }
-    ]
-  }
-
-  depends_on = [time_sleep.cluster_ready]
-}
-
-#------------------------------------------------------------------------------
-# Grant cluster-admin role to the htpasswd user
-# 
-# NOTE: rhcs_group_membership is deprecated in RHCS provider but still functional.
-# Future versions may require using 'oc adm groups add-users' or RBAC directly.
-# Tracking: https://github.com/terraform-redhat/terraform-provider-rhcs/issues
-#------------------------------------------------------------------------------
-
-resource "rhcs_group_membership" "cluster_admin" {
-  count = var.create_admin_user ? 1 : 0
-
-  cluster = rhcs_cluster_rosa_classic.this.id
-  group   = "cluster-admins"
-  user    = var.admin_username
-
-  depends_on = [rhcs_identity_provider.htpasswd]
 }
 
 #------------------------------------------------------------------------------

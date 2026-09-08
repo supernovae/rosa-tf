@@ -209,7 +209,7 @@ enable_layer_oadp     = true
 ```
 
 ```bash
-terraform apply -var-file=dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
 ## Cluster Access
@@ -259,7 +259,7 @@ oc-mirror --from ./mirror-data docker://$ECR_URL
 
 # Update Terraform
 # openshift_version = "4.18.x"
-terraform apply -var-file=dev.tfvars
+terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
 
 ## Troubleshooting

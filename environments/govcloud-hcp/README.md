@@ -210,43 +210,15 @@ machine_pools = [
 ]
 ```
 
-## Cluster Autoscaler
+## Autoscaling
 
-ROSA HCP supports cluster-wide autoscaling. The autoscaler is fully managed by Red Hat and runs with the hosted control plane.
-
-### Enable Autoscaler
-
-```hcl
-# Enable cluster autoscaler
-cluster_autoscaler_enabled = true
-autoscaler_max_nodes_total = 50
-```
-
-### How It Works
-
-| Component | Purpose |
-|-----------|---------|
-| **Cluster Autoscaler** | Controls cluster-wide scaling behavior (max nodes, timeouts) |
-| **Machine Pool Autoscaling** | Controls individual pool scaling (min/max replicas per pool) |
-
-Both must be enabled for full autoscaling:
-1. Enable `cluster_autoscaler_enabled = true` (cluster-wide settings)
-2. Add machine pools with `autoscaling = { enabled = true, min = X, max = Y }`
-
-### Key Settings
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `autoscaler_max_nodes_total` | 100 | Maximum nodes across autoscaling pools |
-| `autoscaler_max_node_provision_time` | 25m | Time to wait for node ready |
-| `autoscaler_max_pod_grace_period` | 600 | Pod termination grace (seconds) |
-| `autoscaler_pod_priority_threshold` | -10 | Priority below which pods don't affect scaling |
-
-### Example: Production with Autoscaling
+HCP machine pools scale through the Red Hat-managed autoscaler. Set each
+pool's `autoscaling` bounds; keep `cluster_autoscaler_enabled = false`.
+RHCS 1.7.7 documents cluster-wide HCP autoscaler tuning as unavailable, and the
+module rejects enabling it. See [provider migration notes](../../docs/PROVIDER-UPGRADE.md).
 
 ```hcl
-cluster_autoscaler_enabled = true
-autoscaler_max_nodes_total = 100
+cluster_autoscaler_enabled = false
 
 machine_pools = [
   {
@@ -256,6 +228,9 @@ machine_pools = [
   }
 ]
 ```
+
+Omit `replicas` when enabling autoscaling so the autoscaler owns the desired
+pool size. Set limits for your workload and available regional quota.
 
 ## KMS Encryption (Mandatory)
 

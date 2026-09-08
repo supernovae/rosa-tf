@@ -166,20 +166,20 @@ In air-gapped or restricted networks, `terraform init` cannot reach the public T
 
 All modules in this framework use **local paths** (no external registry modules). Only the Terraform **providers** need to be mirrored:
 
-| Provider | Source | Min Lock Version | Used For |
+| Provider | Source | Verified Version | Used For |
 |----------|--------|------------------|----------|
-| aws | `hashicorp/aws` | 6.28.0 | VPC, IAM, Route53, S3, KMS |
+| aws | `hashicorp/aws` | 6.63.0 | VPC, IAM, Route53, S3, KMS |
 | rhcs | `terraform-redhat/rhcs` | 1.7.7 | ROSA cluster lifecycle via OCM API |
-| kubernetes | `hashicorp/kubernetes` | 3.0.1 | Namespaces, ServiceAccounts, Secrets, ConfigMaps |
-| kubectl | `alekc/kubectl` | 2.2.0 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
-| external | `hashicorp/external` | 2.3.5 | OAuth token retrieval (bootstrap only) |
-| null | `hashicorp/null` | 3.2.4 | Validation preconditions |
-| time | `hashicorp/time` | 0.13.1 | Operator readiness waits |
-| random | `hashicorp/random` | 3.8.1 | Password generation, unique suffixes |
-| tls | `hashicorp/tls` | 4.2.0 | VPN certificate generation |
-| local | `hashicorp/local` | 2.6.2 | VPN config file output |
+| kubernetes | `hashicorp/kubernetes` | 3.2.1 | Namespaces, ServiceAccounts, Secrets, ConfigMaps |
+| kubectl | `alekc/kubectl` | 2.4.1 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
+| external | `hashicorp/external` | 2.4.1 | OAuth token retrieval (bootstrap only) |
+| null | `hashicorp/null` | 3.3.1 | Validation preconditions |
+| time | `hashicorp/time` | 0.14.1 | Operator readiness waits |
+| random | `hashicorp/random` | 3.9.0 | Password generation, unique suffixes |
+| tls | `hashicorp/tls` | 4.4.0 | VPN certificate generation |
+| local | `hashicorp/local` | 2.9.0 | VPN config file output |
 
-> **Note:** Versions shown are the minimum found across committed `.terraform.lock.hcl` files. Lock files contain cryptographic hashes for integrity verification and should be preserved in your fork. Individual environments may pin newer patch versions -- always run `terraform providers` to see the exact versions for your environment.
+> **Note:** These are the verified stable selections as of September 8, 2026. All four cluster environments share identical lockfiles, including macOS ARM64 and Linux AMD64 checksums. Preserve the lockfiles and use `terraform init -lockfile=readonly`; see [provider upgrade notes](PROVIDER-UPGRADE.md).
 
 ### Step 1: Mirror Providers (Internet-Connected Machine)
 
@@ -268,10 +268,10 @@ terraform providers
 When upgrading provider versions:
 
 1. Update version constraints in your fork
-2. Re-run `terraform providers mirror` on an internet-connected machine
-3. Transfer updated providers to the air-gapped environment
-4. Run `terraform init -upgrade` to update lock files
-5. Commit updated `.terraform.lock.hcl` files
+2. On a connected machine, run `terraform init -backend=false -upgrade` in each root and refresh platform checksums as described in [provider upgrade notes](PROVIDER-UPGRADE.md)
+3. Validate and review the selections, then commit the updated `.terraform.lock.hcl` files
+4. Run `terraform providers mirror` from each root using those lockfiles and transfer the mirror and lockfiles through your approved process
+5. Initialize restricted runners with `terraform init -lockfile=readonly`
 
 ### Verifying Your Provider Inventory
 
@@ -351,11 +351,12 @@ spec:
     profile: WriteRequestBodies
 ```
 
-Additionally, the SHA256 hash of each applied template is deterministic and can serve as a configuration baseline:
+Record template hashes with the Git commit as a source baseline (not proof of the rendered or applied configuration). Avoid exporting raw Terraform state into audit logs: it contains credentials.
 
 ```bash
-# Generate audit evidence for applied configuration
-terraform show -json | jq '.values.root_module.child_modules[].resources[] | select(.type | startswith("kubectl_manifest")) | {type, name, values: (.values.yaml_body | @base64d | sha256)}'
+# Run from the repository root; retain the commit and template checksums.
+git rev-parse HEAD
+git ls-files -z '*.tftpl' | xargs -0 shasum -a 256
 ```
 
 ### SC-28: Protection of Information at Rest
@@ -369,14 +370,14 @@ backend "s3" {
   region         = "us-gov-west-1"
   encrypt        = true              # SSE-S3 minimum
   kms_key_id     = "alias/tf-state"  # SSE-KMS recommended
-  dynamodb_table = "terraform-locks"
+  use_lockfile   = true
 }
 ```
 
 **Requirements:**
 - S3 bucket: `aws:kms` or `AES256` server-side encryption
 - S3 bucket policy: Restrict `s3:GetObject` to authorized IAM roles
-- DynamoDB lock table: Encrypted at rest
+- S3 `.tflock` object: Allow GetObject, PutObject, and DeleteObject on the exact lock key
 - No local state files in production
 
 ### CM-3: Configuration Change Control

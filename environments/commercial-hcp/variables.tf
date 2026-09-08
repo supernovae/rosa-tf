@@ -620,12 +620,8 @@ variable "machine_pools" {
 variable "cluster_autoscaler_enabled" {
   type        = bool
   description = <<-EOT
-    Enable the cluster autoscaler for automatic cluster sizing.
-    
-    The cluster autoscaler:
-    - Adds nodes when pods can't be scheduled due to insufficient resources
-    - Removes underutilized nodes (default 50% utilization threshold)
-    - Only affects machine pools that have autoscaling enabled
+    Configure cluster-wide HCP autoscaler tuning. Currently unavailable in RHCS 1.7.7.
+    Keep false; configure autoscaling on individual HCP machine pools.
   EOT
   default     = false
 }

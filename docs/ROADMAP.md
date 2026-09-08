@@ -222,7 +222,7 @@ These are hardcoded in `environments/govcloud-hcp/` and cannot be disabled.
 Features under consideration for future releases:
 
 ### Infrastructure
-- [x] Cluster autoscaler configuration - See `cluster_autoscaler_enabled` in cluster modules
+- [x] Classic cluster autoscaler tuning and HCP machine-pool autoscaling; HCP cluster-wide tuning is unavailable in RHCS 1.7.7 (see [provider notes](PROVIDER-UPGRADE.md))
 - [ ] External Secrets Operator integration
 - [x] Cert-Manager with Let's Encrypt (DNS01 via Route53 IRSA)
 - [x] Multi-cluster in single VPC - BYO-VPC support with subnet helper. See [BYO-VPC.md](BYO-VPC.md)

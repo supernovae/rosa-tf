@@ -409,32 +409,21 @@ oc logs -n openshift-logging -l app.kubernetes.io/component=collector --tail=50
 
 ### Recreating Monitoring Stack
 
-To fully recreate the monitoring stack:
+To recover the monitoring stack, inspect the current owning resources first:
 
 ```bash
 cd environments/commercial-hcp
-
-# Delete existing resources
-oc delete lokistack logging-loki -n openshift-logging
-oc delete secret logging-loki-s3 -n openshift-logging
-oc delete uiplugin logging
-oc delete clusterlogforwarder instance -n openshift-logging
-oc delete clusterrolebinding logcollector-collect-application-logs
-oc delete clusterrolebinding logcollector-collect-infrastructure-logs
-oc delete clusterrolebinding logcollector-collect-audit-logs
-
-# Taint Terraform resources
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_loki_secret_direct[0]'
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_lokistack_direct[0]'
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_uiplugin_direct[0]'
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_logforwarder_direct[0]'
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_rbac_application_direct[0]'
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_rbac_infrastructure_direct[0]'
-terraform taint -var-file=dev.tfvars 'module.gitops[0].null_resource.layer_monitoring_rbac_audit_direct[0]'
-
-# Re-apply
-terraform apply -var-file=dev.tfvars
+terraform state list
+oc get applications -n openshift-gitops
+terraform plan -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
 ```
+
+Reconcile the relevant Argo CD Application and inspect its operator conditions.
+Do not delete the entire stack or taint historical `null_resource` addresses:
+those addresses are no longer the deployment contract. If a Terraform-managed
+resource genuinely needs replacement, use a reviewed `terraform plan -replace`
+with its exact current state address and the same tfvars. Replacement can interrupt
+logging or remove stored data; confirm backup and recovery requirements first.
 
 ## Example Configurations
 

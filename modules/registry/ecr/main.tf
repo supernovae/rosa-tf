@@ -146,7 +146,7 @@ data "aws_caller_identity" "current" {}
 
 locals {
   # ECR registry URL without repository name
-  registry_url = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.id}.amazonaws.com"
+  registry_url = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.region}.amazonaws.com"
 
   # IDMS YAML template for zero-egress clusters
   idms_yaml_template = <<-YAML
@@ -264,7 +264,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   count = local.create_endpoints ? 1 : 0
 
   vpc_id              = var.vpc_id
-  service_name        = "com.amazonaws.${data.aws_region.current.id}.ecr.api"
+  service_name        = "com.amazonaws.${data.aws_region.current.region}.ecr.api"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnet_ids
   security_group_ids  = local.endpoint_security_group_ids
@@ -283,7 +283,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   count = local.create_endpoints ? 1 : 0
 
   vpc_id              = var.vpc_id
-  service_name        = "com.amazonaws.${data.aws_region.current.id}.ecr.dkr"
+  service_name        = "com.amazonaws.${data.aws_region.current.region}.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.private_subnet_ids
   security_group_ids  = local.endpoint_security_group_ids

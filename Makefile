@@ -1,6 +1,6 @@
 # Makefile for ROSA Multi-Environment Terraform Framework
 
-.PHONY: help init validate fmt lint security docs clean test pre-commit install-tools
+.PHONY: help init upgrade-providers validate fmt lint security docs clean test pre-commit install-tools
 
 # Default target
 help: ## Show this help message
@@ -20,10 +20,13 @@ ENV_DIR = environments/$(ENV)
 
 # Terraform commands for specific environment
 init: ## Initialize Terraform for ENV
-	cd $(ENV_DIR) && terraform init -upgrade
+	cd $(ENV_DIR) && terraform init -lockfile=readonly
+
+upgrade-providers: ## Intentionally refresh provider selections for ENV (review and commit the lockfile)
+	cd $(ENV_DIR) && terraform init -backend=false -upgrade
 
 validate: ## Validate Terraform configuration for ENV
-	cd $(ENV_DIR) && terraform init -backend=false && terraform validate
+	cd $(ENV_DIR) && terraform init -backend=false -lockfile=readonly && terraform validate
 
 fmt: ## Format all Terraform files
 	terraform fmt -recursive
@@ -103,17 +106,14 @@ test: fmt lint security validate-all ## Run all tests
 validate-all: ## Validate all environments
 	@for env in commercial-classic commercial-hcp govcloud-classic govcloud-hcp; do \
 		echo "Validating environments/$$env..."; \
-		cd environments/$$env && terraform init -backend=false && terraform validate && cd ../..; \
+		cd environments/$$env && terraform init -backend=false -lockfile=readonly && terraform validate && cd ../..; \
 	done
 
 # Clean
 clean: ## Clean up temporary files
 	rm -rf .terraform
-	rm -f .terraform.lock.hcl
-	rm -f terraform.tfstate*
 	rm -f crash.log
 	find . -name ".terraform" -type d -exec rm -rf {} + 2>/dev/null || true
-	find . -name ".terraform.lock.hcl" -type f -delete 2>/dev/null || true
 
 # Install required tools
 install-tools: ## Install required development tools

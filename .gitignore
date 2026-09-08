@@ -1,6 +1,14 @@
 # Terraform
 .terraform/
 .terraform.lock.hcl
+!environments/commercial-classic/.terraform.lock.hcl
+!environments/commercial-hcp/.terraform.lock.hcl
+!environments/govcloud-classic/.terraform.lock.hcl
+!environments/govcloud-hcp/.terraform.lock.hcl
+!environments/account-hcp/.terraform.lock.hcl
+!helpers/byo-vpc-subnets/.terraform.lock.hcl
+!modules/cluster/rosa-classic/.terraform.lock.hcl
+!modules/cluster/rosa-hcp/.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfstate.backup

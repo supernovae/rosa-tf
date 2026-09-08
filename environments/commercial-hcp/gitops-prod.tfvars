@@ -11,8 +11,9 @@
 
 # htpasswd bootstrap: create_admin_user in cluster-prod.tfvars is required for
 # initial bootstrap (creates OAuth token). After bootstrap, Terraform uses the
-# SA token (gitops_cluster_token). To harden: set create_admin_user = false
-# in cluster-prod.tfvars and re-apply to remove htpasswd IDP.
+# SA token (gitops_cluster_token). Native admin settings are creation-only.
+# Retire htpasswd explicitly after verifying alternate access; changing the flag
+# and applying Terraform does not remove an existing login.
 # See docs/OPERATIONS.md for the full credential lifecycle.
 
 install_gitops           = true

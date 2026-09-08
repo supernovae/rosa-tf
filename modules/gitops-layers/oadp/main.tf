@@ -173,7 +173,7 @@ resource "aws_cloudformation_stack" "oadp_bucket" {
 resource "null_resource" "bucket_destroy_notice" {
   triggers = {
     bucket_name = local.bucket_name
-    aws_region  = data.aws_region.current.id
+    aws_region  = data.aws_region.current.region
   }
 
   provisioner "local-exec" {

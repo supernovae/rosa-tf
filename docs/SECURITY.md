@@ -196,6 +196,11 @@ Security findings are uploaded to GitHub Security tab via SARIF format:
 - Grype results
 - Checkov results
 
+The repository ruleset requires CodeQL and Checkov code-scanning results.
+Keep required scanner names aligned with active workflows when retiring or
+replacing tools; an obsolete ruleset requirement can block merging even when
+all workflow jobs pass.
+
 ---
 
 ## Adding New Checks

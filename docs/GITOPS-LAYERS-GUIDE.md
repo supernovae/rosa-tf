@@ -310,7 +310,7 @@ Example: **Virtualization**
 2. **Test with a dev cluster:**
    ```bash
    # Enable your layer
-   terraform apply -var="enable_layer_newlayer=true" -var-file=dev.tfvars
+   terraform apply -var="enable_layer_newlayer=true" -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
    ```
 
 3. **Verify in cluster:**
