@@ -3,19 +3,8 @@
 #------------------------------------------------------------------------------
 
 output "terraform_sa_token" {
-  description = <<-EOT
-    ServiceAccount token for Terraform cluster management.
-    
-    After first apply, set this in your tfvars to bypass OAuth on future runs:
-      gitops_cluster_token = "<this value>"
-    
-    Retrieve with: terraform output -raw terraform_sa_token
-    Rotate with:   terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token[0]"
-    
-    SECURITY: This token is stored in Terraform state. Ensure state is on
-    encrypted S3 with IAM access controls (see docs/FEDRAMP.md).
-  EOT
-  value       = var.skip_k8s_destroy ? "" : kubernetes_secret_v1.terraform_operator_token[0].data["token"]
+  description = "Legacy permanent cluster-admin token (empty unless explicitly enabled). Stored in state; never copy into tfvars. Prefer short-lived runner credentials; migrate using independent authentication."
+  value       = try(kubernetes_secret_v1.terraform_operator_token[0].data["token"], "")
   sensitive   = true
 }
 
@@ -40,8 +29,8 @@ output "argocd_url" {
 }
 
 output "argocd_admin_password" {
-  description = "Command to get the ArgoCD admin password."
-  value       = "oc extract secret/openshift-gitops-cluster -n openshift-gitops --to=- --keys=admin.password"
+  description = "Break-glass password command only when the local admin is explicitly enabled."
+  value       = var.gitops_instance_config.admin_enabled ? "oc extract secret/openshift-gitops-cluster -n openshift-gitops --to=- --keys=admin.password" : "Local admin disabled; use configured SSO."
 }
 
 output "layers_enabled" {
@@ -82,7 +71,7 @@ output "layers_repo" {
 
 output "external_repo_deployed" {
   description = "Whether a custom GitOps Application was deployed for the external repo."
-  value       = local.has_custom_gitops_repo
+  value       = !var.skip_k8s_destroy && local.has_custom_gitops_repo
 }
 
 output "install_instructions" {
@@ -95,11 +84,9 @@ output "install_instructions" {
     1. Get the route:
        oc get route openshift-gitops-server -n openshift-gitops -o jsonpath='{.spec.host}'
     
-    2. Login options:
-       - Use OpenShift OAuth (click "Log in via OpenShift")
-       - Or get admin password:
-         oc extract secret/openshift-gitops-cluster -n openshift-gitops --to=- --keys=admin.password
-    
+    2. Log in through the configured SSO provider; local admin is disabled by default.
+       Map approved IdP groups before applying. See docs/GITOPS.md for acceptance tests.
+
     Enabled Layers:
     - Terminal: ${var.enable_layer_terminal}
     - OADP: ${var.enable_layer_oadp}

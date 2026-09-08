@@ -1,25 +1,8 @@
-#------------------------------------------------------------------------------
-# Cluster Auth Module -- Bootstrap Only
-#
-# Obtains an OAuth bearer token for the initial GitOps bootstrap (Phase 2).
-# This token is used ONCE to create the Terraform operator ServiceAccount
-# and its long-lived token. After bootstrap, subsequent Terraform runs
-# authenticate with the SA token (gitops_cluster_token) and this module
-# is no longer invoked.
-#
-# Authentication methods (in priority order):
-#   1. User-provided token (gitops_cluster_token) -- skips OAuth entirely
-#   2. htpasswd IDP credentials -- uses OAuth ROPC flow to get bearer token
-#   3. Custom OAuth URL override -- for non-standard configurations
-#
-# Once the SA token exists in state, the htpasswd IDP can be safely removed
-# or replaced with a production IDP (LDAP, OIDC, etc.) without affecting
-# Terraform operations. See OPERATIONS.md for token rotation guidance.
-#
-# Requirements:
-#   - Cluster must be fully provisioned and API-accessible
-#   - curl must be available on the system running Terraform
-#------------------------------------------------------------------------------
+# Verified-TLS OAuth challenge bootstrap, used only without a provided runner token.
+# Requires curl and jq. Discovery and authorization failures stop the apply.
+# Prefer short-lived credentials from an approved runner identity for later runs.
+# Retire htpasswd only after independent IdP/runner access has been verified.
+# See docs/GITOPS.md; credentials and external-data results are sensitive state.
 
 locals {
   # Normalize API URL (remove trailing slash if present)
@@ -32,8 +15,8 @@ locals {
 #------------------------------------------------------------------------------
 # Get OAuth Token via curl (if not using provided token)
 #
-# Uses the Resource Owner Password Credentials (ROPC) flow to obtain a token.
-# This is wrapped in an external data source to handle errors gracefully.
+# Uses the OpenShift OAuth challenging-client authorization flow.
+# The external data source fails closed on authentication or TLS errors.
 #
 # NOTE: We pass credentials via stdin JSON to avoid shell escaping issues
 # with special characters in passwords.
@@ -49,6 +32,12 @@ data "external" "oauth_token" {
     oauth_url = var.oauth_url
     username  = var.username
     password  = var.password
+  }
+  lifecycle {
+    postcondition {
+      condition     = try(self.result.authenticated == "true" && self.result.token != "", false)
+      error_message = "GitOps bootstrap failed. Verify private connectivity, trusted API/OAuth CAs and approved credentials; no unauthenticated fallback is permitted."
+    }
   }
 }
 

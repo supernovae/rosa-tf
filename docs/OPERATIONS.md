@@ -574,37 +574,28 @@ rosa whoami
 
 ## Terraform Service Account Lifecycle
 
-After the initial cluster bootstrap, Terraform creates a Kubernetes ServiceAccount (`terraform-operator`) with a long-lived token for all subsequent operations. This replaces the OAuth-based authentication flow.
+Terraform creates a dedicated privileged ServiceAccount for platform-layer management,
+with token automount disabled. Permanent token Secrets are **not created by default**.
+Supply a short-lived token as `TF_VAR_gitops_cluster_token` from an approved runner
+or secret manager. Do not write tokens into tfvars, logs, or saved plan artifacts
+without appropriate encryption and access controls.
 
-### Bootstrap Flow (First Apply)
+### Bootstrap and renewal
 
-1. `cluster_auth` module obtains OAuth token using htpasswd admin credentials
-2. Kubernetes/kubectl providers use OAuth token to create cluster resources
-3. `identity.tf` creates the ServiceAccount, ClusterRoleBinding, and token Secret
-4. Token is stored in Terraform state (encrypted S3 at rest)
-5. Output the token: `terraform output -raw terraform_sa_token`
-6. Set in tfvars: `gitops_cluster_token = "<token>"`
+1. Provision the cluster before the GitOps phase and verify private API reachability.
+2. Use approved administrator credentials for bootstrap; the OAuth fallback requires
+   `curl`, `jq`, and trusted API/OAuth certificates. TLS verification is mandatory.
+3. Obtain a short-lived TokenRequest credential through your authorized runner;
+   renew before each operation and ensure its lifetime covers the entire apply.
+4. Verify alternate administrative and runner access before retiring bootstrap access.
 
-### Subsequent Applies (SA Token)
+For an existing permanent-token installation, explicitly retain
+`gitops_create_legacy_token=true` until migration is complete. Authenticate with an
+independent authorized credential before deleting or rotating the old Secret;
+revoking the token used by the same apply can strand the operation. Turning the
+flag off deletes the Secret but cannot erase credentials from older state versions.
 
-Once `gitops_cluster_token` is set, Terraform uses the SA token directly:
-- No OAuth flow, no htpasswd dependency
-- Token is persistent (does not expire unless manually rotated)
-- Identity appears in cluster audit logs as `system:serviceaccount:rosa-terraform:terraform-operator`
-
-### Rotating the SA Token
-
-Auditors may require periodic token rotation. Because the token is managed by Terraform, rotation is a single command:
-
-```bash
-terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token"
-```
-
-This deletes the old Secret (immediately invalidating the token), creates a new one, and updates the Terraform state. After rotation:
-
-1. Retrieve the new token: `terraform output -raw terraform_sa_token`
-2. Update `gitops_cluster_token` in your tfvars
-3. Verify: `terraform plan` should show no changes
+See [GitOps security, credential migration and acceptance checks](GITOPS.md).
 
 ### Retiring the bootstrap login
 

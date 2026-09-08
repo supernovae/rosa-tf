@@ -1,287 +1,134 @@
-#------------------------------------------------------------------------------
-# Core GitOps Installation
-#
-# Installs the OpenShift GitOps operator (ArgoCD) and configures the
-# foundation for all GitOps layers. Replaces the previous curl/shell-based
-# approach with native Terraform resources.
-#
-# Resources managed:
-#   1. openshift-gitops Namespace
-#   2. GitOps Operator Subscription (OLM)
-#   3. Cluster-admin RBAC for ArgoCD controller
-#   4. ArgoCD instance with monitoring enabled
-#   5. External repo Application (optional)
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-# Step 1: Namespace
-#
-# Ensures the openshift-gitops namespace exists with our labels before the
-# operator subscription is created. The GitOps operator also creates this
-# namespace automatically, so Terraform's role is additive (labels + early creation).
-#
-# Uses kubectl_manifest instead of kubernetes_namespace_v1 because the native
-# provider's delete state waiter treats "Active" as an unexpected state (rather
-# than a pending state), causing it to error immediately at ~20s instead of
-# waiting for the namespace to terminate. After the operator subscription is
-# removed, OLM needs 1-3 minutes to finalize ClusterServiceVersion and
-# OperatorGroup resources. kubectl_manifest handles this gracefully.
-#------------------------------------------------------------------------------
+# Terraform owns operators and platform layers. Argo CD owns only explicitly
+# delegated workload namespaces. Review docs/GITOPS.md before existing-install upgrades.
+locals {
+  gitops_channel = lookup(yamldecode(file("${local.layers_path}/gitops/channels.yaml")), "${local.ocp_major_version}.${local.ocp_minor_version}", "unsupported")
+  gitops_subscription = templatefile("${local.layers_path}/gitops/subscription.yaml.tftpl", {
+    config = var.gitops_operator_config, channel = local.gitops_channel
+  })
+  gitops_instance = templatefile("${local.layers_path}/gitops/argocd.yaml.tftpl", { config = var.gitops_instance_config })
+  gitops_project = templatefile("${local.layers_path}/gitops/project.yaml.tftpl", {
+    repo_url    = var.gitops_repo_url, namespace = var.gitops_application.namespace
+    view_groups = var.gitops_application.view_groups, sync_groups = var.gitops_application.sync_groups
+  })
+  gitops_application_manifest = templatefile("${local.layers_path}/gitops/application.yaml.tftpl", {
+    repo_url = var.gitops_repo_url, revision = var.gitops_repo_revision
+    path     = var.gitops_repo_path, config = var.gitops_application
+  })
+}
 
 resource "kubectl_manifest" "openshift_gitops_ns" {
   count = var.skip_k8s_destroy ? 0 : 1
-
-  yaml_body = <<-YAML
-    apiVersion: v1
-    kind: Namespace
-    metadata:
-      name: openshift-gitops
-      labels:
-        openshift.io/cluster-monitoring: "true"
-        app.kubernetes.io/managed-by: terraform
-        app.kubernetes.io/part-of: rosa-gitops-layers
-  YAML
-
+  yaml_body = yamlencode({
+    apiVersion = "v1", kind = "Namespace"
+    metadata = {
+      name   = "openshift-gitops"
+      labels = { "openshift.io/cluster-monitoring" = "true", "app.kubernetes.io/managed-by" = "terraform" }
+    }
+  })
   server_side_apply = true
-  force_conflicts   = true
-
-  # OLM needs time to clean up finalizer-bearing resources (CSV, OperatorGroup)
-  # after the Subscription is removed. 5 minutes is ample.
-  wait_for_rollout = false
-
-  override_namespace = "openshift-gitops"
+  force_conflicts   = false
+  # Namespace deletion would destroy all apps/credentials; retire explicitly.
+  apply_only = true
 }
 
-#------------------------------------------------------------------------------
-# Step 2: GitOps Operator Subscription
-#
-# Installs OpenShift GitOps via OLM. The operator creates the ArgoCD CRD
-# and deploys the default ArgoCD instance.
-#------------------------------------------------------------------------------
-
+resource "kubectl_manifest" "gitops_operator_namespace" {
+  count = !var.skip_k8s_destroy && var.gitops_operator_config.namespace != "openshift-operators" ? 1 : 0
+  yaml_body = yamlencode({
+    apiVersion = "v1", kind = "Namespace"
+    metadata   = { name = var.gitops_operator_config.namespace, labels = { "openshift.io/cluster-monitoring" = "true" } }
+  })
+  server_side_apply = true
+  apply_only        = true
+}
+resource "kubectl_manifest" "gitops_operator_group" {
+  count = !var.skip_k8s_destroy && var.gitops_operator_config.namespace != "openshift-operators" ? 1 : 0
+  yaml_body = yamlencode({
+    apiVersion = "operators.coreos.com/v1", kind = "OperatorGroup"
+    metadata   = { name = "openshift-gitops-operator", namespace = var.gitops_operator_config.namespace }
+    spec       = { upgradeStrategy = "Default" }
+  })
+  server_side_apply = true
+  depends_on        = [kubectl_manifest.gitops_operator_namespace]
+}
 resource "kubectl_manifest" "gitops_subscription" {
-  count = var.skip_k8s_destroy ? 0 : 1
-
-  yaml_body = <<-YAML
-    apiVersion: operators.coreos.com/v1alpha1
-    kind: Subscription
-    metadata:
-      name: openshift-gitops-operator
-      namespace: openshift-operators
-    spec:
-      channel: ${local.operator_channels.gitops}
-      installPlanApproval: Automatic
-      name: openshift-gitops-operator
-      source: redhat-operators
-      sourceNamespace: openshift-marketplace
-  YAML
-
+  count             = var.skip_k8s_destroy ? 0 : 1
+  yaml_body         = local.gitops_subscription
   server_side_apply = true
-  force_conflicts   = true
-
-  depends_on = [kubectl_manifest.openshift_gitops_ns]
+  force_conflicts   = false
+  lifecycle {
+    precondition {
+      condition     = local.gitops_channel != "unsupported"
+      error_message = "No verified GitOps stream for this OpenShift minor. Check Red Hat support and update the channel matrix."
+    }
+  }
+  depends_on = [kubectl_manifest.openshift_gitops_ns, kubectl_manifest.gitops_operator_group]
 }
-
-#------------------------------------------------------------------------------
-# Step 3: Wait for Operator
-#
-# The GitOps operator needs time to install and create CRDs.
-# Using time_sleep as a simple gate (kubectl_manifest wait_for requires
-# the CRD to exist, which is what we're waiting for).
-#------------------------------------------------------------------------------
-
 resource "time_sleep" "wait_for_gitops_operator" {
-  count = var.skip_k8s_destroy ? 0 : 1
-
+  count            = var.skip_k8s_destroy ? 0 : 1
   create_duration  = "120s"
-  destroy_duration = "45s" # Give the operator time to clean up finalizers before namespace deletion
-
-  depends_on = [kubectl_manifest.gitops_subscription]
+  destroy_duration = "45s"
+  depends_on       = [kubectl_manifest.gitops_subscription]
 }
 
-#------------------------------------------------------------------------------
-# Step 4: Cluster-admin RBAC for ArgoCD
-#
-# Grants the ArgoCD application controller cluster-admin access so it can
-# manage resources across all namespaces.
-#------------------------------------------------------------------------------
-
-# ROSA's clusterrolebindings-validation webhook allows deletion of this CRB
-# because openshift-gitops is in the webhook's exception list.
-# See: https://github.com/openshift/managed-cluster-validating-webhooks/blob/master/pkg/webhooks/clusterrolebinding/clusterrolebinding.go
-resource "kubectl_manifest" "argocd_rbac" {
-  count = var.skip_k8s_destroy ? 0 : 1
-
-  yaml_body = <<-YAML
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRoleBinding
-    metadata:
-      name: openshift-gitops-argocd-rbac
-      labels:
-        app.kubernetes.io/managed-by: terraform
-        app.kubernetes.io/part-of: rosa-gitops-layers
-    roleRef:
-      apiGroup: rbac.authorization.k8s.io
-      kind: ClusterRole
-      name: cluster-admin
-    subjects:
-      - kind: ServiceAccount
-        name: openshift-gitops-argocd-application-controller
-        namespace: openshift-gitops
-  YAML
-
+# The old argocd_rbac cluster-admin binding is intentionally removed from config:
+# Terraform will delete it. Do not preserve an unnecessary administrative grant.
+resource "kubectl_manifest" "argocd_instance" {
+  count             = var.skip_k8s_destroy ? 0 : 1
+  yaml_body         = local.gitops_instance
   server_side_apply = true
-  force_conflicts   = true
-
+  force_conflicts   = true # Explicitly manage the desired ArgoCD CR, not generated operands.
+  wait_for {
+    field {
+      key   = "status.phase"
+      value = "Available"
+    }
+  }
+  timeouts {
+    create = "30m"
+    update = "30m"
+  }
   depends_on = [time_sleep.wait_for_gitops_operator]
 }
-
-#------------------------------------------------------------------------------
-# Step 5: ArgoCD Instance
-#
-# Creates the ArgoCD instance with monitoring enabled. Uses kubectl_manifest
-# because the ArgoCD CRD is installed by the operator (not built into K8s).
-#------------------------------------------------------------------------------
-
-resource "kubectl_manifest" "argocd_instance" {
-  count = var.skip_k8s_destroy ? 0 : 1
-
-  yaml_body = <<-YAML
-    apiVersion: argoproj.io/v1beta1
-    kind: ArgoCD
-    metadata:
-      name: openshift-gitops
-      namespace: openshift-gitops
-    spec:
-      monitoring:
-        enabled: true
-      controller:
-        processors: {}
-        resources:
-          limits:
-            cpu: "2"
-            memory: 2Gi
-          requests:
-            cpu: 250m
-            memory: 1Gi
-        sharding: {}
-      ha:
-        enabled: false
-      redis:
-        resources:
-          limits:
-            cpu: 500m
-            memory: 256Mi
-          requests:
-            cpu: 250m
-            memory: 128Mi
-      repo:
-        resources:
-          limits:
-            cpu: "1"
-            memory: 1Gi
-          requests:
-            cpu: 250m
-            memory: 256Mi
-      server:
-        autoscale:
-          enabled: false
-        route:
-          enabled: true
-          tls:
-            termination: reencrypt
-            insecureEdgeTerminationPolicy: Redirect
-        service:
-          type: ClusterIP
-      applicationSet:
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 250m
-            memory: 512Mi
-      rbac:
-        defaultPolicy: ""
-        policy: |
-          g, system:cluster-admins, role:admin
-          g, cluster-admins, role:admin
-        scopes: "[groups]"
-      sso:
-        provider: dex
-        dex:
-          openShiftOAuth: true
-  YAML
-
-  server_side_apply = true
-  force_conflicts   = true
-
-  depends_on = [
-    time_sleep.wait_for_gitops_operator,
-    kubectl_manifest.argocd_rbac,
-  ]
-}
-
-#------------------------------------------------------------------------------
-# Step 6: Wait for ArgoCD to be ready
-#------------------------------------------------------------------------------
-
 resource "time_sleep" "wait_for_argocd_ready" {
-  count = var.skip_k8s_destroy ? 0 : 1
-
-  create_duration = "60s"
-
-  depends_on = [kubectl_manifest.argocd_instance]
+  count           = var.skip_k8s_destroy ? 0 : 1
+  create_duration = "10s"
+  depends_on      = [kubectl_manifest.argocd_instance]
 }
-
-#------------------------------------------------------------------------------
-# Step 7: External Repo Application (Optional)
-#
-# When a custom gitops_repo_url is provided, creates a single ArgoCD
-# Application pointing at the user's repo. Users manage their own app
-# structure within their repo.
-#
-# This creates a single Application (not an ApplicationSet).
-#------------------------------------------------------------------------------
-
-resource "kubectl_manifest" "external_repo_application" {
-  count = !var.skip_k8s_destroy && local.has_custom_gitops_repo ? 1 : 0
-
-  yaml_body = <<-YAML
-    apiVersion: argoproj.io/v1alpha1
-    kind: Application
-    metadata:
-      name: custom-gitops
-      namespace: openshift-gitops
-      labels:
-        app.kubernetes.io/part-of: rosa-gitops-layers
-        app.kubernetes.io/component: custom-repo
-        app.kubernetes.io/managed-by: terraform
-    spec:
-      project: default
-      source:
-        repoURL: ${var.gitops_repo_url}
-        targetRevision: ${var.gitops_repo_revision}
-        path: ${var.gitops_repo_path}
-      destination:
-        server: https://kubernetes.default.svc
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-          - CreateNamespace=true
-          - PrunePropagationPolicy=foreground
-        retry:
-          limit: 5
-          backoff:
-            duration: 5s
-            factor: 2
-            maxDuration: 3m
-  YAML
-
+resource "kubectl_manifest" "gitops_default_project" {
+  count             = var.skip_k8s_destroy ? 0 : 1
+  yaml_body         = file("${local.layers_path}/gitops/default-project.yaml")
   server_side_apply = true
   force_conflicts   = true
-
+  # Retain the deny policy if removing the module, instead of reopening default.
+  apply_only = true
   depends_on = [time_sleep.wait_for_argocd_ready]
+}
+resource "kubectl_manifest" "gitops_workload_namespace" {
+  count = !var.skip_k8s_destroy && var.gitops_application.enabled ? 1 : 0
+  yaml_body = yamlencode({
+    apiVersion = "v1", kind = "Namespace"
+    metadata = {
+      name = var.gitops_application.namespace
+      # Supported operator delegation. Does not grant access to other namespaces.
+      labels = { "argocd.argoproj.io/managed-by" = "openshift-gitops" }
+    }
+  })
+  server_side_apply = true
+  force_conflicts   = false
+  apply_only        = true # Never cascade-delete workloads by toggling an input.
+  depends_on        = [time_sleep.wait_for_argocd_ready]
+}
+resource "kubectl_manifest" "gitops_workload_project" {
+  count             = !var.skip_k8s_destroy && var.gitops_application.enabled ? 1 : 0
+  yaml_body         = local.gitops_project
+  server_side_apply = true
+  force_conflicts   = false
+  depends_on        = [kubectl_manifest.gitops_default_project, kubectl_manifest.gitops_workload_namespace]
+}
+resource "kubectl_manifest" "external_repo_application" {
+  count             = !var.skip_k8s_destroy && var.gitops_application.enabled ? 1 : 0
+  yaml_body         = local.gitops_application_manifest
+  server_side_apply = true
+  force_conflicts   = false
+  depends_on        = [kubectl_manifest.gitops_workload_project]
 }

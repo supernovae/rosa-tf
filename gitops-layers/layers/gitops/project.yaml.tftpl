@@ -1,0 +1,43 @@
+${yamlencode({
+  apiVersion = "argoproj.io/v1alpha1"
+  kind = "AppProject"
+  metadata = { name = "workloads", namespace = "openshift-gitops" }
+  spec = {
+    description = "Workloads only. Platform layers are Terraform-owned."
+    sourceRepos = [repo_url]
+    roles = [
+      {
+        name = "viewer"
+        groups = view_groups
+        policies = ["p, proj:workloads:viewer, applications, get, workloads/*, allow"]
+      },
+      {
+        name = "deployer"
+        groups = sync_groups
+        policies = [
+          "p, proj:workloads:deployer, applications, get, workloads/*, allow",
+          "p, proj:workloads:deployer, applications, sync, workloads/*, allow"
+        ]
+      }
+    ]
+    destinations = [{ server = "https://kubernetes.default.svc", namespace = namespace }]
+    clusterResourceWhitelist = []
+    namespaceResourceWhitelist = [
+      { group = "", kind = "ConfigMap" },
+      { group = "", kind = "Service" },
+      { group = "", kind = "ServiceAccount" },
+      { group = "", kind = "PersistentVolumeClaim" },
+      { group = "apps", kind = "Deployment" },
+      { group = "apps", kind = "StatefulSet" },
+      { group = "apps", kind = "DaemonSet" },
+      { group = "batch", kind = "Job" },
+      { group = "batch", kind = "CronJob" },
+      { group = "autoscaling", kind = "HorizontalPodAutoscaler" },
+      { group = "policy", kind = "PodDisruptionBudget" },
+      { group = "networking.k8s.io", kind = "NetworkPolicy" },
+      { group = "route.openshift.io", kind = "Route" },
+      { group = "monitoring.coreos.com", kind = "ServiceMonitor" },
+      { group = "monitoring.coreos.com", kind = "PrometheusRule" }
+    ]
+  }
+})}

@@ -1,0 +1,22 @@
+${yamlencode({
+  apiVersion = "argoproj.io/v1alpha1"
+  kind = "Application"
+  metadata = {
+    name = "custom-gitops"
+    namespace = "openshift-gitops"
+    # Non-cascading deletion. Retirement is an explicit operational workflow.
+    finalizers = []
+    labels = { "app.kubernetes.io/part-of" = "rosa-gitops-layers" }
+  }
+  spec = {
+    project = "workloads"
+    source = { repoURL = repo_url, targetRevision = revision, path = path }
+    destination = { server = "https://kubernetes.default.svc", namespace = config.namespace }
+    syncPolicy = merge({
+      syncOptions = ["FailOnSharedResource=true", "PruneLast=true", "PrunePropagationPolicy=foreground"]
+      retry = { limit = 3, backoff = { duration = "5s", factor = 2, maxDuration = "1m" } }
+    }, config.automated ? {
+      automated = { prune = config.prune, selfHeal = config.self_heal, allowEmpty = false }
+    } : {})
+  }
+})}

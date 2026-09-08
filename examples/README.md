@@ -6,13 +6,22 @@ Scenario configurations and overlays for the environment roots. Use Terraform pi
 | --- | --- | --- |
 | zeroegress, observability, ocpvirtualization, certmanager, byovpc | Complete cluster scenarios | commercial-hcp |
 | byovpc-classic-prod | Complete cluster scenario | commercial-classic |
-| openshiftai, netappstorage | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
+| openshiftai, netappstorage, gitops-workloads | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
 | autonode | Compute overlay; requires a cluster tfvars base | commercial-hcp |
 | cluster-only | Phase 1 safety overlay, passed last | All four cluster roots |
 
 File names above have the `.tfvars` extension. Replace example names, domains, IDs and CIDRs before use. Do not commit credentials or customized private tfvars.
 
 ## Available Examples
+
+### Secure workload GitOps
+
+[gitops-workloads.tfvars](gitops-workloads.tfvars) is an explicit workload overlay:
+one repository, one delegated namespace, group-based access and manual sync with
+pruning off. Copy [the harmless Kustomize example](gitops-workload/kustomization.yaml)
+into your approved workload repository, then adjust the URL/path/groups. Do not
+point the Application at Terraform-owned platform layers. See the
+[GitOps deployment and migration guide](../docs/GITOPS.md) before applying.
 
 ### `zeroegress.tfvars`
 

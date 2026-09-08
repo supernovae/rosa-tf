@@ -46,11 +46,8 @@ monitoring_loki_size      = "1x.extra-small" # Dev: extra-small, Prod: 1x.small 
 monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
 # monitoring_prometheus_storage_size = "50Gi"  # Default: 100Gi
 
-# Additional GitOps configuration (optional)
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
-# gitops_oauth_url = "https://oauth-openshift.apps.<cluster>.<domain>"
-
-# For subsequent runs, uncomment and set from terraform output:
-# gitops_cluster_token = "sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Workload reconciliation is a separate opt-in; see examples/gitops-workloads.tfvars.
+# Supply short-lived TF_VAR_gitops_cluster_token from your trusted runner/secret manager.
+# Do not place cluster tokens in tfvars. See docs/GITOPS.md for migration and TLS setup.
 
 # enable_layer_openshift_ai = true

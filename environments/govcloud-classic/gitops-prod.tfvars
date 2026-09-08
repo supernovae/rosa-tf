@@ -46,8 +46,9 @@ monitoring_loki_size      = "1x.small" # Prod: 1x.small or larger
 monitoring_retention_days = 30         # Prod: 30 days
 # monitoring_prometheus_storage_size = "100Gi"  # Default
 
-# Additional GitOps configuration (optional)
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
+# Workload reconciliation is a separate opt-in; see examples/gitops-workloads.tfvars.
+# Supply short-lived TF_VAR_gitops_cluster_token from your trusted runner/secret manager.
+# Do not place cluster tokens in tfvars. See docs/GITOPS.md for migration and TLS setup.
 
-# For subsequent runs, uncomment and set from terraform output:
-# gitops_cluster_token = "sha256~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Redis HA needs at least three schedulable workers; verify capacity before applying.
+gitops_instance_config = { ha_enabled = true }

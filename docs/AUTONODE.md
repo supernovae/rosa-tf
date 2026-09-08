@@ -228,7 +228,10 @@ oc get nodes -l karpenter.sh/nodepool
 terraform destroy -var-file=cluster-dev.tfvars
 ```
 
-Alternatively, set `skip_k8s_destroy = true` in your tfvars before `terraform destroy` to skip Kubernetes resource deletion (useful when the cluster API is already unreachable).
+Do not use `skip_k8s_destroy` to bypass an unreachable API: it is a count switch
+that can plan resource deletion, not state removal, and does not prevent refresh.
+Keep the API reachable for teardown; see [GitOps lifecycle guidance](GITOPS.md)
+for reviewed recovery when the API is already gone.
 
 ## Related Files
 
