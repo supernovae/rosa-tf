@@ -674,6 +674,45 @@ variable "openshift_ai_install_kueue" {
   default     = true
 }
 
+variable "openshift_ai_kueue_auto_create_queues" {
+  type        = bool
+  description = "Have RHOAI create default ClusterQueue and LocalQueue resources when the Kueue component is Unmanaged."
+  default     = true
+}
+
+variable "openshift_ai_kueue_default_cluster_queue_name" {
+  type        = string
+  description = "Name of the default ClusterQueue created by RHOAI when automatic queue creation is enabled."
+  default     = "default"
+
+  validation {
+    condition     = length(var.openshift_ai_kueue_default_cluster_queue_name) <= 253 && can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$", var.openshift_ai_kueue_default_cluster_queue_name))
+    error_message = "openshift_ai_kueue_default_cluster_queue_name must be a valid DNS subdomain of at most 253 characters."
+  }
+}
+
+variable "openshift_ai_kueue_default_local_queue_name" {
+  type        = string
+  description = "Name of the default LocalQueue created by RHOAI when automatic queue creation is enabled."
+  default     = "default"
+
+  validation {
+    condition     = length(var.openshift_ai_kueue_default_local_queue_name) <= 253 && can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$", var.openshift_ai_kueue_default_local_queue_name))
+    error_message = "openshift_ai_kueue_default_local_queue_name must be a valid DNS subdomain of at most 253 characters."
+  }
+}
+
+variable "openshift_ai_kserve_raw_deployment_service_config" {
+  type        = string
+  description = "KServe service type for RawDeployment inference services: Headless or Headed."
+  default     = "Headless"
+
+  validation {
+    condition     = contains(["Headless", "Headed"], var.openshift_ai_kserve_raw_deployment_service_config)
+    error_message = "openshift_ai_kserve_raw_deployment_service_config must be Headless or Headed."
+  }
+}
+
 variable "openshift_ai_create_s3" {
   type        = bool
   description = "Create S3 bucket for RHOAI pipeline artifacts. Only required when aipipelines component is Managed. Model serving uses OCI/PVC in RHOAI v3+."
@@ -689,14 +728,52 @@ variable "openshift_ai_enable_fips" {
 variable "openshift_ai_components" {
   type        = map(string)
   description = <<-EOT
-    DataScienceCluster component states (RHOAI 3.4, DSC API v2).
-    Override individual components:
-      dashboard, workbenches, aipipelines, kserve, ray, trustyai,
-      trainingoperator, modelregistry, feastoperator, llamastackoperator,
-      mlflowoperator, kueue
-    Values: "Managed", "Removed", or "Unmanaged" (kueue only)
+    DataScienceCluster component and subcomponent states (RHOAI 3.5, DSC API v2).
+    Top-level keys: aigateway, dashboard, workbenches, aipipelines, kserve,
+      kueue, trainingoperator, trainer, ray, trustyai, modelregistry,
+      feastoperator, llamastackoperator (deprecated), ogx, mlflowoperator,
+      sparkoperator, mcplifecycleoperator.
+    Subcomponent keys: models_as_a_service, batch_gateway,
+      argo_workflows_controllers, nim, wva.
+    Values: "Managed" or "Removed"; kueue supports "Unmanaged" or "Removed".
   EOT
   default     = {}
+
+  validation {
+    condition = length(setsubtract(toset(keys(var.openshift_ai_components)), toset([
+      "aigateway",
+      "models_as_a_service",
+      "batch_gateway",
+      "dashboard",
+      "workbenches",
+      "aipipelines",
+      "argo_workflows_controllers",
+      "kserve",
+      "nim",
+      "wva",
+      "kueue",
+      "trainingoperator",
+      "trainer",
+      "ray",
+      "trustyai",
+      "modelregistry",
+      "feastoperator",
+      "llamastackoperator",
+      "ogx",
+      "mlflowoperator",
+      "sparkoperator",
+      "mcplifecycleoperator",
+    ]))) == 0
+    error_message = "openshift_ai_components contains an unsupported RHOAI 3.5 component key."
+  }
+
+  validation {
+    condition = alltrue([
+      for component, state in var.openshift_ai_components :
+      component == "kueue" ? contains(["Unmanaged", "Removed"], state) : contains(["Managed", "Removed"], state)
+    ])
+    error_message = "OpenShift AI component states must be Managed or Removed; kueue must be Unmanaged or Removed."
+  }
 }
 
 variable "openshift_ai_bucket_name" {
@@ -755,4 +832,3 @@ variable "openshift_version" {
   EOT
   default     = "4.20"
 }
-

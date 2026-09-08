@@ -1,8 +1,8 @@
 #------------------------------------------------------------------------------
 # OpenShift AI Example Configuration
 #
-# Enables Red Hat OpenShift AI 3.4 with GPU and Kueue support.
-# Requires a GPU machine pool and the GitOps layer stack.
+# Enables Red Hat OpenShift AI 3.5 with GPU and Kueue support.
+# Requires OpenShift 4.19.9+, a GPU machine pool, cert-manager, and GitOps.
 #
 # Usage:
 #   # Phase 1: Create cluster + GPU machine pool
@@ -24,7 +24,9 @@ enable_layer_openshift_ai = true
 # openshift_ai_install_nfd            = true    # Disable if NFD already installed
 # openshift_ai_install_gpu_operator   = true    # Disable for CPU-only AI workloads
 # openshift_ai_install_kueue          = true    # Disable if Kueue operator already installed
+# openshift_ai_kueue_auto_create_queues = true  # Set false to manage queue resources yourself
 # openshift_ai_create_s3              = false   # Enable only if using AI Pipelines (default: false)
+# openshift_ai_kserve_raw_deployment_service_config = "Headless" # Use Headed when a routable ClusterIP is required
 
 #------------------------------------------------------------------------------
 # GPU Machine Pool (add to your cluster-*.tfvars)
@@ -72,14 +74,18 @@ enable_layer_openshift_ai = true
 #------------------------------------------------------------------------------
 # DataScienceCluster Component Overrides (optional)
 #
-# RHOAI 3.4 DSC API v2 components:
-#   dashboard, workbenches, aipipelines, kserve, ray, trustyai,
-#   trainingoperator, modelregistry, feastoperator, llamastackoperator,
-#   mlflowoperator, kueue
+# RHOAI 3.5 DSC API v2 top-level components:
+#   aigateway, dashboard, workbenches, aipipelines, kserve, kueue,
+#   trainingoperator, trainer, ray, trustyai, modelregistry, feastoperator,
+#   llamastackoperator (deprecated), ogx, mlflowoperator, sparkoperator,
+#   mcplifecycleoperator
+# Subcomponent override keys:
+#   models_as_a_service, batch_gateway, argo_workflows_controllers, nim, wva
 #
 # Default-Managed: dashboard, workbenches, aipipelines, kserve, ray, modelregistry
 # Default-Unmanaged: kueue (integrates with external Red Hat build of Kueue Operator)
-# Default-Removed: trustyai, trainingoperator, feastoperator, llamastackoperator, mlflowoperator
+# Default-Removed: all other components and subcomponents, except KServe NIM and
+#   the bundled Argo Workflows controllers, which are Managed when their parents are enabled
 #------------------------------------------------------------------------------
 
 # openshift_ai_components = {
@@ -89,8 +95,16 @@ enable_layer_openshift_ai = true
 #   # Enable feature store (requires external infra)
 #   feastoperator = "Managed"
 #
-#   # Enable Llama Stack (Technology Preview, not for production)
-#   llamastackoperator = "Managed"
+#   # Enable OGX (the RHOAI 3.5 replacement for Llama Stack)
+#   # Requires Service Mesh 3, cert-manager, GPU nodes, and S3-compatible storage.
+#   ogx = "Managed"
+#
+#   # Enable Kubeflow Trainer v2 (requires the JobSet Operator)
+#   trainer = "Managed"
+#
+#   # Enable Models-as-a-Service through the new AI Gateway component
+#   # aigateway           = "Managed"
+#   # models_as_a_service = "Managed"
 #
 #   # Disable KServe if not serving models
 #   # kserve = "Removed"
@@ -105,7 +119,7 @@ enable_layer_openshift_ai = true
 #------------------------------------------------------------------------------
 # Storage Integration (optional)
 #
-# RHOAI v3+ model serving uses OCI images or PVC — S3 is NOT required for
+# RHOAI 3.5 model serving uses OCI images or PVC — S3 is NOT required for
 # serving models. S3 is only needed for AI Pipelines artifact storage.
 #
 # To enable pipelines with S3:

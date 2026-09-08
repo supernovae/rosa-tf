@@ -100,7 +100,7 @@ apt-get install jq
 | `virtualization` | OpenShift Virtualization (KubeVirt) | Bare metal machine pool |
 | `certmanager` | Cert-Manager with Let's Encrypt DNS01 + custom ingress | Route53 zone, IAM role, NLB |
 | `netapp-storage` | FSx ONTAP + Astra Trident (NFS, iSCSI, snapshots) | FSx ONTAP filesystem, SVM, IAM role |
-| `openshift-ai` | NFD + NVIDIA GPU Operator + Red Hat OpenShift AI | S3 bucket, IAM role, GPU machine pool |
+| `openshift-ai` | RHOAI 3.5 + NFD + NVIDIA GPU Operator + Kueue | OCP 4.19.9+, cert-manager; GPU pool when GPU support is enabled; optional S3 |
 
 ## Layer Structure
 

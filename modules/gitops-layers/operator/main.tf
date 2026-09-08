@@ -38,7 +38,9 @@ locals {
   # Used for operator channel selection and API compatibility
   #----------------------------------------------------------------------------
   ocp_version_parts = split(".", var.openshift_version)
+  ocp_major_version = length(local.ocp_version_parts) > 0 ? tonumber(local.ocp_version_parts[0]) : 4
   ocp_minor_version = length(local.ocp_version_parts) > 1 ? tonumber(local.ocp_version_parts[1]) : 20
+  ocp_patch_version = length(local.ocp_version_parts) > 2 ? tonumber(local.ocp_version_parts[2]) : 0
 
   #----------------------------------------------------------------------------
   # Operator Channel Map
@@ -66,11 +68,11 @@ locals {
     web_terminal   = "fast"   # Uses latest available
     gitops         = "latest" # OpenShift GitOps operator
 
-    # OpenShift AI stack (v3+ uses RawDeployment, no Service Mesh/Serverless needed)
-    nfd          = "stable"     # Node Feature Discovery
-    nvidia_gpu   = "v26.3"     # NVIDIA GPU Operator (certified-operators)
-    openshift_ai = "stable-3.x" # Red Hat OpenShift AI 3.4 GA (RHOAI)
-    kueue        = "stable-v1.0" # Red Hat build of Kueue Operator
+    # OpenShift AI 3.5 stack (KServe uses RawDeployment; no Serverless dependency)
+    nfd          = "stable"      # Node Feature Discovery
+    nvidia_gpu   = "v26.7"       # NVIDIA GPU Operator (certified-operators)
+    openshift_ai = "stable-3.5"  # Red Hat OpenShift AI 3.5 GA (RHOAI)
+    kueue        = "stable-v1.4" # Red Hat build of Kueue Operator
   }
 
   # Whether the user has provided a custom GitOps repo for additional resources.
