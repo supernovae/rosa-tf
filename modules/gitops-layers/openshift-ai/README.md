@@ -1,16 +1,29 @@
 # OpenShift AI Layer
 
-Provisions the full Red Hat OpenShift AI (RHOAI) v3+ stack with GPU support:
+Provisions Red Hat OpenShift AI (RHOAI) 3.5 with GPU and workload-management
+support:
 
 - **Node Feature Discovery (NFD)** -- auto-detects GPU hardware on nodes
 - **NVIDIA GPU Operator** -- installs drivers, device plugin, container toolkit
 - **Red Hat OpenShift AI** -- DataScienceCluster with ML/AI components
 - **S3 Data Storage** -- opt-in bucket for AI Pipelines artifact storage only
 
-> **RHOAI v3+ Changes**: KServe now uses **RawDeployment (Headed)** mode.
-> Service Mesh and Serverless are **no longer required** as prerequisites.
-> Model serving uses **OCI images** or **PVC** storage — S3 is only needed
-> for the `aipipelines` component.
+The layer selects these OLM channels:
+
+- RHOAI `stable-3.5`
+- NVIDIA GPU Operator `v26.7`
+- Red Hat build of Kueue `stable-v1.4`
+- NFD `stable`
+
+RHOAI 3.5 requires OpenShift 4.19.9 or later. KServe uses RawDeployment mode,
+which does not require OpenShift Serverless. The layer defaults to Headless
+services; set `openshift_ai_kserve_raw_deployment_service_config = "Headed"`
+when a routable ClusterIP is required.
+
+Before enabling KServe or Kueue, install and configure the cert-manager Operator
+for Red Hat OpenShift. Enabling OGX also requires Service Mesh 3, GPU nodes, and
+S3-compatible storage. These external dependencies are not installed by this
+layer.
 
 ## Quick Start
 
@@ -46,18 +59,27 @@ machine_pools = [
 
 ## What Terraform Installs (Day 0)
 
-This layer installs **3 operators** and their CRs automatically. No manual
-operator installation is needed.
+This layer installs **4 operators** and their CRs automatically. No manual
+installation of these four operators is needed; cert-manager remains an
+external prerequisite.
 
 | Stage | Operator                  | Namespace              | Source             | Condition                    |
 |-------|---------------------------|------------------------|--------------------|------------------------------|
 | 1     | Node Feature Discovery    | openshift-nfd          | redhat-operators   | `openshift_ai_install_nfd`   |
 | 2     | NVIDIA GPU Operator       | nvidia-gpu-operator    | certified-operators| `openshift_ai_install_gpu_operator` |
-| 3     | Red Hat OpenShift AI      | redhat-ods-operator    | redhat-operators   | Always (when layer enabled)  |
+| 3     | Red Hat build of Kueue    | openshift-kueue-operator | redhat-operators | `openshift_ai_install_kueue` |
+| 4     | Red Hat OpenShift AI      | redhat-ods-operator    | redhat-operators   | Always (when layer enabled)  |
 | --    | S3 Bucket + IAM Role      | AWS                    | --                 | `openshift_ai_create_s3`    |
 
-RHOAI v3+ uses KServe RawDeployment (Headed) mode. Service Mesh and
-Serverless operators are **not required**.
+The Kueue operator requires cert-manager. RHOAI creates default queue resources
+by default in this layer; set `openshift_ai_kueue_auto_create_queues = false`
+to manage `ClusterQueue` and `LocalQueue` resources yourself.
+
+> **Existing Kueue installations:** Red Hat does not support an in-place channel
+> change from `stable-v1.0` to `stable-v1.4`. Preserve any workload resources,
+> uninstall the existing Red Hat build of Kueue Operator, and reinstall it on the
+> new channel before applying this layer update. Fresh installations require no
+> migration step.
 
 ## Architecture
 
@@ -74,13 +96,13 @@ Serverless operators are **not required**.
 |  +------------------+     |  toolkit, DCGM exporter)    |             |
 |                           +-----------------------------+             |
 |                                      |                                |
-|  Stage 3                             v                                |
-|  redhat-ods-operator       redhat-ods-applications                    |
+|  Stage 3                  Stage 4                                     |
+|  openshift-kueue-operator redhat-ods-operator                         |
 |  +------------------+     +-----------------------------+             |
-|  | RHOAI Operator   |     | DataScienceCluster          |             |
-|  | DSCInitialization|---->| Dashboard, Workbenches,     |             |
-|  +------------------+     | KServe, ModelMesh, Pipelines,|             |
-|                           | Ray, CodeFlare, Kueue       |             |
+|  | Kueue Operator   |     | RHOAI Operator              |             |
+|  | Kueue CR         |<----| DataScienceCluster          |             |
+|  +------------------+     | Dashboard, Workbenches,     |             |
+|                           | KServe, Pipelines, Ray      |             |
 |                           +-----------------------------+             |
 +-----------------------------------------------------------------------+
 ```
@@ -92,6 +114,11 @@ Serverless operators are **not required**.
 | `enable_layer_openshift_ai`        | bool        | `false`   | Enable the OpenShift AI layer                  |
 | `openshift_ai_install_nfd`         | bool        | `true`    | Install NFD operator (disable if already present)|
 | `openshift_ai_install_gpu_operator`| bool        | `true`    | Install NVIDIA GPU Operator (disable for CPU-only)|
+| `openshift_ai_install_kueue`       | bool        | `true`    | Install Red Hat build of Kueue                    |
+| `openshift_ai_kueue_auto_create_queues` | bool   | `true`    | Create default ClusterQueue and LocalQueue resources |
+| `openshift_ai_kueue_default_cluster_queue_name` | string | `"default"` | Default ClusterQueue name |
+| `openshift_ai_kueue_default_local_queue_name` | string | `"default"` | Default LocalQueue name |
+| `openshift_ai_kserve_raw_deployment_service_config` | string | `"Headless"` | RawDeployment service type |
 | `openshift_ai_create_s3`           | bool        | `false`   | Create S3 bucket (only for AI Pipelines)       |
 | `openshift_ai_enable_fips`         | bool        | GovCloud: `true` | FIPS mode for GPU operator             |
 | `openshift_ai_components`          | map(string) | `{}`      | Override DataScienceCluster component states    |
@@ -101,24 +128,35 @@ Serverless operators are **not required**.
 
 Override defaults via `openshift_ai_components`:
 
-| Component              | Default     | Description                            |
-|------------------------|-------------|----------------------------------------|
-| `dashboard`            | Managed     | OpenShift AI web dashboard             |
-| `workbenches`          | Managed     | JupyterLab notebook environments       |
-| `aipipelines`          | Managed     | AI Pipelines (**requires** `openshift_ai_create_s3 = true` for artifact storage) |
-| `kserve`               | Managed     | Single-model serving (RawDeployment)   |
-| `ray`                  | Managed     | Distributed computing (Ray clusters)   |
-| `modelregistry`        | Managed     | Model versioning registry              |
-| `kueue`                | Unmanaged   | Workload management (integrates with external Red Hat build of Kueue Operator) |
-| `trustyai`             | Removed     | AI model explainability (opt-in)       |
-| `trainingoperator`     | Removed     | Distributed training (v1 deprecated)   |
-| `feastoperator`        | Removed     | Feature store (opt-in, requires external infra) |
-| `llamastackoperator`   | Removed     | Llama Stack / RAG / Agentic (Technology Preview) |
-| `mlflowoperator`       | Removed     | MLflow experiment tracking (opt-in, requires DB/S3) |
+| Key | DSC path | Default | Description |
+|-----|----------|---------|-------------|
+| `aigateway` | `aigateway` | Removed | AI Gateway operator |
+| `models_as_a_service` | `aigateway.modelsAsAService` | Removed | Models-as-a-Service |
+| `batch_gateway` | `aigateway.batchGateway` | Removed | Batch inference gateway |
+| `dashboard` | `dashboard` | Managed | OpenShift AI web dashboard |
+| `workbenches` | `workbenches` | Managed | JupyterLab notebook environments |
+| `aipipelines` | `aipipelines` | Managed | AI Pipelines; S3 is needed for artifacts |
+| `argo_workflows_controllers` | `aipipelines.argoWorkflowsControllers` | Managed | Bundled Argo Workflows controllers |
+| `kserve` | `kserve` | Managed | Single-model serving in RawDeployment mode |
+| `nim` | `kserve.nim` | Managed | NVIDIA NIM integration |
+| `wva` | `kserve.wva` | Removed | Workload Variant Autoscaler integration |
+| `kueue` | `kueue` | Unmanaged | Integration with Red Hat build of Kueue |
+| `trainingoperator` | `trainingoperator` | Removed | Deprecated Kubeflow Training Operator v1 |
+| `trainer` | `trainer` | Removed | Kubeflow Trainer v2; requires JobSet Operator |
+| `ray` | `ray` | Managed | Distributed computing with KubeRay |
+| `trustyai` | `trustyai` | Removed | Evaluation, explainability, and guardrails |
+| `modelregistry` | `modelregistry` | Managed | Model versioning registry |
+| `feastoperator` | `feastoperator` | Removed | Feature Store; requires external infrastructure |
+| `llamastackoperator` | `llamastackoperator` | Removed | Deprecated compatibility field; use OGX |
+| `ogx` | `ogx` | Removed | Open GenAI Stack, replacing Llama Stack |
+| `mlflowoperator` | `mlflowoperator` | Removed | MLflow experiment tracking |
+| `sparkoperator` | `sparkoperator` | Removed | Kubeflow Spark Operator |
+| `mcplifecycleoperator` | `mcplifecycleoperator` | Removed | MCP server lifecycle management |
 
-**Changed in v3**: `kserve.serving` subfield removed (Service Mesh now
-auto-managed by RHOAI operator). `feastoperator` and `llamastackoperator`
-added as new Technology Preview components.
+RHOAI 3.5 replaces Llama Stack with OGX, introduces AI Gateway and its
+Models-as-a-Service path, and exposes Trainer, Spark, and MCP lifecycle
+components. The deprecated `kserve.modelsAsService` path is always rendered as
+`Removed` so new MaaS deployments use `aigateway.modelsAsAService`.
 
 Example override to disable KServe and enable model registry:
 
@@ -344,8 +382,9 @@ If you see errors like `Token file not found "/.cache/huggingface/token"` or
 
 ### Model Serving with KServe
 
-KServe is enabled by default with Service Mesh and Serverless as prerequisites
-(all installed by Terraform). RHOAI v3+ supports three model storage backends:
+KServe is enabled by default and requires cert-manager. RawDeployment serving
+does not require Service Mesh or Serverless. RHOAI 3.5 supports three model
+storage backends:
 
 **Option A: OCI Image (Recommended)** -- No S3 needed, fastest startup:
 
@@ -430,7 +469,7 @@ oc get route rhods-dashboard -n redhat-ods-applications -o jsonpath='{.spec.host
 
 Login with your OpenShift credentials. The dashboard provides:
 - **Workbenches**: Create JupyterLab notebooks with GPU support
-- **Model Serving**: Deploy models via KServe or ModelMesh (OCI, PVC, or S3)
+- **Model Serving**: Deploy models via KServe (OCI, PVC, or S3)
 - **Data Connections**: Manage storage and database connections
 - **Pipelines**: Build and run ML pipelines (requires S3 if enabled)
 
@@ -450,7 +489,7 @@ registry (e.g., ECR or Quay). Use `oci://` URIs in `InferenceService` specs.
 
 ## Storage Integration
 
-RHOAI v3+ has flexible storage options. S3 is **no longer required** for model
+RHOAI 3.5 has flexible storage options. S3 is **not required** for model
 serving — use OCI images or PVC instead.
 
 | Use Case           | Recommended Storage         | S3 Needed? |

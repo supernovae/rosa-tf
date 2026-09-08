@@ -114,6 +114,10 @@ This module automatically selects the correct operator channels based on OpenShi
 | Virtualization | `stable` | `stable` | Generic (auto-selects) |
 | Web Terminal | `fast` | `fast` | Generic (latest) |
 | OpenShift GitOps | `latest` | `latest` | Generic (latest) |
+| Node Feature Discovery | Not installed by the AI layer | `stable` | OpenShift AI dependency |
+| NVIDIA GPU Operator | Not installed by the AI layer | `v26.7` | OpenShift AI dependency |
+| Red Hat OpenShift AI | Not supported | `stable-3.5` | Requires OCP 4.19.9+ |
+| Red Hat build of Kueue | Not installed by the AI layer | `stable-v1.4` | OpenShift AI dependency |
 
 ### How It Works
 

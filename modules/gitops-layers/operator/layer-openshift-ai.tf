@@ -1,13 +1,14 @@
 #------------------------------------------------------------------------------
 # Layer: OpenShift AI (RHOAI)
 #
-# Installs the full OpenShift AI v3+ stack:
+# Installs the OpenShift AI 3.5 stack:
 #   1. Node Feature Discovery (NFD) -- auto-discovers GPU hardware
 #   2. NVIDIA GPU Operator -- drivers, device plugin, container toolkit
 #   3. Red Hat OpenShift AI -- DataScienceCluster with configurable components
 #
-# RHOAI v3+ uses KServe RawDeployment (Headed) mode. Service Mesh and
-# Serverless operators are no longer required as prerequisites.
+# RHOAI 3.5 uses KServe RawDeployment mode. Serverless is no longer required.
+# cert-manager is required by KServe and Kueue. Service Mesh 3 is required only
+# when the optional OGX component is enabled.
 #
 # Sub-toggles:
 #   - openshift_ai_install_nfd: disable if NFD already installed
@@ -47,25 +48,58 @@ locals {
     operator_channel = local.operator_channels.openshift_ai
   })
 
-  # Component defaults (RHOAI 3.4, DSC API v2).
+  # Component defaults (RHOAI 3.5, DSC API v2).
   # kueue = "Unmanaged" integrates with the external Red Hat build of Kueue Operator.
   ai_default_components = {
-    dashboard          = "Managed"
-    workbenches        = "Managed"
-    aipipelines        = "Managed"
-    kserve             = "Managed"
-    ray                = "Managed"
-    trustyai           = "Removed"
-    trainingoperator   = "Removed"
-    modelregistry      = "Managed"
-    feastoperator      = "Removed"
-    llamastackoperator = "Removed"
-    mlflowoperator     = "Removed"
-    kueue              = "Unmanaged"
+    aigateway                  = "Removed"
+    models_as_a_service        = "Removed"
+    batch_gateway              = "Removed"
+    dashboard                  = "Managed"
+    workbenches                = "Managed"
+    aipipelines                = "Managed"
+    argo_workflows_controllers = "Managed"
+    kserve                     = "Managed"
+    nim                        = "Managed"
+    wva                        = "Removed"
+    kueue                      = "Unmanaged"
+    trainingoperator           = "Removed"
+    trainer                    = "Removed"
+    ray                        = "Managed"
+    trustyai                   = "Removed"
+    modelregistry              = "Managed"
+    feastoperator              = "Removed"
+    llamastackoperator         = "Removed"
+    ogx                        = "Removed"
+    mlflowoperator             = "Removed"
+    sparkoperator              = "Removed"
+    mcplifecycleoperator       = "Removed"
   }
   ai_components = merge(local.ai_default_components, var.openshift_ai_components)
 
-  rhoai_datasciencecluster = templatefile("${local.layers_path}/openshift-ai/rhoai-datasciencecluster.yaml.tftpl", local.ai_components)
+  rhoai_datasciencecluster = templatefile("${local.layers_path}/openshift-ai/rhoai-datasciencecluster.yaml.tftpl", merge(local.ai_components, {
+    kserve_raw_deployment_service_config = var.openshift_ai_kserve_raw_deployment_service_config
+    kueue_auto_create_queues             = var.openshift_ai_kueue_auto_create_queues
+    kueue_default_cluster_queue_name     = var.openshift_ai_kueue_default_cluster_queue_name
+    kueue_default_local_queue_name       = var.openshift_ai_kueue_default_local_queue_name
+  }))
+}
+
+# RHOAI 3.5 supports OpenShift 4.19.9 and later. Keep the layer disabled on
+# older GovCloud clusters until their control plane has been upgraded.
+resource "terraform_data" "validate_openshift_ai_version" {
+  count = local.ai_enabled ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition = (
+        local.ocp_major_version == 4 && (
+          local.ocp_minor_version > 19 ||
+          (local.ocp_minor_version == 19 && local.ocp_patch_version >= 9)
+        )
+      )
+      error_message = "Red Hat OpenShift AI 3.5 requires OpenShift 4.19.9 or later; configured version is ${var.openshift_version}."
+    }
+  }
 }
 
 #==============================================================================
@@ -89,7 +123,7 @@ resource "kubernetes_namespace_v1" "openshift_nfd" {
     ignore_changes = [metadata[0].annotations]
   }
 
-  depends_on = [time_sleep.wait_for_argocd_ready]
+  depends_on = [time_sleep.wait_for_argocd_ready, terraform_data.validate_openshift_ai_version]
 }
 
 resource "kubectl_manifest" "nfd_operatorgroup" {
@@ -192,7 +226,7 @@ resource "kubectl_manifest" "gpu_clusterpolicy" {
 #==============================================================================
 # STAGE 3: Red Hat build of Kueue Operator
 #
-# External Kueue operator required for RHOAI 3.4+ workload management.
+# External Kueue operator required for RHOAI 3.5 workload management.
 # The DSC kueue component is set to "Unmanaged" to integrate with this.
 #==============================================================================
 
@@ -207,7 +241,8 @@ resource "kubectl_manifest" "kueue_namespace" {
   depends_on = [
     kubectl_manifest.gpu_clusterpolicy,
     kubectl_manifest.nfd_nodefeaturediscovery,
-    time_sleep.wait_for_argocd_ready
+    time_sleep.wait_for_argocd_ready,
+    terraform_data.validate_openshift_ai_version
   ]
 }
 
@@ -255,8 +290,8 @@ resource "kubectl_manifest" "kueue_cr" {
 #==============================================================================
 # STAGE 4: Red Hat OpenShift AI (RHOAI)
 #
-# RHOAI v3+ uses KServe RawDeployment mode (Headed) which does NOT require
-# Service Mesh or Serverless operators.
+# RHOAI 3.5 uses KServe RawDeployment mode, which does not require Serverless.
+# Service Mesh 3 remains an external prerequisite for the optional OGX component.
 #==============================================================================
 
 resource "kubectl_manifest" "rhoai_namespace" {
@@ -271,7 +306,8 @@ resource "kubectl_manifest" "rhoai_namespace" {
     kubectl_manifest.gpu_clusterpolicy,
     kubectl_manifest.kueue_cr,
     kubectl_manifest.nfd_nodefeaturediscovery,
-    time_sleep.wait_for_argocd_ready
+    time_sleep.wait_for_argocd_ready,
+    terraform_data.validate_openshift_ai_version
   ]
 }
 

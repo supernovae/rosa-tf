@@ -4,20 +4,43 @@ metadata:
   name: default-dsc
 spec:
   components:
+    aigateway:
+      managementState: ${aigateway}
+      modelsAsAService:
+        managementState: ${models_as_a_service}
+      batchGateway:
+        managementState: ${batch_gateway}
     dashboard:
       managementState: ${dashboard}
     workbenches:
       managementState: ${workbenches}
     aipipelines:
       managementState: ${aipipelines}
+      argoWorkflowsControllers:
+        managementState: ${argo_workflows_controllers}
     kserve:
       managementState: ${kserve}
+      rawDeploymentServiceConfig: ${kserve_raw_deployment_service_config}
+      nim:
+        managementState: ${nim}
+      # Deprecated in RHOAI 3.5; use aigateway.modelsAsAService instead.
+      modelsAsService:
+        managementState: Removed
+      wva:
+        managementState: ${wva}
+    kueue:
+      managementState: ${kueue}
+      autoCreateQueues: ${kueue_auto_create_queues}
+      defaultClusterQueueName: ${kueue_default_cluster_queue_name}
+      defaultLocalQueueName: ${kueue_default_local_queue_name}
+    trainingoperator:
+      managementState: ${trainingoperator}
+    trainer:
+      managementState: ${trainer}
     ray:
       managementState: ${ray}
     trustyai:
       managementState: ${trustyai}
-    trainingoperator:
-      managementState: ${trainingoperator}
     modelregistry:
       managementState: ${modelregistry}
       registriesNamespace: rhoai-model-registries
@@ -25,7 +48,11 @@ spec:
       managementState: ${feastoperator}
     llamastackoperator:
       managementState: ${llamastackoperator}
+    ogx:
+      managementState: ${ogx}
     mlflowoperator:
       managementState: ${mlflowoperator}
-    kueue:
-      managementState: ${kueue}
+    sparkoperator:
+      managementState: ${sparkoperator}
+    mcplifecycleoperator:
+      managementState: ${mcplifecycleoperator}

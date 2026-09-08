@@ -858,18 +858,22 @@ module "gitops" {
   netapp_trident_image     = var.netapp_trident_image
 
   # OpenShift AI layer
-  enable_layer_openshift_ai         = var.enable_layer_openshift_ai
-  openshift_ai_install_nfd          = var.openshift_ai_install_nfd
-  openshift_ai_install_gpu_operator = var.openshift_ai_install_gpu_operator
-  openshift_ai_install_kueue        = var.openshift_ai_install_kueue
-  openshift_ai_create_s3            = var.openshift_ai_create_s3
-  openshift_ai_enable_fips          = var.openshift_ai_enable_fips
-  openshift_ai_components           = var.openshift_ai_components
-  openshift_ai_bucket_name          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_name : ""
-  openshift_ai_bucket_region        = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_region : ""
-  openshift_ai_s3_endpoint          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_s3_endpoint : ""
-  openshift_ai_create_irsa          = var.enable_layer_openshift_ai
-  openshift_ai_role_arn             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_role_arn : ""
+  enable_layer_openshift_ai                         = var.enable_layer_openshift_ai
+  openshift_ai_install_nfd                          = var.openshift_ai_install_nfd
+  openshift_ai_install_gpu_operator                 = var.openshift_ai_install_gpu_operator
+  openshift_ai_install_kueue                        = var.openshift_ai_install_kueue
+  openshift_ai_kueue_auto_create_queues             = var.openshift_ai_kueue_auto_create_queues
+  openshift_ai_kueue_default_cluster_queue_name     = var.openshift_ai_kueue_default_cluster_queue_name
+  openshift_ai_kueue_default_local_queue_name       = var.openshift_ai_kueue_default_local_queue_name
+  openshift_ai_kserve_raw_deployment_service_config = var.openshift_ai_kserve_raw_deployment_service_config
+  openshift_ai_create_s3                            = var.openshift_ai_create_s3
+  openshift_ai_enable_fips                          = var.openshift_ai_enable_fips
+  openshift_ai_components                           = var.openshift_ai_components
+  openshift_ai_bucket_name                          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_name : ""
+  openshift_ai_bucket_region                        = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_bucket_region : ""
+  openshift_ai_s3_endpoint                          = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_s3_endpoint : ""
+  openshift_ai_create_irsa                          = var.enable_layer_openshift_ai
+  openshift_ai_role_arn                             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].openshift_ai_role_arn : ""
 
   # OpenShift version for operator channel selection
   openshift_version = var.openshift_version
