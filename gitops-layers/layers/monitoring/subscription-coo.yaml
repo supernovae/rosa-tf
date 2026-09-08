@@ -4,7 +4,7 @@
 # page in the OpenShift Console. Without COO, the logging data stored
 # in Loki won't be visible in the console UI.
 #
-# Supported on OpenShift 4.12+
+# Logging UI: check the COO/OCP feature matrix. Optional GA Perses needs COO >=1.5.
 # Channel: stable
 ---
 apiVersion: operators.coreos.com/v1alpha1

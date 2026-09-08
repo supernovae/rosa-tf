@@ -95,6 +95,23 @@ resource "aws_cloudformation_stack" "loki_bucket" {
     Description              = "S3 bucket for Loki log storage (${var.cluster_name}). DeletionPolicy: Retain ensures bucket survives stack deletion."
 
     Resources = {
+      LokiBucketPolicy = {
+        Type = "AWS::S3::BucketPolicy"
+        Properties = {
+          Bucket = { Ref = "LokiBucket" }
+          PolicyDocument = {
+            Version = "2012-10-17"
+            Statement = [{
+              Sid       = "DenyInsecureTransport"
+              Effect    = "Deny"
+              Principal = "*"
+              Action    = "s3:*"
+              Resource  = [local.bucket_arn, "${local.bucket_arn}/*"]
+              Condition = { Bool = { "aws:SecureTransport" = "false" } }
+            }]
+          }
+        }
+      }
       LokiBucket = {
         Type                = "AWS::S3::Bucket"
         DeletionPolicy      = "Retain"
@@ -133,22 +150,18 @@ resource "aws_cloudformation_stack" "loki_bucket" {
                 }
               },
               {
-                Id               = "log-retention"
-                Status           = "Enabled"
-                Prefix           = "chunks/"
-                ExpirationInDays = var.log_retention_days
+                # Only Loki's compactor expires current chunks AND indexes.
+                # Independent object expiry can corrupt otherwise queryable logs.
+                Id     = "noncurrent-version-retention"
+                Status = "Enabled"
                 NoncurrentVersionExpiration = {
                   NoncurrentDays = var.log_retention_days
                 }
               },
               {
-                Id               = "index-retention"
-                Status           = "Enabled"
-                Prefix           = "index/"
-                ExpirationInDays = var.log_retention_days
-                NoncurrentVersionExpiration = {
-                  NoncurrentDays = var.log_retention_days
-                }
+                Id                        = "expired-delete-markers"
+                Status                    = "Enabled"
+                ExpiredObjectDeleteMarker = true
               }
             ]
           }
@@ -206,20 +219,10 @@ resource "null_resource" "bucket_destroy_notice" {
   The Loki log storage bucket was NOT deleted.
   It has been retained for data safety.
 
-  To delete when you no longer need the logs:
-
-    # Step 1: List and delete all object versions
-    aws s3api list-object-versions \
-      --bucket <BUCKET_NAME> \
-      --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
-      --output json --region <REGION> \
-      | aws s3api delete-objects \
-        --bucket <BUCKET_NAME> \
-        --delete file:///dev/stdin \
-        --region <REGION>
-
-    # Step 2: Delete the empty bucket
-    aws s3 rb s3://<BUCKET_NAME> --region <REGION>
+  Before any manual cleanup, obtain retention/legal-hold approval.
+  Inventory ALL versions and delete markers. Use a reviewed, paginated
+  cleanup procedure; a one-shot delete-objects command is insufficient.
+  See docs/OBSERVABILITY-AWS-RECOVERY.md. Retained data incurs charges.
 
 =============================================
 NOTICE
@@ -249,6 +252,11 @@ data "aws_iam_policy_document" "loki_trust" {
       test     = "StringEquals"
       variable = "${var.oidc_endpoint_url}:sub"
       values   = local.loki_service_accounts
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_endpoint_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }

@@ -854,38 +854,27 @@ variable "enable_layer_monitoring" {
   default     = false
 }
 
+variable "monitoring_enable_perses" {
+  type        = bool
+  description = "Enable GA Perses console dashboards after confirming COO >=1.5 is available in the regional catalog."
+  default     = false
+}
+
 variable "monitoring_loki_size" {
   type        = string
-  description = <<-EOT
-    LokiStack deployment size. Controls resource allocation for all Loki components.
-    
-    Available sizes:
-    - 1x.extra-small: Development/testing (default, ~2 vCPU, 4GB per component)
-    - 1x.small: Small production (~4 vCPU, 8GB per component, requires 6+ nodes)
-    - 1x.medium: Medium production (~8 vCPU, 16GB per component)
-    
-    IMPORTANT: 1x.small and larger require significant cluster resources.
-    For dev environments with m6i.xlarge nodes, use 1x.extra-small.
-  EOT
+  description = "LokiStack resource profile. Size using measured ingestion/query load and the selected release sizing guide; a fixed node count does not guarantee capacity."
   default     = "1x.extra-small"
 }
 
 variable "monitoring_retention_days" {
   type        = number
-  description = <<-EOT
-    Retention period for metrics and logs in days.
-    Controls both Prometheus retention and Loki compactor retention.
-    Recommended: 7 for dev, 30 for production.
-  EOT
+  description = "Retention days for user-workload metrics and Loki compactor; also the noncurrent S3 version expiration period. Physical data lifetime can exceed query retention."
   default     = 30
 }
 
 variable "monitoring_prometheus_storage_size" {
   type        = string
-  description = <<-EOT
-    Size of Prometheus persistent volume.
-    Recommended: 50Gi for 7-day retention, 100Gi for 30-day retention.
-  EOT
+  description = "PVC size per user-workload Prometheus replica. Size from active series, sample rate and retention, not retention alone."
   default     = "100Gi"
 }
 
@@ -897,12 +886,7 @@ variable "monitoring_storage_class" {
 
 variable "monitoring_node_selector" {
   type        = map(string)
-  description = <<-EOT
-    Node selector for LokiStack components.
-    Use to place Loki on dedicated monitoring nodes.
-    Example: { "node-role.kubernetes.io/monitoring" = "" }
-    Default: {} (no node selector, uses default scheduling)
-  EOT
+  description = "Node selector for Loki and user-workload Prometheus, Thanos Ruler and Alertmanager. Does not move ROSA platform monitoring or collectors."
   default     = {}
 }
 
@@ -913,12 +897,7 @@ variable "monitoring_tolerations" {
     value    = optional(string, "")
     effect   = string
   }))
-  description = <<-EOT
-    Tolerations for LokiStack components.
-    Use to allow Loki to run on tainted monitoring nodes.
-    Example: [{ key = "workload", value = "monitoring", effect = "NoSchedule" }]
-    Default: [] (no tolerations, uses default scheduling)
-  EOT
+  description = "Tolerations for Loki and user-workload metrics components. Collectors must remain eligible on all worker architectures."
   default     = []
 }
 

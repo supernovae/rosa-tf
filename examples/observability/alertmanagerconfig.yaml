@@ -1,0 +1,22 @@
+# OPTIONAL: create the receiver-url Secret in this namespace using your approved
+# secret manager (key: url; value: approved HTTPS Alertmanager webhook receiver).
+# Do not commit credentials. Verify delivery and resolution before production.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: example-api
+  namespace: observability-demo
+spec:
+  route:
+    receiver: team-webhook
+    groupBy: [namespace, alertname]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+  receivers:
+    - name: team-webhook
+      webhookConfigs:
+        - urlSecret:
+            name: receiver-url
+            key: url
+          sendResolved: true

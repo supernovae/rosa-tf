@@ -1,7 +1,7 @@
 # LokiStack Configuration - Observability API (Logging 6.x)
 #
 # This template works with OpenShift 4.16+ using the loki.grafana.com/v1 API.
-# The Cluster Logging Operator 6.x manages this resource.
+# The Loki Operator manages this resource.
 #
 # Template variables (injected by Terraform):
 # - loki_size: LokiStack size (1x.extra-small, 1x.small, etc.)
@@ -23,7 +23,7 @@ metadata:
 spec:
   # Size determines resource allocation
   # 1x.extra-small: Development/small clusters (default)
-  # 1x.small: Production (requires 6+ m6i.xlarge nodes)
+  # 1x.small: Production; size nodes against the selected release's resource envelope
   # 1x.medium: Large production clusters
   size: ${loki_size}
   
@@ -35,11 +35,12 @@ spec:
     secret:
       name: logging-loki-s3
       type: s3
+      credentialMode: token
   
   # Storage class for Loki components
   storageClassName: ${storage_class}
   
-  # Tenant mode - openshift-logging uses single tenant
+  # Separate application, infrastructure and audit tenants with OpenShift RBAC.
   tenants:
     mode: openshift-logging
   

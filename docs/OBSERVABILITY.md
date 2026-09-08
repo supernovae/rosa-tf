@@ -1,454 +1,255 @@
-# Observability Stack for ROSA
-
-This document covers the monitoring, logging, and observability configuration for ROSA clusters deployed with this Terraform module.
-
-## Overview
-
-The observability stack includes:
-
-| Component | Purpose | Operator |
-|-----------|---------|----------|
-| **Prometheus** | Metrics collection and alerting | Built-in (openshift-monitoring) |
-| **AlertManager** | Alert routing and notifications | Built-in (openshift-monitoring) |
-| **Loki** | Log aggregation and querying | Loki Operator |
-| **Vector** | Log collection (DaemonSet) | Cluster Logging Operator |
-| **COO** | Console UI for logs | Cluster Observability Operator |
-
-## Operator Installation Architecture
-
-Per Red Hat documentation, the operators are installed in specific namespaces:
-
-| Operator | Namespace | Why |
-|----------|-----------|-----|
-| **Loki Operator** | `openshift-operators-redhat` | Avoids conflicts with community operators; ensures ServiceMonitor TLS works correctly |
-| **Cluster Logging Operator** | `openshift-logging` | Manages ClusterLogForwarder and Vector collectors |
-| **Cluster Observability Operator** | `openshift-logging` | Manages UIPlugin for console log viewing |
-
-The **LokiStack CR** and **ClusterLogForwarder CR** are created in `openshift-logging` namespace, but the Loki Operator watches all namespaces and manages them from `openshift-operators-redhat`.
-
-This architecture ensures:
-- ServiceMonitor TLS certificates have correct serverName
-- No conflicts with community operators in `openshift-operators`
-- Proper metrics scraping by Prometheus
-
-## Enabling Observability
-
-Enable the monitoring layer in your `tfvars` file:
-
-```hcl
-enable_layer_monitoring = true
-```
-
-## LokiStack Sizing
-
-The `monitoring_loki_size` parameter controls resource allocation for all Loki components.
-
-### Available Sizes
-
-| Size | Use Case | Resources per Component | Minimum Cluster |
-|------|----------|------------------------|-----------------|
-| `1x.demo` | Demo/testing only | Minimal | 2 nodes |
-| `1x.extra-small` | Development (default) | ~2 vCPU, 4GB | 4 m6i.xlarge nodes |
-| `1x.small` | Small production | ~4 vCPU, 8GB | 6+ m6i.xlarge nodes |
-| `1x.medium` | Medium production | ~8 vCPU, 16GB | 8+ m6i.2xlarge nodes |
-
-### Configuration
-
-```hcl
-# Development environment (default)
-monitoring_loki_size = "1x.extra-small"
-
-# Production environment
-monitoring_loki_size = "1x.small"
-```
-
-### Resource Requirements
-
-The `1x.small` LokiStack deploys multiple replicas for high availability:
-- 2x Distributors
-- 2x Queriers  
-- 2x Query Frontends
-- 2x Gateways
-- 1x Compactor (StatefulSet)
-- 1x Ingester (StatefulSet with PVC)
-- 2x Index Gateways (StatefulSet with PVC)
-
-**Warning:** If you see pods stuck in `Pending` state with "Insufficient cpu/memory" errors, your cluster doesn't have enough resources. Either:
-1. Use a smaller LokiStack size (`1x.extra-small`)
-2. Add more/larger worker nodes
-3. Increase autoscaler max nodes
-
-## Log Retention
-
-Configure how long logs are retained:
-
-```hcl
-# Development: 7 days
-monitoring_retention_days = 7
-
-# Production: 30 days  
-monitoring_retention_days = 30
-```
-
-This controls:
-- Loki compactor retention (automatic deletion of old logs)
-- S3 lifecycle rules (object expiration)
-- Prometheus metric retention
-
-## Prometheus Storage
-
-Configure Prometheus persistent volume size:
-
-```hcl
-# Default: 100Gi
-monitoring_prometheus_storage_size = "100Gi"
-
-# Development (smaller)
-monitoring_prometheus_storage_size = "50Gi"
-```
-
-## Storage Class
-
-The storage class used for PVCs:
-
-```hcl
-# Default for ROSA
-monitoring_storage_class = "gp3-csi"
-```
-
-## Destroying Clusters with Loki
-
-When destroying a cluster with the monitoring layer enabled, the Loki S3 bucket 
-may fail to delete because it contains log data. This is expected behavior to 
-protect your data.
-
-**S3 buckets are retained on `terraform destroy`** -- they are not deleted, to protect your
-log data. During destroy, Terraform prints the bucket name and cleanup commands. When you
-are ready to delete:
-
-```bash
-# Use the bucket name from the destroy output
-BUCKET="dev-hcp-a3f7b2c1-loki-logs"
-
-# Delete all objects and version markers
-aws s3api delete-objects --bucket ${BUCKET} \
-  --delete "$(aws s3api list-object-versions \
-    --bucket ${BUCKET} \
-    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
-    --output json)"
-
-# Then delete the empty bucket
-aws s3 rb s3://${BUCKET}
-```
-
-**Note:** You can keep the bucket as long as needed. S3 lifecycle rules continue to
-expire old data per the configured retention period.
-
-## S3 Storage for Loki
-
-Loki stores logs in S3 using STS/IRSA authentication (no static credentials).
-
-The module automatically:
-1. Creates an S3 bucket: `{cluster_name}-{random_8hex}-loki-logs`
-2. Creates an IAM role with OIDC trust policy
-3. Configures the Loki secret for STS authentication
-
-### S3 Secret Format (STS Mode)
-
-For STS/IRSA authentication, the secret must contain only:
-
-```yaml
-stringData:
-  bucketnames: dev-hcp-a3f7b2c1-loki-logs
-  region: us-east-1
-  role_arn: arn:aws:iam::123456789:role/dev-hcp-loki
-```
-
-**Important:** Do NOT include `endpoint` or `access_key_*` fields - their presence forces static credential mode instead of STS.
-
-### IAM Trust Policy
-
-The IAM role trusts these service accounts (created by Loki Operator):
-
-```json
-{
-  "Condition": {
-    "StringEquals": {
-      "${OIDC_PROVIDER}:sub": [
-        "system:serviceaccount:openshift-logging:logging-loki",
-        "system:serviceaccount:openshift-logging:logging-loki-ruler"
-      ]
-    }
-  }
-}
-```
-
-## Log Collection
-
-The logging stack collects three types of logs and stores them in LokiStack:
-
-| Log Type | Description | Source |
-|----------|-------------|--------|
-| **Application** | Logs from user workloads | Container stdout/stderr in non-system namespaces |
-| **Infrastructure** | OpenShift system component logs | Pods in `openshift-*`, `kube-*`, `default` namespaces |
-| **Audit** | API server and OAuth audit logs | Kubernetes API server, OAuth server |
-
-### Viewing Logs in the Console
-
-1. Navigate to **Observe → Logs** in the OpenShift Console
-2. Select the log type from the dropdown (Application, Infrastructure, or Audit)
-3. Use LogQL queries to filter:
-
-```logql
-# Application logs from a specific namespace
-{log_type="application"} | kubernetes_namespace_name="my-app"
-
-# Infrastructure logs with errors
-{log_type="infrastructure"} |= "error"
-
-# Audit logs for a specific user
-{log_type="audit"} | json | user_username="admin"
-```
-
-### Log Collection Architecture
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│                       OpenShift Cluster                       │
-├───────────────────────────────────────────────────────────────┤
-│                                                               │
-│   ┌──────────┐       ┌──────────┐       ┌──────────┐          │
-│   │  Node 1  │       │  Node 2  │       │  Node N  │          │
-│   │ ┌──────┐ │       │ ┌──────┐ │       │ ┌──────┐ │          │
-│   │ │Vector│ │       │ │Vector│ │       │ │Vector│ │          │
-│   │ └──┬───┘ │       │ └──┬───┘ │       │ └──┬───┘ │          │
-│   └────┼─────┘       └────┼─────┘       └────┼─────┘          │
-│        │                  │                  │                │
-│        └──────────────────┼──────────────────┘                │
-│                           ▼                                   │
-│                   ┌───────────────┐                           │
-│                   │   LokiStack   │                           │
-│                   │  (Distributor │                           │
-│                   │   Ingester    │                           │
-│                   │   Querier)    │                           │
-│                   └───────┬───────┘                           │
-│                           │                                   │
-└───────────────────────────┼───────────────────────────────────┘
-                            ▼
-                    ┌───────────────┐
-                    │   S3 Bucket   │
-                    │  (Long-term   │
-                    │   storage)    │
-                    └───────────────┘
-```
-
-### Time to First Logs
-
-After enabling monitoring, expect:
-- **Vector collectors**: Start within 2-3 minutes
-- **First logs in Loki**: 5-10 minutes after collectors start
-- **Console UI available**: After UIPlugin reconciles (~2-5 minutes)
-
-If no logs appear after 15 minutes, check the troubleshooting section below.
-
-## Cluster Observability Operator (COO)
-
-COO provides the **Observe > Logs** page in the OpenShift Console.
-
-### What COO Enables
-
-- Log viewing with filters, queries, and time ranges
-- Log expansion for detailed information
-- Integration with log-based alerts from Loki ruler
-- Links to correlated metrics
-
-### UIPlugin Configuration
-
-The UIPlugin connects the console to LokiStack:
-
-```yaml
-apiVersion: observability.openshift.io/v1alpha1
-kind: UIPlugin
-metadata:
-  name: logging
-spec:
-  type: Logging
-  logging:
-    lokiStack:
-      name: logging-loki
-      namespace: openshift-logging
-    logsLimit: 50
-    timeout: 30s
-```
-
-## AlertManager Configuration
-
-AlertManager is pre-configured by OpenShift for basic alerting. Custom receivers (email, Slack, PagerDuty) 
-require manual configuration via the OpenShift Console or by creating AlertManager config resources.
-
-See [OpenShift AlertManager documentation](https://docs.openshift.com/container-platform/latest/monitoring/managing-alerts.html) 
-for configuring custom notification receivers.
-
-## Classic vs HCP Cluster Differences
-
-### PrometheusRules (HCP Only)
-
-Custom PrometheusRules for monitoring stack health are **only deployed on HCP clusters**.
-
-On Classic clusters, Red Hat SRE manages the `openshift-monitoring` namespace. The managed admission 
-webhook rejects any custom PrometheusRules in that namespace with the error:
-> "admission webhook denied the request: Prevented from accessing Red Hat managed resources"
-
-This is a platform limitation, not a bug. On Classic clusters, rely on the built-in alerting rules 
-provided by SRE, or create PrometheusRules in other namespaces for application-specific alerts.
-
-## API Version and Requirements
-
-**Minimum Supported Version**: OpenShift 4.16 with Cluster Logging Operator 6.x
-
-This module uses the Observability API (`observability.openshift.io/v1`) which is available
-starting with Cluster Logging Operator 6.0. The API provides a simplified deployment model:
-
-| Component | API Group | Version |
-|-----------|-----------|---------|
-| LokiStack | `loki.grafana.com` | `v1` |
-| ClusterLogForwarder | `observability.openshift.io` | `v1` |
-
-### How It Works
-
-The `ClusterLogForwarder` resource in the Observability API includes:
-
-1. **Collector Configuration** - Deploys the Vector collector DaemonSet via the `collector` section
-2. **Inputs** - Defines log sources (application, infrastructure, audit)
-3. **Outputs** - Configures where logs are sent (LokiStack)
-4. **Pipelines** - Routes inputs to outputs
-
-The module also creates **ClusterRoleBindings** to grant the `logcollector` service account
-permissions to collect each log type (application, infrastructure, audit).
-
-## Troubleshooting
-
-### LokiStack Pending
-
-If LokiStack shows `PendingComponents`:
-
-```bash
-# Check pod status
-oc get pods -n openshift-logging
-
-# Check why pods are Pending
-oc describe pod <pending-pod> -n openshift-logging
-
-# Check PVC status
-oc get pvc -n openshift-logging
-```
-
-Common causes:
-1. **Insufficient resources** - Use smaller LokiStack size or add nodes
-2. **PVC can't bind** - Check storage class exists
-3. **Autoscaler at max** - Increase `autoscaler_max_replicas`
-
-### S3 Authentication Errors
-
-If Loki can't authenticate to S3:
-
-```bash
-# Check secret format (should NOT have 'endpoint' for STS)
-oc get secret logging-loki-s3 -n openshift-logging -o yaml
-
-# Check IAM role trust policy matches service accounts
-aws iam get-role --role-name <cluster>-loki --query 'Role.AssumeRolePolicyDocument'
-
-# Check Loki pod logs for STS errors
-oc logs -n openshift-logging -l app.kubernetes.io/component=compactor | grep -i "sts\|credential\|error"
-```
-
-### Console Logs Not Loading
-
-If Observe > Logs shows "cannot connect to LokiStack":
-
-```bash
-# Check UIPlugin status
-oc get uiplugin logging -o yaml
-
-# Check LokiStack is ready
-oc get lokistack logging-loki -n openshift-logging
-
-# Verify gateway is running
-oc get pods -n openshift-logging -l app.kubernetes.io/component=lokistack-gateway
-```
-
-### No Logs / "No Datapoints Found"
-
-If the Console shows no logs for any log type:
-
-```bash
-# 1. Check if Vector collector is running
-oc get pods -n openshift-logging -l app.kubernetes.io/component=collector
-# Should show pods on each node (DaemonSet)
-
-# 2. Check ClusterLogForwarder exists and has status
-oc get clusterlogforwarder instance -n openshift-logging -o yaml
-# Look for conditions and status
-
-# 3. Check ClusterRoleBindings for log collection
-oc get clusterrolebinding | grep logcollector
-# Should show: logcollector-collect-application-logs
-#              logcollector-collect-infrastructure-logs  
-#              logcollector-collect-audit-logs
-
-# 4. Check Vector logs for errors
-oc logs -n openshift-logging -l app.kubernetes.io/component=collector --tail=50
-```
-
-**Common causes:**
-1. **Missing ClusterLogForwarder** - The collector DaemonSet deploys from this resource
-2. **Missing RBAC** - Collector can't read logs without ClusterRoleBindings
-3. **Operator still installing** - Re-run `terraform apply` after operators finish
-4. **LokiStack not ready** - Collector has nowhere to send logs
-
-### Recreating Monitoring Stack
-
-To recover the monitoring stack, inspect the current owning resources first:
-
-```bash
-cd environments/commercial-hcp
-terraform state list
-oc get applications -n openshift-gitops
-terraform plan -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
-```
-
-Reconcile the relevant Argo CD Application and inspect its operator conditions.
-Do not delete the entire stack or taint historical `null_resource` addresses:
-those addresses are no longer the deployment contract. If a Terraform-managed
-resource genuinely needs replacement, use a reviewed `terraform plan -replace`
-with its exact current state address and the same tfvars. Replacement can interrupt
-logging or remove stored data; confirm backup and recovery requirements first.
-
-## Example Configurations
-
-### Development Environment
-
-```hcl
-# dev.tfvars
-enable_layer_monitoring   = true
-monitoring_loki_size      = "1x.extra-small"
-monitoring_retention_days = 7
-```
-
-### Production Environment
-
-```hcl
-# prod.tfvars
+# Observability as an operated service
+
+Reviewed 2026-09-08. Covers commercial/GovCloud ROSA Classic and HCP. Metrics,
+alerts and logs are included; tracing, Network Observability and automated disaster
+recovery are separate optional services.
+
+## Supported releases
+
+| Running OpenShift | Logging AND Loki channel | Qualification |
+| --- | --- | --- |
+| 4.16–4.18 | `stable-6.2` | EUS only: confirm operator entitlement/support with Red Hat |
+| 4.19 | `stable-6.5` | Supported maintenance stream |
+| 4.20–4.22 | `stable-6.6` | Latest verified release stream |
+
+The [Red Hat lifecycle table](https://access.redhat.com/support/policy/updates/openshift_operators)
+lists 6.6 GA on July 14, 2026 and 6.2 EUS through October 21, 2028. Logging/Loki
+6.4 technically supports 4.18 but ended maintenance when 6.6 shipped; it is not a
+supported modernization target. OpenShift coverage alone is not confirmation of
+operator EUS entitlement. Unknown minors fail the compatibility precondition.
+
+The platform metrics stack ships with OpenShift: do not install a separate
+upstream Prometheus over it. COO remains on `stable`; current release notes list
+1.5.2. Optional GA Perses dashboards require **COO >=1.5**. OLM resolves the patch
+from the cluster catalog; defaults do not guarantee commercial bundles are in a
+GovCloud/private catalog. See [COO releases and feature matrix](https://docs.redhat.com/en/documentation/red_hat_openshift_cluster_observability_operator/1-latest/html/red_hat_openshift_cluster_observability_operator_release_notes/cluster-observability-operator-release-notes).
+
+Logging 6.6 adds three ingesters for extra-small/small stacks and authenticated
+collector metrics endpoints. Operators now own their ServiceMonitors and health
+rules here; we do not hard-code TLS/service names or obsolete metric names. We
+also do not set its new platform collection-profile knob on ROSA-managed monitoring.
+See [Logging 6.6 release notes](https://docs.redhat.com/en/documentation/red_hat_openshift_logging/6.6/html/release_notes/logging-release-notes).
+
+## How the stack works
+
+| Signal | Collection/storage | User experience |
+| --- | --- | --- |
+| Platform metrics | ROSA-managed Prometheus/Alertmanager | Observe → Metrics, Dashboards, Alerting; SRE owns platform configuration |
+| Application metrics | ServiceMonitor/PodMonitor → user Prometheus → Thanos Ruler/Alertmanager | PromQL, namespace alerts, optional Perses dashboards |
+| Logs | Node-local Vector → Loki gateway/ingesters → S3; PVCs hold WAL/index/cache | Observe → Logs, LogQL and namespace-based authorization |
+| Traces (separate) | Instrumented application → OpenTelemetry → supported trace store | Distributed tracing UI; not installed by this layer |
+
+The layer enables `enableUserWorkload`, then configures persistent customer
+Prometheus, Thanos Ruler and Alertmanager in `openshift-user-workload-monitoring`
+on **both** Classic and HCP. It does not tune `prometheusK8s` or `alertmanagerMain`.
+ROSA warns against changing platform components in `cluster-monitoring-config`;
+use [user-workload configuration](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/epub/monitoring/getting-started).
+
+Loki Operator lives in `openshift-operators-redhat`, Logging in `openshift-logging`,
+and this repository's COO subscription in global `openshift-operators`. LokiStack
+and ClusterLogForwarder live in `openshift-logging`. Application, infrastructure
+and audit are distinct tenants—not an unrestricted single tenant. Do not grant
+cluster-admin or blanket audit-log access just to let an application owner view logs.
+
+## Preflight and installation
+
+1. Verify the **running** cluster version, support coverage, catalog channels,
+   machine types and storage class. Keep `openshift_version` aligned with reality:
+   editing it does not upgrade existing clusters (versions are lifecycle-ignored).
+   Perform approved ROSA/OCM upgrades first. Keep Logging and Loki on the same minor.
+2. Use the two-phase cluster/GitOps workflow: create the cluster and pools first,
+   then enable the layer in the environment's GitOps tfvars from a runner with
+   private API access. Review a plan before applying.
+3. Zero-egress GovCloud HCP needs approved mirrored catalogs **and all related
+   images**, including both architectures. Subscriptions use `redhat-operators`
+   in `openshift-marketplace`; provision that approved catalog or adapt subscriptions
+   under one owner. Public registry/GitHub access is not supplied by zero egress.
+   Confirm private regional S3/STS connectivity, DNS and endpoint policies allowing
+   this bucket and role. Certificate, GitOps and other layers may need separate
+   network accommodations.
+
+~~~sh
+oc get clusterversion version
+oc get storageclass gp3-csi
+oc get packagemanifest loki-operator -n openshift-marketplace -o yaml
+oc get packagemanifest cluster-logging -n openshift-marketplace -o yaml
+oc get packagemanifest cluster-observability-operator -n openshift-marketplace -o yaml
+oc get nodes -L kubernetes.io/arch,node-role.kubernetes.io/monitoring
+~~~
+
+Inspect channel CSV versions, related images and `arm64` support in the actual
+catalog. If unavailable, resolve the catalog/support issue rather than bypassing
+it with an upstream or preview operator.
+
+~~~hcl
+install_gitops                     = true
 enable_layer_monitoring            = true
-monitoring_loki_size               = "1x.small"
-monitoring_retention_days          = 30
+monitoring_loki_size               = "1x.extra-small"
+monitoring_retention_days          = 7
 monitoring_prometheus_storage_size = "100Gi"
-```
+monitoring_storage_class           = "gp3-csi"
+# Optional AFTER confirming COO >=1.5 in the regional catalog:
+monitoring_enable_perses           = true
+~~~
 
-## Related Documentation
+See [the HCP ARM infrastructure example](../examples/observability.tfvars). The
+static layer Kustomization is **bootstrap only**, for 4.20–4.22, not the complete
+Terraform deployment. Do not use Terraform and Argo/Kustomize to own the same objects.
 
-- [Monitoring Layer README](../gitops-layers/layers/monitoring/README.md)
-- [Loki Operator Documentation](https://loki-operator.dev/)
-- [Red Hat OpenShift Logging](https://docs.openshift.com/container-platform/latest/logging/cluster-logging.html)
-- [Cluster Observability Operator](https://docs.redhat.com/en/documentation/red_hat_openshift_cluster_observability_operator/)
+## Application onboarding: prove a useful signal
+
+Instrument a real application with a Prometheus/OpenMetrics endpoint and structured
+stdout logs. [Application manifests](../examples/observability/application.yaml)
+use namespace `observability-demo`, pod label `app: example-api`, port 8080 and
+`/metrics`. Deploy your instrumented app there or adapt all namespace/selector/port
+fields together. The sample does not deploy a public demo image.
+
+1. Apply the adapted Namespace, Service, ServiceMonitor and PrometheusRule. A
+   ServiceMonitor selects **Services**, and its endpoint port is the **Service
+   port name**. The rule catches unhealthy targets and the no-series case.
+2. Grant the team the documented `monitoring-edit` role in its namespace and
+   appropriate read/query access for viewers. Limit network access to metrics to
+   the monitoring namespace; use TLS/auth for sensitive endpoints. Sample HTTP
+   is an internal starting point, not a reason to expose metrics through a Route.
+3. In Observe → Metrics, scope to the namespace and run:
+
+~~~promql
+up{namespace="observability-demo",service="example-api-metrics"}
+~~~
+
+Expect one series per endpoint with value 1. Empty results are **not healthy**:
+inspect endpoints, labels, namespace exclusions, NetworkPolicy, TLS and target
+errors. Do not put app rules in `openshift-monitoring` or mark app namespaces
+`openshift.io/user-monitoring=false`.
+
+4. Generate a request with a unique, non-sensitive correlation ID and emit it in
+   stdout. In Observe → Logs, choose application logs and query:
+
+~~~logql
+{kubernetes_namespace_name="observability-demo"} |= "obs-smoke-"
+~~~
+
+Verify the fresh timestamp/workload. Use the label browser if moving from ViaQ to
+OpenTelemetry log format. HCP does not imply access to all service-owned control-plane
+audit logs: verify the actual collected sources and additional ROSA export needs.
+
+## Dashboards and actionable alerts
+
+Start with built-in workload, compute, networking and Prometheus dashboards,
+scoped to the team's namespace. A useful team overview includes request rate,
+error ratio, p95 latency, saturation, restarts, scrape health and log links. Define
+metric names in application instrumentation before copying queries; a missing
+histogram is not zero latency.
+
+Enable `monitoring_enable_perses` after checking COO >=1.5, then open Observe →
+Dashboards (Perses). Create a namespace dashboard using the OpenShift-authenticated
+Prometheus datasource. Test as an ordinary team member; never provision a shared
+cluster-admin token. Export dashboard CR/YAML into the team's GitOps repo and
+validate its served API with `oc explain` and server-side dry run. Use the supported
+Grafana import/conversion workflow for existing dashboards, then test each panel,
+query and plugin. See the [Perses guide](https://docs.redhat.com/en/documentation/red_hat_openshift_cluster_observability_operator/1-latest/html/ui_plugins_for_red_hat_openshift_cluster_observability_operator/perses-dashboard).
+
+The dedicated user Alertmanager accepts namespaced `AlertmanagerConfig` objects.
+Adapt [the receiver example](../examples/observability/alertmanagerconfig.yaml),
+provision its referenced Secret through an approved secret system, and send a
+firing **and resolved** test alert to an owned destination. Keep namespace matching
+enabled so one project cannot capture another's alerts. Verify the installed API
+with `oc explain` and server-side dry run. See [ROSA's configuration reference](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws_classic_architecture/4/html/monitoring/config-map-reference-for-the-cluster-monitoring-operator).
+
+Every production alert needs severity, owner, annotations, runbook and response
+expectations. In nonproduction, stop the test app's metrics endpoint, confirm
+notification, restore it and confirm resolution. Silences need owner and expiry.
+Verify platform logging alerts/routing separately with the administrator: user
+Alertmanager does not automatically receive all platform alerts. Do not duplicate
+operator-supplied alerts using guessed collector or Loki metrics.
+
+## ARM, HCP multi-architecture and economics
+
+ROSA HCP supports Graviton ARM worker pools alongside x86 using a multi-architecture
+payload. Choose a supported ARM instance type in the existing RHCS node pool;
+no preview provider is needed for this placement. It does not change the hosted
+control plane. Keep Classic on its supported x86 path; do not infer Classic ARM
+support from HCP. See [ROSA worker architecture](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/epub/introduction_to_rosa/about-hcp).
+
+The example uses memory-balanced `m7g.4xlarge` (16 vCPU, 64 GiB), not an assertion
+that compute-optimized nodes are always best for Prometheus/Loki. The selector
+includes `kubernetes.io/arch=arm64` plus the monitoring pool label. Placement covers
+Loki and user Prometheus/Thanos Ruler/Alertmanager, **not** ROSA platform monitoring.
+Operator/UI pods may stay on x86. Vector needs both image architectures because
+it must collect from every eligible worker. `PreferNoSchedule` softly discourages
+other workloads; it does not attract monitoring pods—the selector does that.
+Before using a hard taint, check collector/platform DaemonSet tolerations.
+
+AWS lists M7g in GovCloud, but regional EC2 availability does not establish ROSA
+account/version support or AZ capacity. Verify ROSA's regional machine-type list
+and [EC2 offerings](https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-regions.html).
+When adapting the commercial sample, retain GovCloud's private, zero-egress
+network and approved cluster release; do not copy commercial network defaults.
+
+AWS advertises [up to 20% lower instance cost versus comparable x86](https://aws.amazon.com/ec2/graviton/),
+not a measured Loki result or 20% off the entire cluster. Compare equal memory,
+vCPU, region, tenancy and purchase model, then benchmark ingestion, queries,
+cardinality and failure headroom.
+
+**Illustration, not a regional quote:** three nodes, 730 hours/month, x86 at
+$1.00/hour and ARM at $0.80/hour:
+
+| Monthly cost | x86 | ARM |
+| --- | ---: | ---: |
+| Monitoring EC2 pool | $2,190 | $1,752 |
+| EC2-only saving | — | $438/month; $5,256/year |
+| Other costs (illustrative fixed amount) | $1,000 | $1,000 |
+| Total | $3,190 | $2,752; 13.7% lower |
+
+Replace rates with [AWS Pricing Calculator](https://calculator.aws/) quotes for
+**your commercial or GovCloud region**. Formula: `730 × node_count × hourly_rate`.
+Include ROSA worker/service and HCP fees, EBS GB/IOPS/throughput, S3 current and
+noncurrent versions/requests, KMS, cross-AZ traffic, private endpoints and backups.
+A monitoring/infra label is not evidence of waived ROSA fees. Compare marginal
+pool cost separately from Classic-versus-HCP architecture costs. Savings Plans
+and utilization change the result.
+
+Size from measured ingestion and active series, not retention alone. Retain
+headroom for failures and rolling updates. Multiple nodes in one AZ are not AZ
+resilience: use multi-AZ production pools and account for EBS AZ affinity when
+moving stateful pods. Consult the selected Loki release's resource envelopes
+instead of assuming a fixed node count guarantees a given stack size.
+
+## Retention, recovery and acceptance
+
+`monitoring_retention_days` sets user metrics and Loki compactor retention and
+expires **noncurrent** S3 versions after that many days. It does not independently
+expire live chunks/indexes. Versioning extends physical data lifetime/cost beyond
+query retention. Active Loki storage is not configured with Glacier or Object Lock.
+
+Read [AWS recovery runbooks](OBSERVABILITY-AWS-RECOVERY.md). A retained S3 bucket
+is not a complete backup; remote-write is not a backup of dashboards or rules.
+
+Run `gitops-layers/layers/monitoring/verify-monitoring.sh` from an authenticated
+private-network runner. It checks readiness, PVCs and collectors, fails on missing
+resources, and does not print credentials. It does **not** prove successful use.
+Acceptance must include a fresh log query, app scrape, non-admin dashboard,
+firing/resolved notification, node-drain exercise, S3 write/query health, recovery
+rehearsal with measured RPO/RTO and monthly cost baseline. Review drops/429s,
+PVC pressure, cardinality, retention and notification failures regularly.
+
+## Existing-installation migration
+
+This is not an unattended upgrade. Export ConfigMaps, subscriptions, Loki schema
+history, rules and dashboards. Review existing user-workload config ownership:
+the layer manages the whole `config.yaml`, so reconcile remote-write/receiver
+settings rather than overwriting another owner's configuration. Removing old
+`prometheusK8s`/`alertmanagerMain` overrides can roll platform components and change
+storage/retention; coordinate with ROSA SRE and protect required history first.
+User Prometheus does not inherit platform TSDB history. ARM relocation may need
+a controlled EBS/AZ migration rather than just changing selectors.
+
+The obsolete Terraform `monitoring-stack-alerts` rule is removed; the collector
+ServiceMonitor is relinquished without deletion because Logging reconciles it.
+Confirm operator ownership/reconciliation; review any orphan before explicitly
+removing it. Preserve existing Loki schema histories; do not replace them with
+this new-install template's v13 entry. Follow supported sequential operator upgrade
+procedures. **Do not downgrade an existing 6.4 stack to 6.2** to match a 4.18
+default: resolve the lifecycle situation with Red Hat. Slow catalogs can outlast
+bootstrap delays; check CSV/CRD readiness before retrying. LokiStack and forwarder
+resources additionally wait for Ready conditions.

@@ -826,6 +826,7 @@ module "gitops" {
   monitoring_prometheus_storage_size = var.monitoring_prometheus_storage_size
   monitoring_node_selector           = var.monitoring_node_selector
   monitoring_tolerations             = var.monitoring_tolerations
+  monitoring_enable_perses           = var.monitoring_enable_perses
 
   # Cert-Manager resources from consolidated module
   certmanager_role_arn                         = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_role_arn : ""

@@ -108,8 +108,8 @@ This module automatically selects the correct operator channels based on OpenShi
 
 | Operator | OCP 4.16-4.18 | OCP 4.19+ | Type |
 |----------|---------------|-----------|------|
-| Loki | `stable-6.2` | `stable-6.4` | Version-specific |
-| Cluster Logging | `stable-6.2` | `stable-6.4` | Version-specific |
+| Loki | `stable-6.2` (EUS coverage required) | 4.19: `stable-6.5`; 4.20–4.22: `stable-6.6` | Version-specific |
+| Cluster Logging | `stable-6.2` (EUS coverage required) | 4.19: `stable-6.5`; 4.20–4.22: `stable-6.6` | Version-specific |
 | OADP | `stable` | `stable` | Generic (auto-selects) |
 | Virtualization | `stable` | `stable` | Generic (auto-selects) |
 | Web Terminal | `fast` | `fast` | Generic (latest) |
@@ -519,7 +519,7 @@ module "gitops" {
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `cluster_type` | string | `"hcp"` | Cluster type: `"classic"` or `"hcp"`. Affects monitoring (Classic skips PrometheusRules in SRE-managed namespace) |
+| `cluster_type` | string | `"hcp"` | Cluster type: `"classic"` or `"hcp"`; both use customer user-workload monitoring and operator-owned logging rules |
 | `openshift_version` | string | `"4.20"` | OpenShift version for operator channel selection |
 
 ### Layer Enablement
@@ -549,7 +549,8 @@ module "gitops" {
 | `monitoring_loki_size` | string | `"1x.extra-small"` | LokiStack size: `1x.demo`, `1x.extra-small`, `1x.small`, `1x.medium` |
 | `monitoring_retention_days` | number | `30` | Days to retain logs and metrics |
 | `monitoring_storage_class` | string | `"gp3-csi"` | StorageClass for PVCs |
-| `monitoring_prometheus_storage_size` | string | `"100Gi"` | Prometheus PVC size |
+| `monitoring_prometheus_storage_size` | string | `"100Gi"` | PVC size per user-workload Prometheus replica |
+| `monitoring_enable_perses` | bool | `false` | Enable GA console dashboards after confirming COO >=1.5 in the regional catalog |
 
 ### Virtualization Configuration (when `enable_layer_virtualization = true`)
 

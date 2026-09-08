@@ -56,10 +56,11 @@ locals {
   #----------------------------------------------------------------------------
   operator_channels = {
     # Logging stack requires version-specific channels
-    # stable-6.2: OCP 4.16, 4.17, 4.18 (GovCloud)
-    # stable-6.4: OCP 4.19+ (Commercial)
-    loki            = local.ocp_minor_version >= 19 ? "stable-6.4" : "stable-6.2"
-    cluster_logging = local.ocp_minor_version >= 19 ? "stable-6.4" : "stable-6.2"
+    # 2026-09: 6.6 requires 4.20+; 6.5 supports 4.19; 6.2 is the
+    # remaining EUS stream for 4.16-4.18 (confirm entitlement with Red Hat).
+    # 6.4 is compatible with 4.18 but has ENDED maintenance. Do not select it.
+    loki            = local.monitoring_logging_channel
+    cluster_logging = local.monitoring_logging_channel
 
     # These operators use generic channels that auto-select appropriate versions
     # Listed here for documentation and future version-specific needs

@@ -40,7 +40,7 @@ variable "s3_bucket_name" {
   type        = string
   description = <<-EOT
     Name for the Loki S3 bucket. Must be globally unique.
-    If not provided, defaults to: {cluster_name}-loki-logs
+    If not provided, defaults to: {cluster_name}-{random_8hex}-loki-logs
   EOT
   default     = ""
 }
@@ -52,10 +52,9 @@ variable "s3_bucket_name" {
 variable "log_retention_days" {
   type        = number
   description = <<-EOT
-    Number of days to retain logs in S3 and Loki.
-    This controls both:
-    - S3 lifecycle rules (object expiration)
-    - Loki compactor retention (chunk deletion)
+    Noncurrent S3 object-version retention, also passed to Loki by the parent.
+    Only Loki's compactor expires live chunks/indexes. Physical object lifetime
+    can exceed query retention because deleted objects leave noncurrent versions.
     
     Recommended values:
     - Development: 7 days
@@ -97,11 +96,8 @@ variable "iam_role_path" {
 variable "is_govcloud" {
   type        = bool
   description = <<-EOT
-    Whether this is a GovCloud deployment.
-    Affects:
-    - S3 endpoint URL format
-    - Logging API version selection
-    - Partition for IAM ARNs
+    Retained compatibility input. IAM partition is detected from AWS.
+    All supported Logging 6.x streams use observability.openshift.io/v1.
   EOT
   default     = false
 }
@@ -109,9 +105,8 @@ variable "is_govcloud" {
 variable "openshift_version" {
   type        = string
   description = <<-EOT
-    OpenShift version for API compatibility.
-    - 4.16.x: Uses logging.openshift.io/v1 API
-    - 4.17+: Uses observability.openshift.io/v1 API
+    Retained compatibility input. Operator channel selection is in the operator
+    module; this AWS resource module does not select Kubernetes APIs.
   EOT
   default     = "4.20"
 }

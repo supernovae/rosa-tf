@@ -11,6 +11,8 @@
 #------------------------------------------------------------------------------
 
 locals {
+  monitoring_logging_channel = lookup(yamldecode(file("${local.layers_path}/monitoring/logging-channels.yaml")), "${local.ocp_major_version}.${local.ocp_minor_version}", "unsupported")
+
   # Monitoring templates
   monitoring_subscription_loki = templatefile("${local.layers_path}/monitoring/subscription-loki.yaml.tftpl", {
     operator_channel = local.operator_channels.loki
@@ -18,11 +20,13 @@ locals {
   monitoring_subscription_logging = templatefile("${local.layers_path}/monitoring/subscription-logging.yaml.tftpl", {
     operator_channel = local.operator_channels.cluster_logging
   })
-  monitoring_cluster_config = templatefile("${local.layers_path}/monitoring/cluster-monitoring-config.yaml.tftpl", {
-    prometheus_retention_hours = var.monitoring_retention_days * 24
-    prometheus_retention_days  = var.monitoring_retention_days
-    prometheus_storage_size    = var.monitoring_prometheus_storage_size
-    storage_class_name         = var.monitoring_storage_class
+  monitoring_cluster_config = file("${local.layers_path}/monitoring/cluster-monitoring-config.yaml")
+  monitoring_user_workload_config = templatefile("${local.layers_path}/monitoring/user-workload-monitoring-config.yaml.tftpl", {
+    retention_days = var.monitoring_retention_days
+    storage_size   = var.monitoring_prometheus_storage_size
+    storage_class  = var.monitoring_storage_class
+    node_selector  = var.monitoring_node_selector
+    tolerations    = var.monitoring_tolerations
   })
   monitoring_logforwarder = templatefile("${local.layers_path}/monitoring/clusterlogforwarder-observability.yaml.tftpl", {
     cluster_name = var.cluster_name
@@ -56,24 +60,31 @@ resource "kubectl_manifest" "monitoring_cluster_config" {
   yaml_body = local.monitoring_cluster_config
 
   server_side_apply = true
-  force_conflicts   = true
+  # Refuse to take over another manager's config.yaml silently. Existing
+  # deployments must reconcile the whole embedded YAML with their ROSA owner.
+  force_conflicts = false
 
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 
 #------------------------------------------------------------------------------
-# PrometheusRules (HCP only - Classic has SRE-managed openshift-monitoring)
+# Customer-managed metrics configuration (Classic AND HCP).
+# Platform Prometheus/Alertmanager are managed by ROSA SRE.
 #------------------------------------------------------------------------------
 
-resource "kubectl_manifest" "monitoring_prometheus_rules" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring && var.cluster_type == "hcp" ? 1 : 0
-
-  yaml_body = file("${local.layers_path}/monitoring/prometheus-rules.yaml")
-
+resource "kubectl_manifest" "monitoring_user_workload_config" {
+  count             = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  yaml_body         = local.monitoring_user_workload_config
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
+  depends_on        = [kubectl_manifest.monitoring_cluster_config]
+}
 
-  depends_on = [kubectl_manifest.monitoring_cluster_config]
+# Drop Terraform ownership of a ServiceMonitor also reconciled by Logging.
+# The operator owns TLS/auth/labels/ports and its supported alerts.
+removed {
+  from = kubectl_manifest.monitoring_servicemonitor
+  lifecycle { destroy = false }
 }
 
 #------------------------------------------------------------------------------
@@ -115,9 +126,10 @@ resource "kubectl_manifest" "monitoring_operators_redhat_ns" {
     metadata = {
       name = "openshift-operators-redhat"
       labels = {
-        "app.kubernetes.io/managed-by" = "terraform"
-        "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
-        "app.kubernetes.io/component"  = "monitoring"
+        "openshift.io/cluster-monitoring" = "true"
+        "app.kubernetes.io/managed-by"    = "terraform"
+        "app.kubernetes.io/part-of"       = "rosa-gitops-layers"
+        "app.kubernetes.io/component"     = "monitoring"
       }
     }
   })
@@ -162,6 +174,12 @@ resource "kubectl_manifest" "monitoring_loki_subscription" {
   server_side_apply = true
   force_conflicts   = true
 
+  lifecycle {
+    precondition {
+      condition     = local.monitoring_logging_channel != "unsupported"
+      error_message = "Monitoring supports verified OpenShift minors 4.16-4.22 only. Update the compatibility matrix after checking Red Hat support."
+    }
+  }
   depends_on = [kubectl_manifest.monitoring_operatorgroup_operators_redhat]
 }
 
@@ -217,6 +235,17 @@ resource "kubectl_manifest" "monitoring_lokistack" {
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_lokistack
+
+  wait_for {
+    condition {
+      type   = "Ready"
+      status = "True"
+    }
+  }
+  timeouts {
+    create = "30m"
+    update = "30m"
+  }
 
   server_side_apply = true
   force_conflicts   = true
@@ -321,6 +350,17 @@ resource "kubectl_manifest" "monitoring_logforwarder" {
 
   yaml_body = local.monitoring_logforwarder
 
+  wait_for {
+    condition {
+      type   = "Ready"
+      status = "True"
+    }
+  }
+  timeouts {
+    create = "20m"
+    update = "20m"
+  }
+
   server_side_apply = true
   force_conflicts   = true
 
@@ -336,19 +376,7 @@ resource "kubectl_manifest" "monitoring_logforwarder" {
 }
 
 #------------------------------------------------------------------------------
-# Collector ServiceMonitor
-#------------------------------------------------------------------------------
-
-resource "kubectl_manifest" "monitoring_servicemonitor" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
-
-  yaml_body = file("${local.layers_path}/monitoring/servicemonitor-collector.yaml")
-
-  server_side_apply = true
-  force_conflicts   = true
-
-  depends_on = [kubectl_manifest.monitoring_logforwarder]
-}
+# Operator-managed ServiceMonitors and PrometheusRules are authoritative.
 
 #------------------------------------------------------------------------------
 # COO Subscription (Cluster Observability Operator)
@@ -401,4 +429,13 @@ resource "kubectl_manifest" "monitoring_uiplugin" {
     time_sleep.wait_for_coo_operator,
     time_sleep.wait_for_lokistack_ready,
   ]
+}
+
+# GA Perses dashboard management, opt-in until the regional catalog has COO >=1.5.
+resource "kubectl_manifest" "monitoring_dashboards" {
+  count             = !var.skip_k8s_destroy && var.enable_layer_monitoring && var.monitoring_enable_perses ? 1 : 0
+  yaml_body         = file("${local.layers_path}/monitoring/uiplugin-monitoring.yaml")
+  server_side_apply = true
+  force_conflicts   = false
+  depends_on        = [time_sleep.wait_for_coo_operator]
 }

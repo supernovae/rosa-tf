@@ -1,0 +1,55 @@
+# Adapt to an EXISTING instrumented app (app=example-api, port 8080 /metrics).
+# Does not deploy an image. See docs/OBSERVABILITY.md for setup and acceptance.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability-demo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-api-metrics
+  namespace: observability-demo
+  labels:
+    app: example-api-metrics
+spec:
+  selector:
+    app: example-api
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: example-api
+  namespace: observability-demo
+spec:
+  selector:
+    matchLabels:
+      app: example-api-metrics
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: example-api
+  namespace: observability-demo
+spec:
+  groups:
+    - name: example-api.availability
+      rules:
+        - alert: ExampleAPIMetricsUnavailable
+          expr: max(up{namespace="observability-demo",service="example-api-metrics"}) == 0 or absent(up{namespace="observability-demo",service="example-api-metrics"})
+          for: 5m
+          labels:
+            severity: warning
+            service: example-api
+          annotations:
+            summary: Example API has no healthy metrics target
+            description: Check app health, Service endpoints, NetworkPolicy and ServiceMonitor port/TLS. Missing metrics do not prove the app is healthy.

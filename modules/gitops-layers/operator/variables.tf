@@ -285,6 +285,12 @@ variable "virt_tolerations" {
 # Monitoring Layer Configuration (when enabled)
 #------------------------------------------------------------------------------
 
+variable "monitoring_enable_perses" {
+  type        = bool
+  description = "Enable GA Perses console dashboards. Requires COO >=1.5 in the selected catalog; verify before enabling."
+  default     = false
+}
+
 variable "monitoring_bucket_name" {
   type        = string
   description = "S3 bucket name for Loki log storage. Required if enable_layer_monitoring is true."
@@ -299,17 +305,7 @@ variable "monitoring_role_arn" {
 
 variable "monitoring_loki_size" {
   type        = string
-  description = <<-EOT
-    LokiStack deployment size. Controls resource allocation for all Loki components.
-    
-    Available sizes:
-    - 1x.extra-small: Development/testing (~2 vCPU, 4GB per component)
-    - 1x.small: Small production (~4 vCPU, 8GB per component)
-    - 1x.medium: Medium production (~8 vCPU, 16GB per component)
-    
-    IMPORTANT: 1x.small requires significant cluster resources (6+ m6i.xlarge nodes).
-    For dev environments, use 1x.extra-small.
-  EOT
+  description = "LokiStack resource profile. Size using measured ingestion/query load and the selected release sizing guide; a fixed node count does not guarantee capacity."
   default     = "1x.extra-small"
 
   validation {
@@ -320,18 +316,7 @@ variable "monitoring_loki_size" {
 
 variable "monitoring_retention_days" {
   type        = number
-  description = <<-EOT
-    Number of days to retain logs and metrics.
-    
-    This controls:
-    - Prometheus metric retention (converted to hours)
-    - Loki log retention (days)
-    - S3 lifecycle rules
-    
-    Recommended:
-    - Development: 7 days
-    - Production: 30 days
-  EOT
+  description = "Retention days for user-workload metrics and Loki compactor; also the noncurrent S3 version expiration period. Physical data lifetime can exceed query retention."
   default     = 30
 }
 
@@ -348,13 +333,7 @@ variable "monitoring_storage_class" {
 
 variable "monitoring_prometheus_storage_size" {
   type        = string
-  description = <<-EOT
-    Size of Prometheus persistent volume.
-    Recommended sizing based on retention:
-    - 7 days: 50Gi
-    - 30 days: 100Gi
-    - 90 days: 200Gi
-  EOT
+  description = "PVC size per user-workload Prometheus replica. Size from active series, sample rate and retention, not retention alone."
   default     = "100Gi"
 }
 
@@ -380,12 +359,7 @@ variable "monitoring_loki_ingestion_burst_size" {
 
 variable "monitoring_node_selector" {
   type        = map(string)
-  description = <<-EOT
-    Node selector for LokiStack components.
-    Use to place Loki on dedicated monitoring nodes.
-    Example: { "node-role.kubernetes.io/monitoring" = "" }
-    Default: {} (no node selector, uses default scheduling)
-  EOT
+  description = "Node selector for Loki and user-workload Prometheus, Thanos Ruler and Alertmanager. Does not move ROSA platform monitoring or collectors."
   default     = {}
 }
 
@@ -396,12 +370,7 @@ variable "monitoring_tolerations" {
     value    = optional(string, "")
     effect   = string
   }))
-  description = <<-EOT
-    Tolerations for LokiStack components.
-    Use to allow Loki to run on tainted monitoring nodes.
-    Example: [{ key = "workload", value = "monitoring", effect = "NoSchedule" }]
-    Default: [] (no tolerations, uses default scheduling)
-  EOT
+  description = "Tolerations for Loki and user-workload metrics components. Collectors must remain eligible on all worker architectures."
   default     = []
 }
 
@@ -807,8 +776,8 @@ variable "openshift_version" {
     
     | Operator        | OCP 4.16-4.18 | OCP 4.19+ |
     |-----------------|---------------|-----------|
-    | Loki            | stable-6.2    | stable-6.4|
-    | Cluster Logging | stable-6.2    | stable-6.4|
+    | Loki            | stable-6.2 EUS | 4.19: stable-6.5; 4.20-4.22: stable-6.6 |
+    | Cluster Logging | stable-6.2 EUS | 4.19: stable-6.5; 4.20-4.22: stable-6.6 |
     | OADP            | stable        | stable    |
     | Virtualization  | stable        | stable    |
     | Web Terminal    | fast          | fast      |

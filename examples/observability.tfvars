@@ -6,7 +6,7 @@
 #
 # What's different from dev.tfvars:
 #   - Dedicated monitoring machine pool on Graviton (ARM) for cost efficiency
-#   - PreferNoSchedule taint biases observability workloads to dedicated nodes
+#   - Node selector places observability workloads; soft taint discourages others
 #   - monitoring_node_selector and monitoring_tolerations configured
 #   - Loki and Prometheus optimized for dedicated nodes
 #
@@ -14,7 +14,10 @@
 #   cp examples/observability.tfvars environments/commercial-hcp/my-cluster.tfvars
 #   cd environments/commercial-hcp
 #   # Edit my-cluster.tfvars with your cluster_name, region, etc.
+#   terraform apply -var-file="my-cluster.tfvars" -var=install_gitops=false
+#   # After the cluster/pool is ready and catalogs/support are verified:
 #   terraform apply -var-file="my-cluster.tfvars"
+#   # See docs/OBSERVABILITY.md for application onboarding and acceptance.
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -84,22 +87,22 @@ admin_username    = "cluster-admin"
 # Machine Pools
 #
 # Dedicated monitoring pool using AWS Graviton (ARM) instances for cost
-# efficiency. Graviton provides ~20-40% better price-performance vs x86
-# for workloads like Loki, Prometheus, and Vector that benefit from high
-# memory bandwidth and throughput.
+# efficiency. Compare equal-memory/vCPU regional rates, then benchmark ingestion,
+# queries and cardinality. See docs/OBSERVABILITY.md for transparent cost math.
 #
-# c7g.4xlarge: 16 vCPU, 32 GiB RAM (Graviton3, ARM64)
-# ~30% cheaper than equivalent c5.4xlarge (x86)
+# m7g.4xlarge: 16 vCPU, 64 GiB RAM (Graviton3, ARM64).
+# Verify ROSA account/region, catalog image architectures and AZ capacity.
 #
-# PreferNoSchedule allows monitoring pods to land here preferentially
-# while not blocking scheduling if nodes are still initializing.
+# PreferNoSchedule softly discourages other workloads; the selector below pins
+# Loki and user metrics here. They remain Pending until eligible nodes exist.
+# Vector still collects from ALL workers, including the x86 default pool.
 #------------------------------------------------------------------------------
 
 machine_pools = [
   {
     name          = "monitoring"
-    instance_type = "c7g.4xlarge" # Graviton3 ARM - best price-performance for observability
-    replicas      = 4             # 4 nodes for HA across Loki, Prometheus, Vector
+    instance_type = "m7g.4xlarge" # Memory-balanced starting point; measure before production
+    replicas      = 3             # Single-AZ demo is NOT AZ-resilient; use multi-AZ in production
     labels = {
       "node-role.kubernetes.io/monitoring" = ""
     }
@@ -139,13 +142,15 @@ monitoring_loki_size               = "1x.extra-small" # Use 1x.small for product
 monitoring_retention_days          = 7                # Use 30 for production
 monitoring_prometheus_storage_size = "100Gi"
 monitoring_storage_class           = "gp3-csi"
+monitoring_enable_perses           = false # Enable after confirming COO >=1.5 in the catalog
 
 # Node selector matches the label on our monitoring machine pool
 monitoring_node_selector = {
+  "kubernetes.io/arch"                 = "arm64"
   "node-role.kubernetes.io/monitoring" = ""
 }
 
-# Tolerations allow Loki pods to schedule on tainted monitoring nodes
+# Tolerations cover Loki and user Prometheus/Thanos Ruler/Alertmanager.
 monitoring_tolerations = [
   {
     key      = "workload"

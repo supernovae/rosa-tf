@@ -503,6 +503,28 @@ enable_vpc_flow_logs = true
 
 ## Related Documentation
 
+### Observability evidence and recovery
+
+Treat observability as an operated service, not just an installed operator.
+The [observability guide](OBSERVABILITY.md) covers namespace-scoped access,
+dashboards, tested alert delivery and ARM cost assessment for HCP. The
+[AWS recovery guide](OBSERVABILITY-AWS-RECOVERY.md) separates configuration,
+Loki data and historical metrics protection, including measured RPO/RTO drills.
+
+For 4.18, confirm Logging/Loki 6.2 EUS coverage; do not upgrade to the expired 6.4
+stream solely because its API is compatible. Mirror approved operator bundles
+and all architectures before enabling observability on zero-egress HCP. Private
+S3/STS connectivity still requires least-privilege IAM, bucket and endpoint policies.
+
+Loki query retention is not immutable evidence retention: versioned S3 objects
+can remain after compactor deletion. Obtain system-owner approval for physical
+retention, key custody, archive access and deletion. Optional protected copies
+stay within the approved AWS partition; recovery and notification destinations
+must not silently create an unapproved external data path. These practices can
+support AU-9/AU-11 and CP-9/CP-10 evidence under
+[NIST SP 800-53 Rev. 5](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final);
+they do not establish control satisfaction or an ATO.
+
 | Document | Description |
 |----------|-------------|
 | [Security Scanning](SECURITY.md) | Security tools, skipped checks, compliance notes |
