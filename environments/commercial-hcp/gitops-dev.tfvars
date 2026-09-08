@@ -45,11 +45,8 @@ monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
 # to prevent accidental data loss. After destroying the cluster, manually delete
 # buckets via: aws s3 rb s3://BUCKET_NAME --force
 
-# Additional GitOps configuration (optional)
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
-# gitops_oauth_url = "https://oauth-openshift.apps.<cluster>.<domain>"
-
-# For subsequent runs, provide SA token to avoid htpasswd dependency:
-# gitops_cluster_token = "<your-token-here>"
+# Workload reconciliation is a separate opt-in; see examples/gitops-workloads.tfvars.
+# Supply short-lived TF_VAR_gitops_cluster_token from your trusted runner/secret manager.
+# Do not place cluster tokens in tfvars. See docs/GITOPS.md for migration and TLS setup.
 
 # enable_layer_openshift_ai = true

@@ -759,13 +759,7 @@ variable "install_gitops" {
 
 variable "gitops_repo_url" {
   type        = string
-  description = <<-EOT
-    Git repository URL for ADDITIONAL custom resources to deploy via ArgoCD.
-    This does NOT replace the built-in layers (monitoring, OADP, etc.) which
-    are always managed by Terraform. Use this for your own static manifests
-    (projects, quotas, RBAC, apps). When provided, an ArgoCD Application
-    is created to sync from this repo.
-  EOT
+  description = "Explicit HTTPS workload repository; requires gitops_application.enabled. Restricted to the delegated namespace and allowed workload kinds, not platform layers."
   default     = null
 }
 
@@ -1475,7 +1469,7 @@ variable "terraform_sa_namespace" {
 
 variable "skip_k8s_destroy" {
   type        = bool
-  description = "Set true before terraform destroy to skip K8s resource deletion. See docs/OPERATIONS.md."
+  description = "Legacy count switch: true plans deletion of managed Kubernetes resources; it does NOT forget state or bypass refresh. See docs/GITOPS.md before teardown."
   default     = false
 }
 

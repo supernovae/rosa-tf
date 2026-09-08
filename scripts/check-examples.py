@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLUSTERS = [
     "commercial-classic", "commercial-hcp", "govcloud-classic", "govcloud-hcp"
 ]
-OVERLAYS = {"openshiftai", "netappstorage", "cluster-only"}
+OVERLAYS = {"openshiftai", "netappstorage", "cluster-only", "gitops-workloads"}
 
 
 def read_hcl(path):
@@ -44,7 +44,7 @@ def main():
         ["git", "ls-files", "*.tfvars"], cwd=ROOT, text=True
     ).splitlines()
     # Include the new safety overlay before its first commit.
-    tracked = sorted(set(tracked) | {"examples/cluster-only.tfvars"})
+    tracked = sorted(set(tracked) | {"examples/cluster-only.tfvars", "examples/gitops-workloads.tfvars"})
     schemas = {}
     checks = 0
     for filename in tracked:

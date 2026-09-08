@@ -1,0 +1,15 @@
+${yamlencode({
+  apiVersion = "operators.coreos.com/v1alpha1"
+  kind = "Subscription"
+  metadata = { name = "openshift-gitops-operator", namespace = config.namespace }
+  spec = {
+    channel = channel
+    installPlanApproval = config.install_plan_approval
+    name = "openshift-gitops-operator"
+    source = config.source
+    sourceNamespace = config.source_namespace
+    # Terraform owns platform resources; no Argo CD instance needs cluster scope.
+    # This also makes the operator scope the local-cluster cache to managed namespaces.
+    config = { env = [{ name = "ARGOCD_CLUSTER_CONFIG_NAMESPACES", value = "" }] }
+  }
+})}

@@ -229,8 +229,8 @@ This framework includes optional GitOps integration for Day 2 operations via Ope
 - **Two-phase deployment**: Phase 1 creates the cluster (`cluster-*.tfvars`), Phase 2 applies GitOps layers (`gitops-*.tfvars` overlay)
 - **Infrastructure-focused**: Deploys cluster operators and platform services, not user workloads
 - **No secrets in GitOps**: Credentials and secrets are managed by Terraform/AWS, never in Git
-- **Native Terraform providers**: All Kubernetes resources are managed via `hashicorp/kubernetes` and `alekc/kubectl` -- no shell scripts or `local-exec`
-- **Dedicated Service Account**: A `terraform-operator` ServiceAccount with cluster-admin is created during Phase 2 for long-term state management
+- **Native Terraform providers**: Platform Kubernetes resources use `hashicorp/kubernetes` and `alekc/kubectl`; Argo CD owns explicitly enabled workload manifests
+- **Separate identities**: A privileged Terraform runner installs platform layers; namespace-scoped Argo CD handles explicitly delegated workloads. Prefer short-lived credentials; permanent SA tokens are opt-in only.
 
 **Included Layers:**
 - Web Terminal - Browser-based cluster access
@@ -240,6 +240,10 @@ This framework includes optional GitOps integration for Day 2 operations via Ope
 - Monitoring (Loki + Grafana) - Centralized log aggregation
 
 See [Deployment](#deployment) for the two-phase workflow, or the full **[GitOps Documentation](gitops-layers/README.md)** for architecture, layer details, and customization.
+
+Read [secure GitOps operation and migration](docs/GITOPS.md) before upgrading:
+minor-pinned supported releases, SSO/RBAC, verified TLS, manual workload sync,
+HA prerequisites, private GovCloud repositories, recovery and acceptance checks.
 
 ## Repository Structure
 
@@ -281,7 +285,7 @@ before upgrading an existing deployment.
 - [ROSA CLI](https://docs.openshift.com/rosa/cli_reference/rosa_cli/rosa-get-started-cli.html) >= 1.2.39
 - [OpenShift CLI (oc)](https://docs.openshift.com/rosa/cli_reference/openshift_cli/getting-started-cli.html) -- for cluster access and verification
 
-> **Note:** GitOps layers use native Terraform providers (`kubernetes`, `kubectl`) and do not require `jq`, `curl`, or shell scripts.
+> **Note:** GitOps resources use native Terraform providers. The optional OAuth bootstrap fallback requires `jq` and `curl`; approved runner tokens bypass that fallback. TLS verification is required.
 
 ## RHCS Authentication
 
@@ -394,7 +398,7 @@ If GitOps was **never applied**, destroy with just the cluster tfvars:
 terraform destroy -var-file=cluster-dev.tfvars
 ```
 
-> **Note:** All GitOps resources (SA, CRBs, namespaces) are fully deletable -- no manual `state rm` steps needed. The `rosa-terraform` namespace and `openshift-gitops` are both allowed by ROSA's webhook. To remove individual layers while keeping the cluster, disable them in the gitops tfvars and re-apply. See [Operations Guide](docs/OPERATIONS.md) for details.
+> **Note:** GitOps/operator/workload namespaces and the deny-all default project are retained to prevent accidental cascading deletion. Keep API access and independent credentials throughout teardown; `skip_k8s_destroy` does not forget state. Review [GitOps lifecycle guidance](docs/GITOPS.md) before disabling layers or retiring retained resources.
 
 ## Features
 

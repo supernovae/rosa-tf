@@ -1,0 +1,13 @@
+# No application may use the permissive built-in project as a bypass.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: openshift-gitops
+spec:
+  sourceRepos: []
+  destinations: []
+  clusterResourceWhitelist: []
+  namespaceResourceBlacklist:
+    - group: '*'
+      kind: '*'

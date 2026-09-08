@@ -53,17 +53,19 @@ provider "rhcs" {
 #   Phase 2: Connect VPN, set install_gitops = true, bootstrap SA
 #   Phase 3+: SA token in gitops_cluster_token, VPN still needed for API access
 provider "kubernetes" {
-  host        = local.effective_k8s_host
-  token       = local.effective_k8s_token
-  insecure    = true
-  config_path = "/dev/null" # Suppress ~/.kube/config -- explicit host/token only
+  host                   = local.effective_k8s_host
+  token                  = local.effective_k8s_token
+  insecure               = false
+  cluster_ca_certificate = var.gitops_cluster_ca_certificate
+  config_path            = "/dev/null" # Suppress ~/.kube/config -- explicit host/token only
 }
 
 provider "kubectl" {
-  host             = local.effective_k8s_host
-  token            = local.effective_k8s_token
-  load_config_file = false
-  insecure         = true
+  host                   = local.effective_k8s_host
+  token                  = local.effective_k8s_token
+  load_config_file       = false
+  insecure               = false
+  cluster_ca_certificate = var.gitops_cluster_ca_certificate
 }
 
 #------------------------------------------------------------------------------
@@ -805,9 +807,13 @@ module "gitops" {
   aws_region             = var.aws_region
   aws_account_id         = data.aws_caller_identity.current.account_id
 
-  gitops_repo_url      = coalesce(var.gitops_repo_url, "https://github.com/supernovae/rosa-tf.git")
-  gitops_repo_path     = coalesce(var.gitops_repo_path, "gitops-layers/layers")
-  gitops_repo_revision = coalesce(var.gitops_repo_revision, "main")
+  gitops_repo_url            = var.gitops_repo_url == null ? "" : var.gitops_repo_url
+  gitops_operator_config     = var.gitops_operator_config
+  gitops_instance_config     = var.gitops_instance_config
+  gitops_application         = var.gitops_application
+  gitops_create_legacy_token = var.gitops_create_legacy_token
+  gitops_repo_path           = coalesce(var.gitops_repo_path, ".")
+  gitops_repo_revision       = coalesce(var.gitops_repo_revision, "main")
 
   enable_layer_terminal       = var.enable_layer_terminal
   enable_layer_oadp           = var.enable_layer_oadp

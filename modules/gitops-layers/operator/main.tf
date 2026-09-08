@@ -15,14 +15,11 @@
 # providing full lifecycle management (create, update, destroy).
 #
 # AUTHENTICATION:
-# - Bootstrap (first run): OAuth token from cluster_auth module
-# - Steady state: ServiceAccount token stored in Terraform state
-# - See identity.tf for SA creation and token rotation documentation
-#
-# DESTRUCTION SAFETY:
-# - Set skip_k8s_destroy = true before destroying the cluster
-# - This prevents Terraform from trying to reach a dead API
-# - See docs/OPERATIONS.md for the destroy workflow
+# Supply short-lived runner credentials; verified-TLS OAuth is a bootstrap fallback.
+# Legacy permanent SA token creation requires explicit opt-in.
+# Retained namespaces/default project are not deleted with module removal.
+# skip_k8s_destroy is a count switch, NOT a state-forgetting mechanism.
+# See docs/GITOPS.md for migration, lifecycle and ownership requirements.
 #------------------------------------------------------------------------------
 
 locals {
@@ -64,10 +61,10 @@ locals {
 
     # These operators use generic channels that auto-select appropriate versions
     # Listed here for documentation and future version-specific needs
-    oadp           = "stable" # Auto-selects based on OCP version
-    virtualization = "stable" # Auto-selects based on OCP version
-    web_terminal   = "fast"   # Uses latest available
-    gitops         = "latest" # OpenShift GitOps operator
+    oadp           = "stable"             # Auto-selects based on OCP version
+    virtualization = "stable"             # Auto-selects based on OCP version
+    web_terminal   = "fast"               # Uses latest available
+    gitops         = local.gitops_channel # Supported, minor-pinned OpenShift GitOps stream
 
     # OpenShift AI 3.5 stack (KServe uses RawDeployment; no Serverless dependency)
     nfd          = "stable"      # Node Feature Discovery
@@ -78,6 +75,6 @@ locals {
 
   # Whether the user has provided a custom GitOps repo for additional resources.
   # When true, a single ArgoCD Application is created to sync from that repo.
-  has_custom_gitops_repo = var.gitops_repo_url != "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
+  has_custom_gitops_repo = var.gitops_application.enabled
 
 }

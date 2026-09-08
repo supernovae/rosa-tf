@@ -42,15 +42,7 @@ variable "terraform_sa_namespace" {
 
 variable "skip_k8s_destroy" {
   type        = bool
-  description = <<-EOT
-    When true, removes all Kubernetes resources from Terraform state without
-    attempting to delete them from the cluster. Use before destroying a cluster:
-      1. terraform apply -var="skip_k8s_destroy=true"
-      2. terraform destroy
-    
-    This prevents Terraform from failing when trying to reach a cluster API
-    that no longer exists during destroy.
-  EOT
+  description = "Legacy count switch: true plans resource deletion, not state removal, and does not bypass refresh. Keep the API reachable; see docs/GITOPS.md."
   default     = false
 }
 
@@ -107,25 +99,8 @@ variable "cluster_type" {
 
 variable "gitops_repo_url" {
   type        = string
-  description = <<-EOT
-    Git repository URL for ADDITIONAL static resources to deploy via ArgoCD.
-    
-    NOTE: This is NOT for the core layers (monitoring, OADP, etc.) - those are
-    always managed by Terraform because they require environment-specific values
-    (S3 buckets, IAM roles) that Terraform creates.
-    
-    Use this for your own static Kubernetes resources such as:
-    - Projects / Namespaces
-    - ResourceQuotas / LimitRanges  
-    - NetworkPolicies
-    - RBAC (Roles, RoleBindings)
-    - Application deployments
-    - Any other manifests you want ArgoCD to manage
-    
-    The repository should contain kustomize-compatible YAML manifests.
-    ArgoCD will sync from this repo using a single Application resource.
-  EOT
-  default     = "https://github.com/redhat-openshift-ecosystem/rosa-gitops-layers.git"
+  description = "Explicit HTTPS workload repository; requires gitops_application.enabled. Only approved namespaced workload kinds are allowed; Terraform owns platform layers."
+  default     = ""
 }
 
 variable "gitops_repo_revision" {
@@ -136,8 +111,8 @@ variable "gitops_repo_revision" {
 
 variable "gitops_repo_path" {
   type        = string
-  description = "Path within the repository to the layers directory."
-  default     = "layers"
+  description = "Path within the workload repository to a manifest or Kustomize directory."
+  default     = "."
 }
 
 #------------------------------------------------------------------------------

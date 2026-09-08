@@ -40,10 +40,8 @@ enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples
 monitoring_loki_size      = "1x.extra-small" # Dev: extra-small, Prod: 1x.small or larger
 monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
 
-# Additional GitOps configuration (optional)
-# gitops_repo_url = "https://github.com/your-org/my-cluster-config.git"
-
-# For subsequent runs, provide SA token to avoid htpasswd dependency:
-# gitops_cluster_token = "<your-token-here>"
+# Workload reconciliation is a separate opt-in; see examples/gitops-workloads.tfvars.
+# Supply short-lived TF_VAR_gitops_cluster_token from your trusted runner/secret manager.
+# Do not place cluster tokens in tfvars. See docs/GITOPS.md for migration and TLS setup.
 
 # enable_layer_openshift_ai = true

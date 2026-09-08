@@ -1,0 +1,45 @@
+${yamlencode({
+  apiVersion = "argoproj.io/v1beta1"
+  kind = "ArgoCD"
+  metadata = { name = "openshift-gitops", namespace = "openshift-gitops" }
+  spec = merge({
+    disableAdmin = !config.admin_enabled
+    defaultClusterScopedRoleDisabled = true
+    resourceTrackingMethod = "annotation"
+    monitoring = { enabled = true }
+    ha = { enabled = config.ha_enabled }
+    controller = {
+      resources = {
+        requests = { cpu = "250m", memory = "1Gi" }
+        limits = { cpu = "2", memory = "2Gi" }
+      }
+    }
+    repo = {
+      replicas = config.ha_enabled ? 2 : 1
+      resources = {
+        requests = { cpu = "250m", memory = "256Mi" }
+        limits = { cpu = "1", memory = "1Gi" }
+      }
+    }
+    server = {
+      replicas = config.ha_enabled ? 2 : 1
+      route = {
+        enabled = true
+        tls = { termination = "reencrypt", insecureEdgeTerminationPolicy = "Redirect" }
+      }
+      service = { type = "ClusterIP" }
+    }
+    rbac = {
+      defaultPolicy = "role:no-access"
+      policy = join("\n", [for group in config.admin_groups : "g, ${group}, role:admin"])
+      scopes = "[groups]"
+    }
+    extraConfig = {
+      "users.anonymous.enabled" = "false"
+      "exec.enabled" = "false"
+      "resource.respectRBAC" = "normal"
+    }
+  }, config.oidc_config != null ? { oidcConfig = config.oidc_config } : {}, config.oidc_config == null ? {
+    sso = { provider = "dex", dex = { openShiftOAuth = true } }
+  } : {})
+})}

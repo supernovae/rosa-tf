@@ -1,45 +1,8 @@
-#------------------------------------------------------------------------------
-# Terraform Operator Identity
-#
-# Creates a dedicated namespace, ServiceAccount, ClusterRoleBinding, and
-# long-lived token for Terraform to use when managing cluster resources.
-#
-# The SA lives in a dedicated namespace (default: rosa-terraform) rather than
-# kube-system to avoid ROSA's managed admission webhooks that block deletion
-# of resources in system namespaces. This allows full Terraform lifecycle
-# management: create, update, rotate, and destroy.
-#
-# Audit identity in OpenShift API server logs:
-#   user: system:serviceaccount:rosa-terraform:<sa-name>
-#   user-agent: Terraform/<version>
-#
-# BOOTSTRAP FLOW:
-#   1. First apply: OAuth token from cluster_auth bootstraps the providers
-#   2. SA + token created, token stored in state (sensitive)
-#   3. User copies output to gitops_cluster_token in tfvars
-#   4. Subsequent applies: SA token used directly, no OAuth needed
-#   5. htpasswd IDP can optionally be removed (create_admin_user = false)
-#
-# DESTROY FLOW:
-#   All resources (SA, Secret, namespace, CRBs) are fully deletable.
-#   ROSA's clusterrolebindings-validation webhook allows deletion because:
-#     - rosa-terraform namespace does NOT match the protected regex (^openshift-.*|kube-system)
-#     - openshift-gitops IS in the webhook's exception list
-#     - system: prefixed users (our SA) bypass the webhook entirely
-#   See: https://github.com/openshift/managed-cluster-validating-webhooks/blob/master/pkg/webhooks/clusterrolebinding/clusterrolebinding.go
-#
-# LEAST PRIVILEGE NOTE:
-#   The SA requires cluster-admin because it installs operators, creates
-#   namespaces, manages CRDs, and configures cluster-scoped resources
-#   across all GitOps layers. This is equivalent to what the previous
-#   OAuth admin token required.
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-# Dedicated namespace for the Terraform operator identity.
-# Avoids kube-system where ROSA's serviceaccount-validation webhook blocks
-# deletion. This namespace is fully managed by Terraform.
-#------------------------------------------------------------------------------
+# Privileged infrastructure-runner identity, separate from Argo CD workloads.
+# Prefer short-lived TokenRequest credentials supplied outside Terraform state.
+# Permanent token Secrets are legacy opt-in only. See docs/GITOPS.md for migration.
+# The runner needs platform-level privileges for operator/layer resources; never
+# delegate this identity to application pods or untrusted PR jobs.
 
 resource "kubernetes_namespace_v1" "terraform_operator_ns" {
   count = var.skip_k8s_destroy ? 0 : 1
@@ -64,7 +27,8 @@ resource "kubernetes_namespace_v1" "terraform_operator_ns" {
 #------------------------------------------------------------------------------
 
 resource "kubernetes_service_account_v1" "terraform_operator" {
-  count = var.skip_k8s_destroy ? 0 : 1
+  count                           = var.skip_k8s_destroy ? 0 : 1
+  automount_service_account_token = false
 
   metadata {
     name      = var.terraform_sa_name
@@ -78,7 +42,7 @@ resource "kubernetes_service_account_v1" "terraform_operator" {
 
     annotations = {
       "rosa-tf/purpose"     = "Automated cluster management by Terraform"
-      "rosa-tf/rotate-with" = "terraform apply -replace=kubernetes_secret_v1.terraform_operator_token"
+      "rosa-tf/credentials" = "Prefer short-lived TokenRequest credentials; see docs/GITOPS.md"
     }
   }
 
@@ -88,13 +52,9 @@ resource "kubernetes_service_account_v1" "terraform_operator" {
 #------------------------------------------------------------------------------
 # ClusterRoleBinding: grants the SA cluster-admin.
 #
-# CRBs are cluster-scoped. ROSA's clusterrolebindings-validation webhook
-# allows deletion of this CRB because the subject SA is in rosa-terraform,
-# which does NOT match the protected namespace regex (^openshift-.*|kube-system).
-# Additionally, Terraform authenticates as system:serviceaccount:rosa-terraform:*
-# which bypasses the webhook entirely (all system: users are allowed).
-#
-# The CRB never needs rotation -- only the SA token does.
+# Cluster-scoped grants belong to the reviewed infrastructure runner only.
+# Verify current ROSA admission and independent credentials before teardown;
+# do not rely on assumptions about service-account webhook exemptions.
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "terraform_operator_crb" {
@@ -126,19 +86,14 @@ resource "kubectl_manifest" "terraform_operator_crb" {
 }
 
 #------------------------------------------------------------------------------
-# Long-lived SA token (Kubernetes 1.24+ pattern).
-#
-# Creates a Secret of type kubernetes.io/service-account-token which is
-# automatically populated with a JWT by the token controller.
-#
-# The token is stored in Terraform state (sensitive). To rotate:
-#   terraform apply -replace="module.gitops[0].kubernetes_secret_v1.terraform_operator_token[0]"
-# This deletes the old secret (immediately invalidating the token) and creates
-# a new one in a single apply.
+# Legacy compatibility token only; not the preferred Kubernetes credential pattern.
+# Creation stores a permanent cluster-admin credential in state. To migrate or
+# rotate it, first authenticate with an independent authorized credential. Never
+# revoke the credential being used by the same apply. See docs/GITOPS.md.
 #------------------------------------------------------------------------------
 
 resource "kubernetes_secret_v1" "terraform_operator_token" {
-  count = var.skip_k8s_destroy ? 0 : 1
+  count = !var.skip_k8s_destroy && var.gitops_create_legacy_token ? 1 : 0
 
   metadata {
     name      = "${var.terraform_sa_name}-token"

@@ -448,12 +448,30 @@ All infrastructure changes flow through Terraform:
 
 No manual `oc` or `kubectl` commands are needed for managed resources. The Terraform state is the source of truth for all GitOps layer configuration.
 
+### GitOps workload boundary (AC-3, AC-6, CM-3, SC-8)
+
+The [GitOps layer](GITOPS.md) separates the privileged Terraform platform runner
+from namespace-delegated Argo CD reconciliation. It defaults to SSO with explicit
+group access, verified TLS, no local admin, no permanent runner token, and manual
+workload sync with pruning off. AppProjects restrict repositories, destinations and
+resource kinds; the built-in default project grants no deployment permissions.
+Automatic sync requires an immutable reviewed commit, but commit pinning is not
+signature verification or an approval system. Enforce those in the Git workflow.
+
+For GovCloud, use approved private repositories/catalogs, reviewed outbound paths,
+secret-store credentials and auditable promotion. Namespace delegation is not a
+hostile-tenant isolation boundary. Validate RBAC denials, SSO claims, network policy,
+restore and alerting in the actual cluster and retain evidence. These controls
+support a system security plan; neither product compatibility nor these defaults
+establishes FedRAMP authorization or FIPS validation for the complete deployment.
+
 ### Credential Lifecycle
 
 | Credential | Scope | Storage | Rotation |
 |---|---|---|---|
-| SA token | cluster-admin (K8s) | Terraform state (encrypted S3) | `terraform apply -replace` |
-| htpasswd admin | cluster-admin (OAuth) | RHCS API (encrypted) | `terraform apply` with new password |
+| Short-lived runner token (preferred) | Privileged Terraform platform management | Secret-managed runner environment; protect plan/state artifacts | Renew via approved TokenRequest/IdP workflow before expiry |
+| Legacy SA Secret (opt-in only) | cluster-admin (K8s) | Terraform state (encrypted S3) and Kubernetes Secret | Migrate/rotate using independent authorized credentials; never revoke the active apply credential |
+| htpasswd bootstrap admin | cluster-admin (OAuth) | RHCS-managed IDP; generated password also in Terraform state | Verify production IdP/runner access, then explicitly retire bootstrap IDP; changing Terraform password does not rotate creation-only credentials |
 | RHCS token/credentials | OCM API | Environment variables | Per organizational policy |
 | AWS credentials | IAM | Environment variables or instance profile | Per organizational policy |
 
