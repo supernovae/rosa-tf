@@ -140,23 +140,17 @@ enable_layer_certmanager    = true # <-- Cert-Manager with Let's Encrypt
 #   3. ServiceAccount is annotated with the IAM role ARN
 #   4. ClusterIssuer is created pointing to Let's Encrypt + Route53
 #   5. Certificate resources are created for your domains
-#   6. cert-manager auto-renews certificates 30 days before expiry
+#   6. cert-manager auto-renews certificates with 33% of the issued lifetime remaining
 #------------------------------------------------------------------------------
 
-# --- Option A: Use an existing Route53 hosted zone ---
-# certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# certmanager_hosted_zone_domain = "example.com"
-# certmanager_create_hosted_zone = false
+# Prefer an existing publicly delegated zone. Replace these example identifiers.
+certmanager_create_hosted_zone = false
+certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
+certmanager_hosted_zone_domain = "example.com"
+certmanager_use_staging_issuer = true # Untrusted certificates for testing; false for production
 
-# --- Option B: Create a new Route53 hosted zone ---
-# NOTE: After first apply, you MUST delegate DNS to complete cert issuance:
-#   1. Run: terraform output certmanager_hosted_zone_nameservers
-#   2. Update your domain registrar's nameservers to the 4 values shown
-#   3. Wait for DNS propagation (15-60 minutes)
-#   4. Force cert-manager retry: oc delete certificaterequest <name> -n <namespace>
-#   See modules/gitops-layers/certmanager/README.md for full walkthrough.
-certmanager_create_hosted_zone = true
-certmanager_hosted_zone_domain = "example.com" # Root zone domain
+# To create a zone, set create_hosted_zone=true and clear hosted_zone_id.
+# Provision/delegate DNS before requesting certificates; see the layer README.
 
 # DNSSEC signing (default: true) - protects against DNS spoofing
 # After first apply, add the DS record from outputs to your domain registrar
@@ -168,11 +162,11 @@ certmanager_enable_dnssec = true
 # Set to false for non-us-east-1 commercial deployments.
 certmanager_enable_query_logging = true
 
-# Let's Encrypt registration email (receives expiry warnings)
+# Let's Encrypt registration email (monitor certificate expiry separately)
 certmanager_acme_email = "platform-team@example.com"
 
 # Pre-create Certificate resources (optional)
-# cert-manager handles renewal automatically (30 days before 90-day expiry)
+# cert-manager handles renewal automatically (based on actual issued lifetime)
 # The certificate domain should match the ingress domain (apps.<root> by default)
 certmanager_certificate_domains = [
   {
@@ -183,9 +177,9 @@ certmanager_certificate_domains = [
   }
 ]
 
-# Enable OpenShift Routes integration (default: true)
-# Allows annotating Routes for automatic TLS provisioning
-certmanager_enable_routes_integration = true
+# Prefer explicit Certificate resources and the custom IngressController.
+# The community Routes controller requires separate review and an image digest.
+certmanager_enable_routes_integration = false
 
 #------------------------------------------------------------------------------
 # Custom Ingress Configuration

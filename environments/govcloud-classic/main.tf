@@ -835,19 +835,24 @@ module "gitops" {
   monitoring_tolerations             = var.monitoring_tolerations
 
   # Cert-Manager resources from consolidated module
-  certmanager_role_arn                   = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_role_arn : ""
-  certmanager_hosted_zone_id             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_id : ""
-  certmanager_hosted_zone_domain         = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_domain : ""
-  certmanager_acme_email                 = var.certmanager_acme_email
-  certmanager_certificate_domains        = var.certmanager_certificate_domains
-  certmanager_enable_routes_integration  = var.certmanager_enable_routes_integration
-  certmanager_ingress_enabled            = var.certmanager_ingress_enabled
-  certmanager_ingress_domain             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_domain : ""
-  certmanager_ingress_visibility         = var.certmanager_ingress_visibility
-  certmanager_ingress_replicas           = var.certmanager_ingress_replicas
-  certmanager_ingress_route_selector     = var.certmanager_ingress_route_selector
-  certmanager_ingress_namespace_selector = var.certmanager_ingress_namespace_selector
-  certmanager_ingress_cert_secret_name   = length(var.certmanager_certificate_domains) > 0 ? var.certmanager_certificate_domains[0].secret_name : "custom-apps-default-cert"
+  certmanager_role_arn                         = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_role_arn : ""
+  certmanager_hosted_zone_id                   = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_id : ""
+  certmanager_hosted_zone_domain               = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_hosted_zone_domain : ""
+  certmanager_acme_email                       = var.certmanager_acme_email
+  certmanager_certificate_domains              = var.certmanager_certificate_domains
+  certmanager_enable_routes_integration        = var.certmanager_enable_routes_integration
+  certmanager_routes_image                     = var.certmanager_routes_image
+  certmanager_use_staging_issuer               = var.certmanager_use_staging_issuer
+  certmanager_operator_config                  = var.certmanager_operator_config
+  certmanager_dns01_recursive_nameservers      = var.certmanager_dns01_recursive_nameservers
+  certmanager_dns01_recursive_nameservers_only = var.certmanager_dns01_recursive_nameservers_only
+  certmanager_ingress_enabled                  = var.certmanager_ingress_enabled
+  certmanager_ingress_domain                   = length(module.gitops_resources) > 0 ? module.gitops_resources[0].certmanager_ingress_domain : ""
+  certmanager_ingress_visibility               = var.certmanager_ingress_visibility
+  certmanager_ingress_replicas                 = var.certmanager_ingress_replicas
+  certmanager_ingress_route_selector           = var.certmanager_ingress_route_selector
+  certmanager_ingress_namespace_selector       = var.certmanager_ingress_namespace_selector
+  certmanager_ingress_cert_secret_name         = length(var.certmanager_certificate_domains) > 0 ? var.certmanager_certificate_domains[0].secret_name : "custom-apps-default-cert"
 
   # NetApp Storage resources from consolidated module
   fsx_svm_management_ip    = length(module.gitops_resources) > 0 ? module.gitops_resources[0].fsx_svm_management_ip : ""

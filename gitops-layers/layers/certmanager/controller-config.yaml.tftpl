@@ -1,0 +1,17 @@
+${yamlencode({
+    apiVersion = "operator.openshift.io/v1alpha1"
+    kind       = "CertManager"
+    metadata   = { name = "cluster" }
+    spec = {
+      controllerConfig = {
+        overrideReplicas = config.controller_replicas
+        overrideArgs = concat(
+          ["--cluster-issuer-ambient-credentials=true"],
+          length(nameservers) > 0 ? ["--dns01-recursive-nameservers=${join(",", nameservers)}"] : [],
+          recursive_only ? ["--dns01-recursive-nameservers-only"] : []
+        )
+      }
+      webhookConfig    = { overrideReplicas = config.webhook_replicas }
+      cainjectorConfig = { overrideReplicas = config.cainjector_replicas }
+    }
+  })}

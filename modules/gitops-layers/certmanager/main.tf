@@ -11,7 +11,7 @@
 #
 # IMPORTANT: This module requires outbound internet access for the DNS01
 # challenge to reach Let's Encrypt ACME servers. It CANNOT be used on
-# zero-egress clusters. Use cert_mode=provided for air-gapped environments.
+# zero-egress clusters. A private issuer deployment is a separate PKI design.
 #
 # The cert-manager operator and configuration are deployed by the operator
 # module using native kubernetes/kubectl providers with templatefile().
@@ -270,6 +270,11 @@ data "aws_iam_policy_document" "certmanager_trust" {
       variable = "${var.oidc_endpoint_url}:sub"
       values   = [local.certmanager_service_account]
     }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_endpoint_url}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
   }
 }
 
@@ -310,20 +315,24 @@ data "aws_iam_policy_document" "certmanager" {
     sid    = "Route53RecordSets"
     effect = "Allow"
     actions = [
-      "route53:ChangeResourceRecordSets",
+      "route53:ChangeResourceRecordSets"
+    ]
+    resources = ["arn:${data.aws_partition.current.partition}:route53:::hostedzone/${local.effective_hosted_zone_id}"]
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsRecordTypes"
+      values   = ["TXT"]
+    }
+  }
+
+  # Zone ID is explicit in the solver: no account-wide zone discovery needed.
+  statement {
+    sid    = "Route53ListRecords"
+    effect = "Allow"
+    actions = [
       "route53:ListResourceRecordSets"
     ]
     resources = ["arn:${data.aws_partition.current.partition}:route53:::hostedzone/${local.effective_hosted_zone_id}"]
-  }
-
-  # Permission to discover hosted zones (required by cert-manager)
-  statement {
-    sid    = "Route53ListZones"
-    effect = "Allow"
-    actions = [
-      "route53:ListHostedZonesByName"
-    ]
-    resources = ["*"]
   }
 }
 

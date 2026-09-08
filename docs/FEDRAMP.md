@@ -353,6 +353,21 @@ If the output includes providers not listed in the table above, update the table
 
 ## Terraform Identity and Security Controls
 
+### Certificate automation
+
+Use the Red Hat cert-manager operator from an approved catalog and record the
+installed CSV/operand versions as evidence. The layer defaults to supported
+Certificate/IngressController integration, short-lived STS credentials, TXT-only
+zone-scoped DNS writes and explicit private-key rotation. The community Routes
+controller is opt-in and requires a reviewed image digest. Do not enable an
+OpenShift Technology Preview feature gate solely for certificate integration.
+
+The bundled public ACME issuers are not compatible with the zero-egress HCP
+default. An internal CA design needs private issuer/trust configuration outside
+this public-ACME layer; preserve network boundaries. Review the
+[cert-manager deployment and migration guide](../modules/gitops-layers/certmanager/README.md)
+for catalog approvals, DNS resolvers, lifecycle monitoring and support limits.
+
 This section documents how the Terraform framework satisfies specific NIST 800-53 controls for FedRAMP High authorization.
 
 ### AC-6: Least Privilege

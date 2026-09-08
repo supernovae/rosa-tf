@@ -1019,12 +1019,8 @@ variable "certmanager_certificate_domains" {
 
 variable "certmanager_enable_routes_integration" {
   type        = bool
-  description = <<-EOT
-    Enable the cert-manager OpenShift Routes integration.
-    When enabled, annotate Routes for automatic TLS provisioning:
-      oc annotate route <name> cert-manager.io/issuer-kind=ClusterIssuer cert-manager.io/issuer-name=letsencrypt-production
-  EOT
-  default     = true
+  description = "Opt in to a separately reviewed community Routes controller (not the Red Hat operator). Prefer Certificate resources and IngressController TLS."
+  default     = false
 }
 
 variable "certmanager_ingress_enabled" {
@@ -1543,4 +1539,53 @@ variable "openshift_ai_data_retention_days" {
   type        = number
   description = "Days to retain RHOAI pipeline artifacts and model data in S3. 0 = no expiration."
   default     = 0
+}
+
+variable "certmanager_use_staging_issuer" {
+  type        = bool
+  description = "Use the untrusted ACME staging issuer for test certificates before production issuance."
+  default     = false
+}
+
+variable "certmanager_routes_image" {
+  type        = string
+  description = "Approved digest-pinned image when explicitly enabling the community Routes integration."
+  default     = ""
+}
+
+variable "certmanager_operator_config" {
+  description = "Red Hat OLM subscription and operand replica settings. stable-v1 tracks the latest supported catalog release; use a mirrored catalog in restricted environments."
+  type = object({
+    channel               = optional(string, "stable-v1")
+    source                = optional(string, "redhat-operators")
+    source_namespace      = optional(string, "openshift-marketplace")
+    install_plan_approval = optional(string, "Automatic")
+    controller_replicas   = optional(number, 2)
+    webhook_replicas      = optional(number, 3)
+    cainjector_replicas   = optional(number, 2)
+  })
+  default = {}
+  validation {
+    condition = contains(["Automatic", "Manual"], var.certmanager_operator_config.install_plan_approval) && alltrue([
+      for replicas in [var.certmanager_operator_config.controller_replicas, var.certmanager_operator_config.webhook_replicas, var.certmanager_operator_config.cainjector_replicas] :
+      replicas >= 1 && floor(replicas) == replicas
+    ])
+    error_message = "Approval must be Automatic or Manual, and replica counts must be positive integers."
+  }
+}
+
+variable "certmanager_dns01_recursive_nameservers" {
+  type        = list(string)
+  description = "Optional approved DNS resolvers in host:port format. Empty uses cluster DNS; no public resolvers are forced."
+  default     = []
+}
+
+variable "certmanager_dns01_recursive_nameservers_only" {
+  type        = bool
+  description = "Use only the configured recursive resolvers for DNS01 self-checks."
+  default     = false
+  validation {
+    condition     = !var.certmanager_dns01_recursive_nameservers_only || length(var.certmanager_dns01_recursive_nameservers) > 0
+    error_message = "Recursive-only DNS requires at least one approved resolver."
+  }
 }

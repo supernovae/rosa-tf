@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-cert-manager-operator
+  namespace: cert-manager-operator
+spec:
+  channel: ${jsonencode(config.channel)}
+  name: openshift-cert-manager-operator
+  source: ${jsonencode(config.source)}
+  sourceNamespace: ${jsonencode(config.source_namespace)}
+  installPlanApproval: ${jsonencode(config.install_plan_approval)}

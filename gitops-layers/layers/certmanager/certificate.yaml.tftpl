@@ -8,9 +8,15 @@ spec:
   issuerRef:
     name: ${issuer_name}
     kind: ClusterIssuer
+    group: cert-manager.io
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  revisionHistoryLimit: 1
   dnsNames:
 %{ for domain in cert_domains ~}
     - "${domain}"
 %{ endfor ~}
   duration: 2160h    # 90 days
-  renewBefore: 720h  # 30 days before expiry
+  renewBeforePercentage: 33  # Based on actual issued lifetime, not requested duration

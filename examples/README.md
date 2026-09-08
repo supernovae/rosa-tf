@@ -86,8 +86,10 @@ Automated TLS certificate management with Let's Encrypt DNS01 challenge via Rout
 ```hcl
 # Enable cert-manager layer
 enable_layer_certmanager       = true
-certmanager_create_hosted_zone = true
-certmanager_hosted_zone_domain = "apps.example.com"
+certmanager_create_hosted_zone = false
+certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
+certmanager_hosted_zone_domain = "example.com"
+certmanager_use_staging_issuer = true
 certmanager_acme_email         = "platform-team@example.com"
 
 # Pre-create wildcard certificate
@@ -104,7 +106,7 @@ certmanager_certificate_domains = [
 **After deployment:**
 1. If zone was created, delegate DNS from registrar to AWS nameservers (shown in output)
 2. ClusterIssuer `letsencrypt-production` is ready
-3. Annotate Routes for auto-TLS: `oc annotate route <name> cert-manager.io/issuer-kind=ClusterIssuer cert-manager.io/issuer-name=letsencrypt-production`
+3. Use explicit Certificate resources and the custom IngressController wildcard Secret. The community Routes integration is opt-in; see the [cert-manager guide](../modules/gitops-layers/certmanager/README.md).
 
 **Note:** This public ACME example requires outbound HTTPS. cert-manager itself can use internal issuers in restricted networks; that requires a different issuer configuration.
 
