@@ -14,6 +14,22 @@ permissions:
   security-events: write
 
 jobs:
+  network-tests:
+    name: Zero-egress network regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.16.1"
+          terraform_wrapper: false
+      - name: Initialize network tests
+        working-directory: modules/networking/vpc
+        run: terraform init -backend=false -lockfile=readonly
+      - name: Verify isolated and NAT network plans
+        working-directory: modules/networking/vpc
+        run: terraform test
+
   example-contracts:
     name: Example input contracts
     runs-on: ubuntu-latest

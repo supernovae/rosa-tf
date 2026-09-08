@@ -2,6 +2,12 @@
 # VPC Module Variables
 #------------------------------------------------------------------------------
 
+variable "interface_endpoint_services" {
+  type        = set(string)
+  description = "Regional AWS interface endpoint service suffixes. Private DNS and HTTPS from this VPC only; IAM/service policies still govern access."
+  default     = []
+}
+
 variable "cluster_name" {
   type        = string
   description = "Name of the ROSA cluster. Used for resource naming and tagging."

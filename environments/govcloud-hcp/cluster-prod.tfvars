@@ -82,9 +82,9 @@ worker_node_count    = 3
 # Enable for fully air-gapped operation with no outbound internet
 #------------------------------------------------------------------------------
 
-# Zero-egress mode (NOT YET AVAILABLE in GovCloud - requires OpenShift 4.18+)
-# TODO: Enable when 4.18 ships for GovCloud
-zero_egress = false # ⚠️ Must be false until 4.18 is available
+# Default for NEW clusters. Existing clusters must retain false until migration is reviewed.
+# Mirror operators and supply private Git access before the GitOps phase.
+zero_egress = true
 
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)

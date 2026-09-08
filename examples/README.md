@@ -292,6 +292,11 @@ virt_tolerations   = [{ key = "virtualization", value = "true", effect = "NoSche
 
 ## GovCloud Adjustments
 
+For GovCloud HCP, start from `environments/govcloud-hcp/cluster-dev.tfvars` or
+`cluster-prod.tfvars`: both default to zero-egress with a private management
+path. Complete [mirroring and private connectivity](../docs/ZERO-EGRESS.md)
+before adding feature overlays. Classic does not use this HCP zero-egress flag.
+
 Start from the matching GovCloud environment sample; changing only the region is insufficient. Verify service, instance-type, operator and OpenShift-version availability in that partition. In particular, do not assume the commercial AutoNode overlay is supported there. Typical additional settings include:
 
 ```hcl

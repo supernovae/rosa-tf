@@ -44,7 +44,7 @@ channel_group = "eus"
 #------------------------------------------------------------------------------
 
 vpc_cidr = "10.0.0.0/16"
-multi_az = false # Single AZ, single NAT
+multi_az = false # Single AZ, no NAT in zero-egress mode
 
 # Route53 Resolver query logging (captures all DNS lookups from the VPC)
 enable_route53_query_logging = true
@@ -77,9 +77,9 @@ worker_node_count    = 4
 # Enable for fully air-gapped operation with no outbound internet
 #------------------------------------------------------------------------------
 
-# Zero-egress mode (NOT YET AVAILABLE in GovCloud - requires OpenShift 4.18+)
-# TODO: Enable when 4.18 ships for GovCloud
-zero_egress = false # ⚠️ Must be false until 4.18 is available
+# Default for NEW clusters. Existing clusters must retain false until migration is reviewed.
+# Mirror operators and supply private Git access before the GitOps phase.
+zero_egress = true
 
 #------------------------------------------------------------------------------
 # ECR Configuration (Optional)

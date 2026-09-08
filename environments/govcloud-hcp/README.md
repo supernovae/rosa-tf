@@ -4,6 +4,14 @@ Deploy Red Hat OpenShift Service on AWS with Hosted Control Planes (HCP) in AWS 
 
 ## Overview
 
+New clusters default to **zero public egress** (`zero_egress = true`) using stable
+RHCS 1.7.7. Managed VPCs omit NAT/IGW and create private AWS API endpoints.
+BYO VPCs require equivalent customer-managed networking. Mirror operators and
+provide private Git access before Phase 2. Existing clusters must explicitly
+retain `zero_egress = false` until an approved migration or replacement.
+See [zero-egress prerequisites](../../docs/ZERO-EGRESS.md) and the
+[FedRAMP rationale](../../docs/FEDRAMP.md#govcloud-hcp-zero-egress-default).
+
 ROSA HCP in GovCloud provides:
 
 - **Hosted control plane**: Red Hat manages control plane in their FedRAMP-authorized environment

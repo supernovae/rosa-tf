@@ -85,13 +85,14 @@ run "govcloud_bootstrap" {
     availability_zones = ["us-gov-west-1a", "us-gov-west-1b", "us-gov-west-1c"]
     fips               = true
     is_govcloud        = true
+    zero_egress        = true
     creator_arn        = "arn:aws-us-gov:iam::123456789012:role/test"
     installer_role_arn = "arn:aws-us-gov:iam::123456789012:role/test-Installer"
     support_role_arn   = "arn:aws-us-gov:iam::123456789012:role/test-Support"
     worker_role_arn    = "arn:aws-us-gov:iam::123456789012:role/test-Worker"
   }
   assert {
-    condition     = rhcs_cluster_rosa_hcp.this.fips && rhcs_cluster_rosa_hcp.this.admin_credentials.username == "test-admin" && startswith(rhcs_cluster_rosa_hcp.this.sts.role_arn, "arn:aws-us-gov:")
+    condition     = rhcs_cluster_rosa_hcp.this.fips && rhcs_cluster_rosa_hcp.this.properties["zero_egress"] == "true" && rhcs_cluster_rosa_hcp.this.admin_credentials.username == "test-admin" && startswith(rhcs_cluster_rosa_hcp.this.sts.role_arn, "arn:aws-us-gov:")
     error_message = "GovCloud bootstrap must retain FIPS, GovCloud IAM ARNs, and native admin creation."
   }
 }

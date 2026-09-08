@@ -339,52 +339,16 @@ variable "worker_node_count" {
 variable "zero_egress" {
   type        = bool
   description = <<-EOT
-    Enable zero-egress mode for fully air-gapped operation (HCP only).
-
-    When enabled:
-    - Cluster pulls OpenShift images from Red Hat's regional ECR
-    - No NAT gateway or internet gateway required
-    - Custom operators must be mirrored to your own ECR
-
-    Requirements:
-    - VPN or jump host for cluster access
-    - Operator mirroring workflow (see docs/ZERO-EGRESS.md)
-    
-    Note: GovCloud clusters are already private. Zero-egress adds
-    complete network isolation (no outbound internet connectivity).
-
-    ⚠️  GOVCLOUD: Zero-egress requires OpenShift 4.18+, not yet available.
-    This validation will be removed when 4.18 ships for GovCloud.
+    Default to no public outbound connectivity for new GovCloud HCP clusters.
+    Uses the stable RHCS properties map; no preview provider is required.
+    Managed VPCs omit NAT/IGW and provision private AWS API endpoints.
+    BYO VPC owners must supply equivalent endpoints, DNS and route controls.
+    Mirror operators and provide private Git/registry access before GitOps.
+    Existing non-zero-egress clusters must explicitly retain false until a
+    separately reviewed migration or replacement; this is not an in-place switch.
+    See docs/ZERO-EGRESS.md for prerequisites and version-catalog verification.
   EOT
-  default     = false
-
-  # TODO: Remove this validation when OpenShift 4.18 is available in GovCloud
-  # Tracking: Zero-egress support requires ROSA HCP 4.18+
-  validation {
-    condition     = !var.zero_egress
-    error_message = <<-EOT
-
-      ══════════════════════════════════════════════════════════════════════════════
-      ZERO-EGRESS NOT YET AVAILABLE IN GOVCLOUD
-      ══════════════════════════════════════════════════════════════════════════════
-
-      Zero-egress mode requires OpenShift 4.18+, which is not yet available
-      in AWS GovCloud.
-
-      Options:
-        1. Set zero_egress = false (use standard private cluster)
-        2. Wait for OpenShift 4.18 to be released for GovCloud
-
-      For air-gapped requirements, use a standard private cluster with:
-        - private_cluster = true
-        - egress_type = "tgw" or "proxy" (controlled egress)
-        - Operator mirroring to private ECR
-
-      This validation will be removed when 4.18 ships for GovCloud.
-
-      ══════════════════════════════════════════════════════════════════════════════
-    EOT
-  }
+  default     = true
 }
 
 #------------------------------------------------------------------------------
