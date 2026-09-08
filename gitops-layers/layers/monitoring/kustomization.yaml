@@ -10,6 +10,8 @@ metadata:
 resources:
   # Namespaces
   - namespace-logging.yaml
+  - namespace-operators-redhat.yaml
+  - operatorgroup-operators-redhat.yaml
   
   # Operator Subscriptions
   - operatorgroup-logging.yaml
@@ -20,14 +22,9 @@ resources:
   # Prometheus Configuration (cluster-monitoring-config)
   - cluster-monitoring-config.yaml
   
-  # Prometheus Alerting Rules
-  - prometheus-rules.yaml
-  
-  # Console UI Plugin (enables Observe > Logs)
-  - uiplugin-logging.yaml
-
-# Note: LokiStack and ClusterLogForwarder are deployed via Terraform
-# templating due to API version differences between 4.16 and 4.17+
+# Bootstrap only, for OpenShift 4.20-4.22. Do not apply alongside Terraform.
+# LokiStack, ClusterLogForwarder, UWM and UIPlugin need a second phase after
+# operators/CRDs are ready; use Terraform for the complete deployment.
 
 commonLabels:
   app.kubernetes.io/part-of: rosa-gitops-layers

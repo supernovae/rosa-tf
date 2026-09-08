@@ -1,0 +1,45 @@
+${yamlencode({
+  apiVersion = "v1"
+  kind = "ConfigMap"
+  metadata = {
+    name = "user-workload-monitoring-config"
+    namespace = "openshift-user-workload-monitoring"
+  }
+  data = {
+    "config.yaml" = yamlencode({
+      prometheus = {
+        retention = "${retention_days}d"
+        nodeSelector = node_selector
+        tolerations = tolerations
+        volumeClaimTemplate = {
+          spec = {
+            storageClassName = storage_class
+            resources = { requests = { storage = storage_size } }
+          }
+        }
+      }
+      thanosRuler = {
+        nodeSelector = node_selector
+        tolerations = tolerations
+        volumeClaimTemplate = {
+          spec = {
+            storageClassName = storage_class
+            resources = { requests = { storage = "10Gi" } }
+          }
+        }
+      }
+      alertmanager = {
+        enabled = true
+        enableAlertmanagerConfig = true
+        nodeSelector = node_selector
+        tolerations = tolerations
+        volumeClaimTemplate = {
+          spec = {
+            storageClassName = storage_class
+            resources = { requests = { storage = "10Gi" } }
+          }
+        }
+      }
+    })
+  }
+})}

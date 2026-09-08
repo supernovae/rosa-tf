@@ -3,8 +3,9 @@
 # Installs the Loki Operator from OperatorHub.
 #
 # IMPORTANT: Channel selection depends on OpenShift version:
-# - stable-6.2: OpenShift 4.16, 4.17, 4.18 (GovCloud)
-# - stable-6.4: OpenShift 4.19+ (Commercial HCP)
+# - stable-6.2: OpenShift 4.16-4.18 EUS (confirm entitlement)
+# - stable-6.5: OpenShift 4.19
+# - stable-6.6: OpenShift 4.20-4.22 (Commercial HCP)
 #
 # Terraform automatically selects the correct channel based on
 # openshift_version when deploying this operator.
@@ -20,9 +21,9 @@ metadata:
   name: loki-operator
   namespace: openshift-logging
 spec:
-  # Default: stable-6.4 for OCP 4.19+
+  # Default: stable-6.6 for OCP 4.20-4.22
   # Change to stable-6.2 for OCP 4.16-4.18 (GovCloud)
-  channel: stable-6.4
+  channel: stable-6.6
   installPlanApproval: Automatic
   name: loki-operator
   source: redhat-operators

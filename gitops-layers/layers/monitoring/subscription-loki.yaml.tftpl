@@ -11,9 +11,7 @@
 # The Loki Operator watches LokiStack CRs in all namespaces, so the
 # LokiStack CR is still created in openshift-logging namespace.
 #
-# Channel selection based on OpenShift version:
-# - stable-6.2: OpenShift 4.16, 4.17, 4.18 (GovCloud)
-# - stable-6.4: OpenShift 4.19+ (Commercial HCP)
+# See logging-channels.yaml: 6.6 for 4.20-4.22; 6.5 for 4.19; 6.2 EUS for 4.16-4.18.
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription

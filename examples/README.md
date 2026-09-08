@@ -36,7 +36,12 @@ install_gitops  = false  # Disabled until operators mirrored
 ### `observability.tfvars`
 
 Dedicated monitoring nodes on Graviton (ARM) for cost-efficient observability (Prometheus + Loki).
-Uses `c7g.4xlarge` instances (verify workload ARM support and regional availability) with `PreferNoSchedule` taints.
+Uses memory-balanced `m7g.4xlarge` instances with soft `PreferNoSchedule` taints.
+Verify ROSA regional support, image architectures and AZ capacity first. The
+selector places Loki and user metrics on ARM; Vector remains on all workers.
+Create the cluster/pools with `install_gitops=false` before the layer phase.
+See [operations, dashboards and cost math](../docs/OBSERVABILITY.md) and
+[optional AWS recovery](../docs/OBSERVABILITY-AWS-RECOVERY.md).
 
 **Key configuration:**
 ```hcl
@@ -44,17 +49,26 @@ Uses `c7g.4xlarge` instances (verify workload ARM support and regional availabil
 machine_pools = [
   {
     name          = "monitoring"
-    instance_type = "c7g.4xlarge"  # Graviton3 ARM - best price-performance
-    replicas      = 4
+    instance_type = "m7g.4xlarge"  # Benchmark against equal-memory x86 in your region
+    replicas      = 3
     labels        = { "node-role.kubernetes.io/monitoring" = "" }
     taints        = [{ key = "workload", value = "monitoring", schedule_type = "PreferNoSchedule" }]
   }
 ]
 
-# LokiStack uses these to land on dedicated nodes
-monitoring_node_selector = { "node-role.kubernetes.io/monitoring" = "" }
+# Loki and user Prometheus/Thanos Ruler/Alertmanager placement
+monitoring_node_selector = { "node-role.kubernetes.io/monitoring" = "", "kubernetes.io/arch" = "arm64" }
 monitoring_tolerations   = [{ key = "workload", value = "monitoring", effect = "PreferNoSchedule", operator = "Equal" }]
 ```
+
+### Application observability examples
+
+`observability/application.yaml` supplies a Service, ServiceMonitor and health
+rule for an existing instrumented application. Adapt namespace, selectors and
+ports, then verify a fresh scrape and log query. The optional
+`observability/alertmanagerconfig.yaml` routes namespace alerts to a webhook
+whose URL is supplied through an approved Secret; it does not ship credentials.
+Test both firing and resolved notifications before calling the stack operational.
 
 ### `ocpvirtualization.tfvars`
 

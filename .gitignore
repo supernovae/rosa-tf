@@ -10,6 +10,7 @@
 !modules/cluster/rosa-classic/.terraform.lock.hcl
 !modules/cluster/rosa-hcp/.terraform.lock.hcl
 !modules/networking/vpc/.terraform.lock.hcl
+!modules/gitops-layers/monitoring/.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfstate.backup
