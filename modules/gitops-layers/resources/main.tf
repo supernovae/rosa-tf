@@ -146,17 +146,15 @@ module "efs_storage" {
   count  = var.enable_layer_efs_storage ? 1 : 0
 
   cluster_name       = var.cluster_name
-  cluster_id         = var.cluster_name
   vpc_id             = var.vpc_id
-  vpc_cidr           = var.vpc_cidr
   private_subnet_ids = var.private_subnet_ids
   oidc_endpoint_url  = var.oidc_endpoint_url
 
   efs_performance_mode = var.efs_performance_mode
+  efs_config           = var.efs_config
   efs_throughput_mode  = var.efs_throughput_mode
   efs_encrypted        = var.efs_encrypted
   kms_key_arn          = var.kms_key_arn != null ? var.kms_key_arn : ""
-  is_govcloud          = var.is_govcloud
 
   tags = var.tags
 }

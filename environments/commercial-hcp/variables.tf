@@ -1067,26 +1067,26 @@ variable "enable_layer_efs_storage" {
 
 variable "efs_performance_mode" {
   type        = string
-  description = "EFS performance mode: generalPurpose or maxIO."
+  description = "EFS performance mode; this layer requires generalPurpose."
   default     = "generalPurpose"
 }
 
 variable "efs_throughput_mode" {
   type        = string
-  description = "EFS throughput mode: bursting, provisioned, or elastic."
+  description = "EFS throughput mode: elastic (default) or bursting."
   default     = "elastic"
 }
 
 variable "efs_encrypted" {
   type        = bool
-  description = "Enable encryption at rest for EFS. Always true for GovCloud/FedRAMP."
+  description = "EFS encryption at rest must remain enabled."
   default     = true
 }
 
 variable "efs_storage_class_name" {
   type        = string
   description = "Name of the EFS StorageClass to create."
-  default     = "efs-sc"
+  default     = "efs-rwx-retain"
 }
 
 #------------------------------------------------------------------------------

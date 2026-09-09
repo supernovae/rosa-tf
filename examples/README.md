@@ -7,13 +7,20 @@ Scenario configurations and overlays for the environment roots. Use Terraform pi
 | zeroegress, observability, certmanager, byovpc | Complete cluster scenarios | commercial-hcp |
 | ocpvirtualization | Virtualization overlay; requires an approved cluster base | Classic; confirm platform/region/storage support |
 | byovpc-classic-prod | Complete cluster scenario | commercial-classic |
-| openshiftai, netappstorage, gitops-workloads, oadp | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
+| openshiftai, netappstorage, gitops-workloads, oadp, efs-storage | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
 | autonode | Compute overlay; requires a cluster tfvars base | commercial-hcp |
 | cluster-only | Phase 1 safety overlay, passed last | All four cluster roots |
 
 File names above have the `.tfvars` extension. Replace example names, domains, IDs and CIDRs before use. Do not commit credentials or customized private tfvars.
 
 ## Available Examples
+
+### EFS shared files
+
+[efs-storage.tfvars](efs-storage.tfvars) enables regional EFS across all four
+roots. Replace the worker security group IDs, approve the matching operator,
+and complete [mount/restore acceptance](efs/README.md). See the
+[EFS guide](../docs/EFS-STORAGE.md) before migrating existing Delete-policy PVCs.
 
 ### Application and VM backups
 

@@ -16,6 +16,12 @@ in the system security plan and test recovery before production.
 
 ## Application and VM recovery
 
+For [EFS shared files](EFS-STORAGE.md), explicitly authorize worker security groups,
+use encrypted access-point mounts and test AWS Backup recovery in the approved
+region. Access-point/network isolation is not per-pod IAM authentication. Review
+tenant boundaries, KMS/vault permissions and retained data costs; neither TLS nor
+the layer itself establishes FedRAMP or FIPS compliance.
+
 The [OADP guide](OADP.md) covers explicit workload scope, paused schedules,
 short-lived STS credentials, private AWS connectivity and isolated VM restore
 acceptance. Protect repository passwords and KMS recovery permissions outside

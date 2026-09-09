@@ -34,6 +34,11 @@ until restore acceptance. Wildcards and platform namespaces are rejected.
 
 ## Data path and credentials
 
+EFS is not a CSI snapshot/data-mover target. Keep EFS workloads out of this
+snapshot policy unless their data protection is separately handled; use the
+[EFS AWS Backup and metadata-recovery guide](EFS-STORAGE.md). Filesystem backup
+requires a separately reviewed container-only configuration and is not VM backup.
+
 CSI snapshots stage disks; the built-in data mover copies them to Kopia in S3.
 Metadata alone and an on-array snapshot are not independent recovery copies.
 The DPA enables `openshift`, `aws`, `csi` and, for VM mode, `kubevirt` plugins.

@@ -55,6 +55,12 @@ locals {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_cluster_config" {
+  lifecycle {
+    precondition {
+      condition     = !contains([var.efs_storage_class_name, "efs-sc", "efs-rwx-retain"], var.monitoring_storage_class)
+      error_message = "Monitoring requires supported block storage, not EFS/NFS. Select an EBS CSI storage class for Prometheus and Loki working volumes."
+    }
+  }
   count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_cluster_config
