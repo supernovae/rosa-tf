@@ -52,8 +52,9 @@ ROSA region, machine type or architecture.
 The [PVC examples](../examples/netapp/nfs-pvc.yaml) and
 [stopped VM example](../examples/netapp/vm-rwx.yaml) show explicit modes/classes.
 The VM's disk is blank: add an approved OS import/installation before starting it.
-Configure CDI StorageProfiles/default virtualization storage only through a reviewed
-platform change after storage acceptance. Do not delete existing golden images or
+The [virtualization layer](VIRTUALIZATION.md) optionally configures CDI StorageProfiles
+when both layers are enabled, without changing storage defaults. Review and test
+these policies before use. Do not delete existing golden images or
 switch defaults just because an installation tutorial demonstrates that sequence.
 
 ## Credentials, TLS and permissions

@@ -1,5 +1,7 @@
 # ROSA Terraform - Multi-Environment Framework
 
+For VM workloads and NetApp-backed disks, see the [OpenShift Virtualization guide](docs/VIRTUALIZATION.md).
+
 <!-- Versioning -->
 [![Latest Tag](https://img.shields.io/github/v/tag/supernovae/rosa-tf)](https://github.com/supernovae/rosa-tf/tags)
 [![Latest Release](https://img.shields.io/github/release/supernovae/rosa-tf)](https://github.com/supernovae/rosa-tf/releases)

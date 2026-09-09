@@ -1,202 +1,42 @@
-#------------------------------------------------------------------------------
-# ROSA HCP - OpenShift Virtualization Example
-#
-# Complete example with bare metal nodes for OpenShift Virtualization.
-# COPY this file to your environment and customize cluster_name, region, etc.
-#
-# What's different from dev.tfvars:
-#   - Bare metal machine pool (m6i.metal) with taints
-#   - virt_node_selector and virt_tolerations configured
-#   - enable_layer_virtualization = true
-#
-# Note: m6i.metal instances are expensive (~$4.60/hour each)
-#
-# Usage:
-#   cp examples/ocpvirtualization.tfvars environments/commercial-hcp/my-cluster.tfvars
-#   cd environments/commercial-hcp
-#   # Edit my-cluster.tfvars with your cluster_name, region, etc.
-#   terraform apply -var-file="my-cluster.tfvars"
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-# Cluster Identification - CUSTOMIZE THESE
-#------------------------------------------------------------------------------
-
-cluster_name = "my-virt-cluster" # <-- CHANGE THIS
-environment  = "dev"
-aws_region   = "us-east-1" # <-- CHANGE THIS
-
-#------------------------------------------------------------------------------
-# OpenShift Version
-#------------------------------------------------------------------------------
-
-openshift_version = "4.20.14" # <-- CHANGE to your desired version
-channel_group     = "stable"
-
-#------------------------------------------------------------------------------
-# Network Configuration
-#------------------------------------------------------------------------------
-
-vpc_cidr = "10.0.0.0/16"
-multi_az = false # Set true for production HA
-
-#------------------------------------------------------------------------------
-# Cluster Configuration
-#------------------------------------------------------------------------------
-
-private_cluster      = false # Set true for private clusters
-compute_machine_type = "m6i.xlarge"
-worker_node_count    = 3
-
-#------------------------------------------------------------------------------
-# Encryption Configuration
-#------------------------------------------------------------------------------
-
-cluster_kms_mode = "provider_managed"
-infra_kms_mode   = "provider_managed"
-
-#------------------------------------------------------------------------------
-# IAM Configuration (HCP requires account roles to exist first)
-#------------------------------------------------------------------------------
-
-account_role_prefix = "ManagedOpenShift"
-
-#------------------------------------------------------------------------------
-# OIDC Configuration
-#------------------------------------------------------------------------------
-
-create_oidc_config = true
-managed_oidc       = true
-
-#------------------------------------------------------------------------------
-# External Authentication (HCP Only)
-#------------------------------------------------------------------------------
-
-external_auth_providers_enabled = false
-
-#------------------------------------------------------------------------------
-# Admin User
-#------------------------------------------------------------------------------
-
-create_admin_user = true
-admin_username    = "cluster-admin"
-
-#------------------------------------------------------------------------------
-# Machine Pools
-#
-# This is the key difference - a bare metal pool for virtualization.
-# PreferNoSchedule: non-virt workloads avoid these nodes but VMs can
-# schedule without explicit tolerations. Use NoSchedule for strict isolation
-# (requires adding tolerations to every VM spec).
-#------------------------------------------------------------------------------
-
-machine_pools = [
-  {
-    name          = "virt"
-    instance_type = "m6i.metal" # Bare metal required for hardware virtualization
-    replicas      = 2           # Minimum 2 for live migration
-    labels = {
-      "node-role.kubernetes.io/virtualization" = ""
-    }
-    taints = [{
-      key           = "virtualization"
-      value         = "true"
-      schedule_type = "PreferNoSchedule"
-    }]
+# ROSA Classic virtualization overlay, not a complete cluster configuration.
+# Apply with an approved Classic cluster base; do not copy HCP-only IAM/auth inputs.
+# 1. Provision cluster + bare-metal pools with install_gitops=false first.
+# 2. Confirm platform/region/version/instance/storage support with Red Hat/NetApp.
+# 3. Apply the layer phase after API access and operator catalogs are ready.
+# See docs/VIRTUALIZATION.md. HCP/GovCloud support is NOT implied by module wiring.
+# Example pool replaces the base machine_pools list: merge any existing pools.
+machine_pools = [{
+  name          = "virt"
+  instance_type = "m6i.metal" # Check regional ROSA offerings and quotas before using.
+  replicas      = 3           # Size for N+1 capacity; no automatic cost-saving scale-down.
+  labels = {
+    "node-role.kubernetes.io/virtualization" = ""
   }
-]
-
-#------------------------------------------------------------------------------
-# Access Configuration
-#------------------------------------------------------------------------------
-
-create_jumphost   = false
-create_client_vpn = false
-
-#------------------------------------------------------------------------------
-# GitOps Configuration
-#------------------------------------------------------------------------------
+  taints = [{
+    key = "virtualization", value = "true", schedule_type = "NoSchedule"
+  }]
+}]
 
 install_gitops              = true
-enable_layer_terminal       = false
-enable_layer_oadp           = false
-enable_layer_virtualization = true # <-- This enables the virtualization layer
-enable_layer_monitoring     = false
-enable_layer_certmanager    = false
-
-#------------------------------------------------------------------------------
-# Virtualization Configuration
-#
-# Node placement configured to use the bare metal pool above.
-# The HyperConverged CR will use these to schedule virt components and VMs.
-#------------------------------------------------------------------------------
-
-# Node selector matches the label on our bare metal machine pool
+enable_layer_virtualization = true
 virt_node_selector = {
   "node-role.kubernetes.io/virtualization" = ""
+  "kubernetes.io/arch"                     = "amd64"
+}
+virt_tolerations = [{
+  key = "virtualization", value = "true", effect = "NoSchedule", operator = "Equal"
+}]
+virt_config = {
+  platform_support_confirmed = false       # Set true only AFTER the support/preflight review.
+  install_plan_approval      = "Automatic" # Red Hat recommendation; Manual needs an approval process.
+  common_boot_images         = false       # Use approved internal images initially.
+  netapp_storage_profiles    = true        # Only creates profiles if the NetApp layer is also enabled.
 }
 
-# Tolerations allow virt infrastructure pods to schedule on tainted bare metal nodes
-virt_tolerations = [
-  {
-    key      = "virtualization"
-    operator = "Equal"
-    value    = "true"
-    effect   = "PreferNoSchedule"
-  }
-]
-
-#------------------------------------------------------------------------------
-# NetApp Storage for Virtualization (Optional)
-#
-# Enable NetApp FSx ONTAP for high-performance VM disks and live migration.
-# The fsx-ontap-iscsi-block StorageClass provides dedicated block storage
-# that outperforms EBS (gp3-csi) for VM workloads. NFS (fsx-ontap-nfs-rwx)
-# enables live migration with RWX access mode.
-#
-# Requires: export TF_VAR_fsx_admin_password="YourSecurePassword123"
-#------------------------------------------------------------------------------
-
-# enable_layer_netapp_storage  = true
-# fsx_deployment_type          = "SINGLE_AZ_1"
-# fsx_storage_capacity_gb      = 1024
-# fsx_throughput_capacity_mbps = 256 # Higher throughput for VM I/O
-
-#------------------------------------------------------------------------------
-# OpenShift AI + Virtualization Coexistence (optional)
-#
-# GPU passthrough for VMs requires both Virtualization and OpenShift AI layers.
-# The NVIDIA GPU Operator can expose GPUs to VMs via vfio-pci passthrough
-# when the HyperConverged CR is configured with mediatedDevicesConfiguration.
-#
-# Add a GPU machine pool alongside the bare metal virt pool:
-#
-# machine_pools = [
-#   { ...existing virt pool... },
-#   {
-#     name          = "gpu"
-#     instance_type = "g4dn.metal"
-#     replicas      = 1
-#     labels        = { "node-role.kubernetes.io/gpu" = "" }
-#     taints        = [{ key = "nvidia.com/gpu", value = "true", schedule_type = "NoSchedule" }]
-#   }
-# ]
-#
-# enable_layer_openshift_ai = true
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-# Debug / Timing
-#------------------------------------------------------------------------------
-
-enable_timing = true
-
-#------------------------------------------------------------------------------
-# Tags
-#------------------------------------------------------------------------------
-
-tags = {
-  Environment = "dev"
-  CostCenter  = "development"
-  Layers      = "virtualization"
-}
+# NetApp: combine with examples/netappstorage.tfvars, then configure real CA,
+# endpoint, independent filesystem/SVM credentials, SAN and node preparation.
+# Those objects are whole-object Terraform overrides, not deep-merged overlays.
+# VM disks use fsx-ontap-vm-rwx (RWX/Block); NFS uses fsx-ontap-nfs-retain.
+# No claim that one backend always outperforms another: benchmark your workload.
+# Choose the current entitled OpenShift release from the regional ROSA catalog
+# in your base tfvars. Do not install a 4.22 operator onto a 4.18 cluster.
