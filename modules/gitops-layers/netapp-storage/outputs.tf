@@ -42,15 +42,7 @@ output "security_group_id" {
   value       = aws_security_group.fsx_ontap.id
 }
 
-output "trident_role_arn" {
-  description = "IAM role ARN for Trident CSI controller (IRSA)."
-  value       = aws_iam_role.trident_csi.arn
-}
 
-output "trident_role_name" {
-  description = "IAM role name for Trident CSI controller."
-  value       = aws_iam_role.trident_csi.name
-}
 
 output "dedicated_subnet_ids" {
   description = "Dedicated FSxN subnet IDs (empty if using ROSA subnets)."
@@ -62,7 +54,6 @@ output "gitops_config" {
   value = {
     filesystem_id     = aws_fsx_ontap_file_system.this.id
     svm_management_ip = tolist(aws_fsx_ontap_storage_virtual_machine.this.endpoints[0].management[0].ip_addresses)[0]
-    trident_role_arn  = aws_iam_role.trident_csi.arn
     security_group_id = aws_security_group.fsx_ontap.id
   }
 }
@@ -70,5 +61,10 @@ output "gitops_config" {
 output "ready" {
   description = "Indicates that NetApp storage resources are ready."
   value       = true
-  depends_on  = [time_sleep.role_propagation]
+  depends_on  = [aws_fsx_ontap_storage_virtual_machine.this]
+}
+
+output "client_cidrs" {
+  description = "Resolved worker CIDRs for Trident export filtering."
+  value       = local.client_cidrs
 }

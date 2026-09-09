@@ -111,10 +111,6 @@ output "fsx_svm_management_ip" {
   value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].gitops_config.svm_management_ip : ""
 }
 
-output "fsx_trident_role_arn" {
-  description = "IAM role ARN for Trident CSI controller."
-  value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].trident_role_arn : ""
-}
 
 output "fsx_security_group_id" {
   description = "Security group ID for FSx ONTAP access."
@@ -233,4 +229,13 @@ output "s3_buckets_requiring_manual_cleanup" {
     var.enable_layer_monitoring ? module.monitoring[0].loki_bucket_name : "",
     var.enable_layer_openshift_ai && var.openshift_ai_create_s3 ? module.openshift_ai[0].bucket_name : ""
   ])
+}
+
+output "fsx_svm_nfs_endpoint" {
+  description = "SVM NFS data endpoint."
+  value       = var.enable_layer_netapp_storage ? tolist(module.netapp_storage[0].svm_nfs_endpoint)[0] : ""
+}
+output "netapp_client_cidrs" {
+  description = "Approved worker CIDRs for backend export filtering."
+  value       = var.enable_layer_netapp_storage ? module.netapp_storage[0].client_cidrs : []
 }

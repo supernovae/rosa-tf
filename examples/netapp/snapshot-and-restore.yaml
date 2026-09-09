@@ -1,0 +1,26 @@
+# Quiesce writers first when application consistency is required.
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: shared-files-checkpoint
+spec:
+  volumeSnapshotClassName: fsx-ontap-snapshots-retain
+  source:
+    persistentVolumeClaimName: shared-files
+---
+# Apply the restore after the snapshot reports readyToUse=true.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-files-restored
+spec:
+  storageClassName: fsx-ontap-nfs-retain
+  accessModes: [ReadWriteMany]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi
+  dataSource:
+    name: shared-files-checkpoint
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io

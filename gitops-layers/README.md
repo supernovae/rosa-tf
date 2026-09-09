@@ -30,6 +30,7 @@ enable HA and require at least three schedulable workers.
 | GitOps operator, ArgoCD instance and workload boundary | [GitOps](../docs/GITOPS.md) |
 | Monitoring, logging, dashboards and alerts | [Observability](../docs/OBSERVABILITY.md) |
 | Certificate automation | [cert-manager](../modules/gitops-layers/certmanager/README.md) |
+| NetApp Trident, FSx, container and VM storage | [NetApp storage](../docs/NETAPP-STORAGE.md) |
 | Backup and restore | [OADP layer](layers/oadp/README.md) |
 | Additional native layer resources | [Operator module](../modules/gitops-layers/operator/README.md) |
 

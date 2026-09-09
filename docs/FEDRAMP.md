@@ -467,6 +467,15 @@ establishes FedRAMP authorization or FIPS validation for the complete deployment
 
 ### Credential Lifecycle
 
+The [NetApp layer](NETAPP-STORAGE.md) uses separate FSx/SVM credentials, trusted
+ONTAP REST certificates, worker-bounded storage ingress and explicit retained
+storage policies. The old `netapp_enable_fips` input was removed because it never
+configured Trident. Validate actual cryptographic modules and data-in-transit
+requirements: management TLS, KMS at rest and iSCSI CHAP are different controls;
+they do not make ordinary NFS/iSCSI traffic encrypted or establish an authorization.
+Maintain evidence for volume backups, isolated restores, access denials and
+credential/certificate renewal; do not treat local snapshots as independent backups.
+
 | Credential | Scope | Storage | Rotation |
 |---|---|---|---|
 | Short-lived runner token (preferred) | Privileged Terraform platform management | Secret-managed runner environment; protect plan/state artifacts | Renew via approved TokenRequest/IdP workflow before expiry |

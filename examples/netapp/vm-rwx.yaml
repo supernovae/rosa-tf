@@ -1,0 +1,48 @@
+# Storage pattern only: this VM is deliberately stopped and its disk is blank.
+# Add an approved OS import/installation before starting; verify CNV support first.
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: storage-acceptance-vm
+spec:
+  runStrategy: Halted
+  dataVolumeTemplates:
+    - metadata:
+        name: storage-acceptance-vm-disk
+      spec:
+        source:
+          blank: {}
+        storage:
+          storageClassName: fsx-ontap-vm-rwx
+          accessModes: [ReadWriteMany]
+          volumeMode: Block
+          resources:
+            requests:
+              storage: 20Gi
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: storage-acceptance-vm
+    spec:
+      evictionStrategy: LiveMigrate
+      domain:
+        cpu:
+          cores: 2
+        resources:
+          requests:
+            memory: 2Gi
+        devices:
+          disks:
+            - name: data
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: data
+          dataVolume:
+            name: storage-acceptance-vm-disk

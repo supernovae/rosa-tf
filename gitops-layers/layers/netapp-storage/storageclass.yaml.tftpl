@@ -1,0 +1,19 @@
+${yamlencode(merge({
+  apiVersion = "storage.k8s.io/v1"
+  kind = "StorageClass"
+  metadata = {
+    name = name
+    annotations = { "storageclass.kubernetes.io/is-default-class" = "false" }
+  }
+  provisioner = "csi.trident.netapp.io"
+  parameters = merge({
+    backendType = protocol == "nfs" ? "ontap-nas" : "ontap-san"
+    selector = "rosaLayer=netapp-storage"
+  }, protocol == "san-filesystem" ? { fsType = "ext4" } : {})
+  allowVolumeExpansion = true
+  reclaimPolicy = "Retain"
+  # Shared FSx storage is reachable from all approved workers, not AZ-local EBS.
+  volumeBindingMode = "Immediate"
+}, protocol == "nfs" ? {
+  mountOptions = concat(["nfsvers=4.1", "hard"], nconnect > 1 ? ["nconnect=${nconnect}"] : [])
+} : {}))}
