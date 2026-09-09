@@ -19,7 +19,7 @@ variable "cluster_id" {
 #     {
 #       name          = "gpu-spot"
 #       instance_type = "g4dn.xlarge"
-#       spot          = { enabled = true, max_price = "0.50" }
+#       spot          = { enabled = true, max_price = 0.50 }
 #       autoscaling   = { enabled = true, min = 0, max = 3 }
 #       multi_az      = false
 #       labels        = { "node-role.kubernetes.io/gpu" = "", "spot" = "true" }
@@ -36,6 +36,9 @@ variable "cluster_id" {
 
 variable "machine_pools" {
   type = list(object({
+    aws_additional_security_group_ids = optional(list(string))
+    aws_tags                          = optional(map(string), {})
+
     name          = string
     instance_type = string
     replicas      = optional(number, 2)
@@ -47,10 +50,10 @@ variable "machine_pools" {
       max     = number
     }))
 
-    # Spot instance configuration (Classic schema; HCP uses its dedicated module and numeric price)
+    # Spot instance configuration (Both architectures use numeric USD price caps)
     spot = optional(object({
       enabled   = bool
-      max_price = optional(string) # Leave empty for on-demand price cap
+      max_price = optional(number) # Leave empty for on-demand price cap
     }))
 
     # Disk configuration
@@ -82,7 +85,7 @@ variable "machine_pools" {
     - instance_type: EC2 instance type (required)
     - replicas: Fixed replica count (default: 2, ignored if autoscaling enabled)
     - autoscaling: { enabled = bool, min = number, max = number }
-    - spot: { enabled = bool, max_price = string } (Classic only)
+    - spot: { enabled = bool, max_price = number } (Classic only)
     - disk_size: Root disk size in GB (default: 300)
     - labels: Map of node labels for workload targeting
     - taints: List of taints for workload isolation

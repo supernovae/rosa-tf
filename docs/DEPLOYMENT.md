@@ -1,9 +1,9 @@
 # Reviewed two-phase deployment
 
 This is the 2.0 development baseline, not an approved production release or a
-1.x state migration. RHCS is pinned to `1.7.8-prerelease.2`; stable adoption and
-live acceptance must precede a 2.0 tag. Its suffix, not the GitHub release flag,
-identifies it as a prerelease. See the [provider release policy](https://registry.terraform.io/providers/terraform-redhat/rhcs/latest/docs).
+1.x state migration. Stable RHCS `1.7.8` is pinned with verified locks; live
+acceptance and release approval still precede a 2.0 tag. See the
+[native capability audit](RHCS-CAPABILITIES.md).
 
 ## Prerequisites
 
@@ -43,8 +43,7 @@ dependent workloads. This is not an in-place 1.x upgrade procedure.
 
 Copy the appropriate `cluster-dev.tfvars` or `cluster-prod.tfvars` seed to an
 ignored local file. These are posture examples, not evidence of production
-readiness. Supply your verified OpenShift version, identity/network choices and,
-for this development branch only, `allow_prerelease_provider = true`.
+readiness. Supply your verified OpenShift version and identity/network choices.
 
 From the selected environment root:
 
@@ -86,7 +85,8 @@ denials as well as successes, private DNS/routes, pod scheduling and alert
 delivery. Perform real container/VM data restore tests, not just CR status checks.
 Spot/route schema tests do not establish regional service eligibility.
 
-Version changes on existing clusters are not a 1.x migration path. This baseline
-retains creation-only and version-drift safeguards; cluster upgrades require a
-separately reviewed ROSA procedure. Never assume editing a version string alone
-upgrades a control plane whose lifecycle ignores that field.
+The cluster modules now forward explicit version changes to RHCS. Review the
+provider-scheduled upgrade and required acknowledgments; reconcile a version that
+was advanced outside Terraform before planning. For HCP, complete the control-plane
+upgrade and refresh its observed version before changing pool targets. Native
+upgrade support is not a supported 1.x-to-2.0 repository state migration.

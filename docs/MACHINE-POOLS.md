@@ -18,10 +18,15 @@ within two minor versions behind it. There is no skip/no-op version-check flag.
 Select a known AZ through `az_subnet_map` or an explicit subnet, not both.
 An unknown AZ must not silently fall back to another subnet.
 
-## HCP Spot — prerelease development
+HCP pools also expose native capacity reservations (incompatible with Spot),
+image type, per-pool repair, AWS tags, tuning/kubelet references and upgrade
+acknowledgments. Check eligibility and create referenced configurations first.
+See [capabilities](RHCS-CAPABILITIES.md) for single-owner native composition.
 
-RHCS `1.7.8-prerelease.2` adds numeric `aws_node_pool.max_spot_price` and
-`use_spot_instances`. See the [exact provider schema](https://github.com/terraform-redhat/terraform-provider-rhcs/blob/v1.7.8-prerelease.2/docs/resources/hcp_machine_pool.md).
+## HCP Spot — native stable provider
+
+RHCS `1.7.8` adds numeric `aws_node_pool.max_spot_price` and
+`use_spot_instances`. See the [exact provider schema](https://github.com/terraform-redhat/terraform-provider-rhcs/blob/v1.7.8/docs/resources/hcp_machine_pool.md).
 Use [hcp-spot.tfvars](../examples/hcp-spot.tfvars) only after regional/API support
 confirmation. Omit a price for the provider's on-demand price cap; supplied prices
 must be positive and Spot must be enabled. Capacity choices are creation-only;

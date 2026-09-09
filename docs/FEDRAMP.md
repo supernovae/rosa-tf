@@ -1,6 +1,6 @@
 # FedRAMP Deployment Guide
 
-> 2.0 is a fix-forward development baseline, not an authorized deployment or a supported 1.x upgrade. RHCS prerelease use is explicitly opt-in; stable provider adoption and live acceptance are release blockers. See [deployment](DEPLOYMENT.md) and [release criteria](ROADMAP.md).
+> 2.0 is a fix-forward development baseline, not an authorized deployment or a supported 1.x upgrade. Stable RHCS 1.7.8 is pinned; live acceptance and release approval remain required. See [deployment](DEPLOYMENT.md) and [release criteria](ROADMAP.md).
 
 This guide covers how to deploy and operate this ROSA Terraform framework in a FedRAMP-controlled environment. It is intended for organizations operating under **FedRAMP High**, **DoD IL4/IL5**, **NIST 800-53**, or similar regulatory controls.
 
@@ -241,7 +241,7 @@ All modules in this framework use **local paths** (no external registry modules)
 | Provider | Source | Verified Version | Used For |
 |----------|--------|------------------|----------|
 | aws | `hashicorp/aws` | 6.63.0 | VPC, IAM, Route53, S3, KMS |
-| rhcs | `terraform-redhat/rhcs` | 1.7.8-prerelease.2 (development only) | ROSA cluster lifecycle via OCM API |
+| rhcs | `terraform-redhat/rhcs` | 1.7.8 (stable) | ROSA cluster lifecycle via OCM API |
 | kubernetes | `hashicorp/kubernetes` | 3.2.1 | Namespaces, ServiceAccounts, Secrets, ConfigMaps |
 | kubectl | `alekc/kubectl` | 2.4.1 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
 | external | `hashicorp/external` | 2.4.1 | OAuth token retrieval (bootstrap only) |

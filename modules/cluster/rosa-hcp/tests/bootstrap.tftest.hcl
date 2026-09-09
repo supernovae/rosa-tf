@@ -48,6 +48,54 @@ run "creation_only_credentials" {
     error_message = "Changing a creation-only username must preserve the existing credential and reported login."
   }
 }
+run "native_upgrade_and_autonode_update" {
+  command = plan
+  variables {
+    openshift_version = "4.22.0"
+    autonode_role_arn = "arn:aws:iam::123456789012:role/test-Karpenter"
+    cluster_options = {
+      channel          = "stable-4.22"
+      destroy_timeout  = 120
+      domain_prefix    = "native-test"
+      worker_disk_size = 400
+    }
+    tags = { CapabilityAudit = "true" }
+  }
+  assert {
+    condition     = rhcs_cluster_rosa_hcp.this.version == "4.22.0" && rhcs_cluster_rosa_hcp.this.auto_node.role_arn == "arn:aws:iam::123456789012:role/test-Karpenter"
+    error_message = "Version and AutoNode updates must reach RHCS, not be silently ignored."
+  }
+  assert {
+    condition     = rhcs_cluster_rosa_hcp.this.channel == "stable-4.22" && rhcs_cluster_rosa_hcp.this.destroy_timeout == 120 && rhcs_cluster_rosa_hcp.this.tags["CapabilityAudit"] == "true"
+    error_message = "Native channels, timeouts and AWS tags must be wired without channel-group conflicts."
+  }
+}
+run "reject_autonode_before_supported_version" {
+  command = plan
+  variables { autonode_role_arn = "arn:aws:iam::123456789012:role/test-Karpenter" }
+  expect_failures = [rhcs_cluster_rosa_hcp.this]
+}
+run "reject_autonode_without_create_wait" {
+  command = plan
+  variables {
+    openshift_version        = "4.22.0"
+    autonode_role_arn        = "arn:aws:iam::123456789012:role/test-Karpenter"
+    wait_for_create_complete = false
+  }
+  expect_failures = [rhcs_cluster_rosa_hcp.this]
+}
+run "reject_insecure_registry" {
+  command = plan
+  variables {
+    cluster_options = { registry_config = { registry_sources = { insecure_registries = ["registry.example.com"] } } }
+  }
+  expect_failures = [var.cluster_options]
+}
+run "reject_external_auth_bootstrap" {
+  command = plan
+  variables { external_auth_providers_enabled = true }
+  expect_failures = [rhcs_cluster_rosa_hcp.this]
+}
 run "govcloud_bootstrap" {
   command   = plan
   state_key = "govcloud"

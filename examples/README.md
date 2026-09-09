@@ -2,19 +2,21 @@
 
 Examples are seeds/overlays, not ready-to-apply production configurations. Use a
 private cluster base with an explicitly verified regional `openshift_version`.
-The branch pins prerelease RHCS and needs explicit development acknowledgment;
+The branch pins stable RHCS 1.7.8; repository release approval remains pending;
 see [deployment](../docs/DEPLOYMENT.md). No 1.x migration is supported.
 
 | Example | Scope and prerequisites |
 | --- | --- |
 | `cluster-only.tfvars` | Phase 1 safety overlay; all roots; apply last |
+| `provider-options.tfvars` | All roots; native DNS prefix, timeout and OCM properties |
+| [RHCS companion resources](rhcs-companion-resources) | Native identity, kubelet and mirror composition; review placeholders and separate ownership |
 | `zeroegress.tfvars` | Commercial HCP scenario; approved private endpoints/mirrors |
 | `byovpc.tfvars` | Commercial HCP BYO-VPC; replace all network IDs |
 | `byovpc-classic-prod.tfvars` | Classic BYO-VPC scenario; approved subnet/AZ layout |
 | `observability.tfvars` | HCP ARM observability scenario; operand architecture/support checks |
 | `certmanager.tfvars` | HCP certificate/custom-ingress scenario; approved DNS zone and issuer |
 | `autonode.tfvars` | HCP compute overlay; approved AutoNode platform support |
-| `hcp-spot.tfvars` | HCP prerelease overlay; interruption-tolerant workloads only |
+| `hcp-spot.tfvars` | HCP overlay; interruption-tolerant workloads only |
 | `component-routes.tfvars` | All roots, phase 2; trusted TLS Secrets/DNS ready; OAuth Classic-only |
 | `gitops-workloads.tfvars` | All roots; explicit trusted workload repo, groups and namespace |
 | `efs-storage.tfvars` | All roots; actual worker SGs, supported EFS catalog and AWS Backup |

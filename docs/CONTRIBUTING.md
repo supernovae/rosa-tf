@@ -29,6 +29,6 @@ ordering and explicit versions, and [security](SECURITY.md) for credentials and
 scan exceptions. Never put state or saved plans in public CI artifacts.
 
 2.0 is a fix-forward release, not a supported in-place 1.x upgrade. Do not tag
-while RHCS remains prerelease. [Release readiness](ROADMAP.md) requires stable
-provider adoption, all four target acceptance results and explicit approval.
+without explicit release approval. Stable RHCS 1.7.8 is adopted;
+[release readiness](ROADMAP.md) still requires all four target acceptance results.
 The release workflow checks both metadata and actual provider constraints/locks.

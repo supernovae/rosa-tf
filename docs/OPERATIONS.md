@@ -39,7 +39,7 @@ a shortcut for dropping state or abandoning resources.
 4. Disable `cluster_delete_protection` in a separate reviewed apply only when
    cluster deletion is intended. Do not bypass storage destruction safeguards.
 5. Delete the cluster through its supported lifecycle and wait for confirmed
-   completion. RHCS prerelease includes a fix to keep deletion failures in state;
+   completion. RHCS 1.7.8 includes a fix to keep deletion failures in state;
    do not hide provider errors or continue deleting IAM while uninstall is active.
 6. Inspect residual resources and recovery/account dependencies before cleanup.
 

@@ -5,7 +5,7 @@ Development baseline reviewed 2026-09-09:
 | Component | Selected version |
 | --- | --- |
 | Terraform | 1.16.1 |
-| terraform-redhat/rhcs | **1.7.8-prerelease.2**, exact development pin |
+| terraform-redhat/rhcs | **1.7.8**, exact stable pin |
 | hashicorp/aws | 6.63.0 |
 | hashicorp/kubernetes | 3.2.1 |
 | alekc/kubectl | 2.4.1 |
@@ -16,23 +16,18 @@ Development baseline reviewed 2026-09-09:
 | hashicorp/local | 2.9.0 |
 | hashicorp/null | 3.3.1 where still required |
 
-The published RHCS prerelease provides HCP Spot settings and component routes.
-Its GitHub release flag does not make it stable. The
-[official provider policy](https://registry.terraform.io/providers/terraform-redhat/rhcs/latest/docs)
-distinguishes stable versions from suffix-bearing prereleases. This repository
-blocks 2.0 tagging until stable RHCS and reviewed release approval.
+Stable RHCS 1.7.8 was published on 2026-09-09. Its Git tree is identical to
+1.7.8-prerelease.2; stable binaries and Linux/macOS checksums were independently
+resolved. The temporary prerelease acknowledgment input is removed; release
+approval remains false.
 
-Use `terraform init -lockfile=readonly` for normal deployments. Provider changes
-belong in a separate reviewed change with final release notes, installed schema
-checks, refreshed `linux_amd64` and `darwin_arm64` checksums and all tests. Never
-edit a lock version without its package hashes, or substitute an unverified
-local binary for a registry-signed release.
+On future upgrades, compare the final schema and regenerate/review
+[rhcs-capabilities.json](rhcs-capabilities.json). Run the capability checker,
+all mocked cluster/pool tests, root validation and security scans. The checker
+fails on new/removed resources, writable fields or types, and missing core wiring.
 
-The maintained `terraform-redhat/rhcs` provider is used in both partitions. There
-is no alternate preview-provider namespace or broad prerelease version range.
-ROSA version/API/region eligibility is separate from Terraform provider selection.
+Do not infer region/platform support from an available provider field. Native
+creation-only options remain immutable; do not create a second owner for default
+worker pools, IdPs or log forwarders. See [capabilities](RHCS-CAPABILITIES.md).
 
-2.0 has no supported 1.x state migration. Removed compatibility bootstrap
-fixtures do not establish a safe upgrade path. Review retained data and account
-resources independently; use [deployment](DEPLOYMENT.md) and
-[operations](OPERATIONS.md), not state surgery or provider replacement recipes.
+2.0 is a fix-forward baseline with no supported 1.x state migration.

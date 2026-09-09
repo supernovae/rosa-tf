@@ -1,124 +1,18 @@
-#------------------------------------------------------------------------------
-# AutoNode (Karpenter) Example Configuration
-#
-# Enables Karpenter-based node autoscaling on ROSA HCP clusters.
-# AutoNode replaces traditional machine pool autoscaling with Karpenter's
-# bin-packing scheduler for faster, more efficient scaling.
-#
-# AutoNode is GA and fully supported on ROSA HCP in all AWS regions.
-#
-# Usage (two-phase deployment):
-#   # Phase 1: Create cluster + IAM + AutoNode
-#   terraform apply -var-file=cluster-dev.tfvars
-#   # Wait ~5 min for Karpenter CRDs: oc get crd | grep karpenter
-#
-#   # Phase 2: Deploy NodePools + GitOps layers
-#   terraform apply -var-file=cluster-dev.tfvars -var-file=gitops-dev.tfvars
-#
-# Where gitops-dev.tfvars includes install_gitops = true and the pools below.
-# No manual CLI step required -- AutoNode is enabled via Terraform.
-#
-# Requirements:
-#   - OpenShift 4.19+
-#   - ROSA CLI >= 1.2.61
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-# Enable AutoNode
-#------------------------------------------------------------------------------
-
+# Commercial HCP overlay. Verify OpenShift 4.22+ and service eligibility first.
+# Include this during Phase 1 for native activation; keep it in Phase 2 when
+# enabling install_gitops. Wait for CRDs and the default node class to be Ready.
+# AutoNode cannot be disabled after enablement in RHCS 1.7.8.
 enable_autonode = true
 
-#------------------------------------------------------------------------------
-# AutoNode Pool Examples
-#
-# Pools range from simple (just name + instance type) to complex (multi-type
-# with limits, weights, taints, and expiry).
-#
-# Key fields:
-#   instance_type  - single type (use this OR instance_types)
-#   instance_types - list of types; Karpenter picks best fit
-#   capacity_type  - "spot" (default) or "on-demand"
-#   labels         - kubernetes.io domain auto-filtered for Karpenter
-#   taints         - [{key, value (optional), schedule_type}]
-#   limits         - max resources the pool can provision
-#   weight         - priority; higher = preferred (default 0)
-#   expire_after   - node TTL before replacement (default "720h")
-#   consolidation_policy - "WhenEmptyOrUnderutilized" (default) or "WhenEmpty"
-#   consolidate_after    - delay before consolidation (default "30s")
-#------------------------------------------------------------------------------
-
-autonode_pools = [
-
-  #----------------------------------------------------------------------------
-  # Example 1: Simple general-purpose pool (minimal config)
-  #
-  # Only name and instance_type are required. Everything else defaults:
-  # spot pricing, WhenEmptyOrUnderutilized consolidation, 30s consolidate
-  # delay, 720h (30 day) node expiry.
-  #----------------------------------------------------------------------------
-  {
-    name          = "general"
-    instance_type = "m6a.2xlarge"
-  },
-
-  #----------------------------------------------------------------------------
-  # Example 2: Multi-type Spot pool with resource limits
-  #
-  # Karpenter picks the best-fit instance from the list based on pending
-  # pod requirements and Spot availability. Limits cap total provisioned
-  # resources for cost control.
-  #----------------------------------------------------------------------------
-  # {
-  #   name           = "compute-spot"
-  #   instance_types = ["m6a.2xlarge", "m6a.4xlarge", "m7a.2xlarge", "m6i.2xlarge"]
-  #   capacity_type  = "spot"
-  #   limits         = { cpu = "64", memory = "256Gi" }
-  #   expire_after   = "168h"   # Replace nodes after 7 days
-  # },
-
-  #----------------------------------------------------------------------------
-  # Example 3: GPU pool with taints and labels
-  #
-  # Taints ensure only GPU-tolerant workloads land here. Weight gives
-  # this pool lower priority so general workloads use cheaper nodes first.
-  # consolidate_after of 10m avoids thrashing on bursty GPU jobs.
-  #----------------------------------------------------------------------------
-  # {
-  #   name          = "gpu-l40"
-  #   instance_type = "g6e.2xlarge"
-  #   capacity_type = "spot"
-  #   labels = {
-  #     "node-role.autonode/gpu" = ""
-  #   }
-  #   taints = [{
-  #     key           = "nvidia.com/gpu"
-  #     value         = "true"
-  #     schedule_type = "NoSchedule"
-  #   }]
-  #   weight            = 10
-  #   consolidate_after = "10m"
-  # },
-
-  #----------------------------------------------------------------------------
-  # Example 4: On-demand fallback with WhenEmpty consolidation
-  #
-  # Paired with a Spot pool of the same instance types, this catches
-  # workloads when Spot capacity is unavailable. WhenEmpty consolidation
-  # only removes nodes with zero non-daemonset pods.
-  #----------------------------------------------------------------------------
-  # {
-  #   name                 = "fallback-ondemand"
-  #   instance_types       = ["m6a.2xlarge", "m6a.4xlarge"]
-  #   capacity_type        = "on-demand"
-  #   weight               = 1
-  #   consolidation_policy = "WhenEmpty"
-  #   consolidate_after    = "5m"
-  # },
-]
-
-#------------------------------------------------------------------------------
-# Empty machine pools when using AutoNode for all supplementary compute
-#------------------------------------------------------------------------------
-
-# machine_pools = []
+autonode_pools = [{
+  name                 = "general"
+  instance_types       = ["m6i.xlarge", "m7i.xlarge"]
+  capacity_type        = "on-demand"
+  labels               = { "workload.example.com/tier" = "general" }
+  limits               = { cpu = "32", memory = "128Gi" }
+  consolidation_policy = "WhenEmpty"
+  consolidate_after    = "5m"
+  expire_after         = "Never"
+}]
+# Spot is a separate, explicit workload decision; add appropriate taints and
+# tolerations plus disruption/recovery tests before selecting capacity_type=spot.

@@ -226,7 +226,7 @@ output "version_info" {
     version_drift         = local.version_drift
     drift_status          = local.drift_status
     drift_warning         = local.version_drift > 0 ? "Machine pools are ${local.version_drift} minor version(s) behind control plane. Upgrade machine pools when ready." : null
-    upgrade_note          = "Upgrade the control plane through the supported ROSA procedure, refresh its observed version, then review machine_pool_version. Changing openshift_version alone does not upgrade the control plane."
+    upgrade_note          = "Upgrade the control plane through the supported ROSA procedure, refresh its observed version, then review machine_pool_version. Changing openshift_version schedules a native RHCS upgrade; wait for observed completion."
   }
 }
 

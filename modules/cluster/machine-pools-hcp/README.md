@@ -1,6 +1,6 @@
 # HCP machine pools
 
-Native RHCS pools using exact `1.7.8-prerelease.2` during 2.0 development.
+Native RHCS pools using exact `1.7.8` during 2.0 development.
 See [the canonical pool guide](../../../docs/MACHINE-POOLS.md) and
 [Spot overlay](../../../examples/hcp-spot.tfvars) for current schemas.
 

@@ -25,6 +25,29 @@ run "on_demand_default" {
     error_message = "Ordinary worker pools remain on demand."
   }
 }
+run "native_reservation_and_tuning" {
+  command = plan
+  variables {
+    machine_pools = [{
+      name                            = "reserved", instance_type = "m6i.xlarge"
+      capacity_reservation_id         = "cr-0123456789abcdef0"
+      capacity_reservation_preference = "capacity-reservations-only"
+      kubelet_configs                 = "bounded-pids"
+      tuning_configs                  = ["latency"]
+      upgrade_acknowledgements_for    = "4.22"
+      aws_tags                        = { Workload = "reserved" }
+    }]
+  }
+  assert {
+    condition     = rhcs_hcp_machine_pool.pool["reserved"].aws_node_pool.capacity_reservation_id == "cr-0123456789abcdef0" && rhcs_hcp_machine_pool.pool["reserved"].kubelet_configs == "bounded-pids" && rhcs_hcp_machine_pool.pool["reserved"].tuning_configs == tolist(["latency"]) && !rhcs_hcp_machine_pool.pool["reserved"].ignore_deletion_error
+    error_message = "Native reservations/tuning must be passed through while preserving deletion failures."
+  }
+}
+run "reject_spot_reservation" {
+  command = plan
+  variables { machine_pools = [{ name = "bad", instance_type = "m6i.xlarge", spot = { enabled = true }, capacity_reservation_id = "cr-0123456789abcdef0" }] }
+  expect_failures = [rhcs_hcp_machine_pool.pool]
+}
 run "reject_bad_price" {
   command = plan
   variables { machine_pools = [{ name = "batch", instance_type = "m6i.xlarge", spot = { enabled = true, max_price = -1 } }] }

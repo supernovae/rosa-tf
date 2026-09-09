@@ -543,6 +543,15 @@ variable "admin_username" {
 
 variable "machine_pools" {
   type = list(object({
+    capacity_reservation_id         = optional(string)
+    capacity_reservation_preference = optional(string)
+    image_type                      = optional(string)
+    kubelet_configs                 = optional(string)
+    tuning_configs                  = optional(list(string))
+    upgrade_acknowledgements_for    = optional(string)
+    auto_repair                     = optional(bool)
+    aws_tags                        = optional(map(string), {})
+
     spot = optional(object({
       enabled   = optional(bool, false)
       max_price = optional(number)
@@ -589,7 +598,7 @@ variable "machine_pools" {
     - ARM/Graviton pools (m6g, m7g for cost optimization)
     - High memory pools (r5, x2idn)
     
-    Note: HCP spot instances coming soon. See Classic for current spot support.
+    Native HCP Spot requires regional service support and interruption-tolerant workloads.
   EOT
 
   default = []
@@ -601,8 +610,7 @@ variable "machine_pools" {
 # The cluster autoscaler controls cluster-wide scaling behavior.
 # For ROSA HCP, it's fully managed by Red Hat (runs with control plane).
 #
-# Both cluster autoscaler AND machine pool autoscaling must be enabled
-# for automatic scaling to work.
+# Enable scaling on individual pools; no separate HCP cluster-wide switch exists.
 #------------------------------------------------------------------------------
 
 
@@ -1416,7 +1424,7 @@ variable "enable_autonode" {
     No manual CLI step required -- AutoNode is fully managed by Terraform.
 
     Requirements:
-    - OpenShift 4.19+
+    - OpenShift 4.22+
     - Commercial AWS only
   EOT
   default     = false
@@ -1433,7 +1441,7 @@ variable "autonode_pools" {
       value         = optional(string, "")
       schedule_type = string
     })), [])
-    capacity_type        = optional(string, "spot")
+    capacity_type        = optional(string, "on-demand")
     node_class           = optional(string, "default")
     consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
     consolidate_after    = optional(string, "30s")

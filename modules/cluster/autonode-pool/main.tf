@@ -13,7 +13,7 @@
 #   node-role.autonode/gpu instead of node-role.kubernetes.io/gpu
 #
 # Prerequisites:
-#   - AutoNode must be enabled on the cluster (rosa edit cluster --autonode=enabled)
+#   - AutoNode must be enabled through the native RHCS auto_node configuration
 #   - Karpenter CRDs must be present (~5 min after enabling AutoNode)
 #   - kubectl provider must be configured with cluster auth
 #------------------------------------------------------------------------------
@@ -21,20 +21,11 @@
 locals {
   pool_map = { for pool in var.autonode_pools : pool.name => pool }
 
-  # Resolve instance types: prefer explicit list, fall back to single value.
+  # Resolve the validated, mutually exclusive instance-type selectors.
   effective_instance_types = {
     for name, pool in local.pool_map : name => (
       length(pool.instance_types) > 0 ? pool.instance_types : [pool.instance_type]
     )
-  }
-
-  # Karpenter rejects kubernetes.io and k8s.io domain labels in
-  # spec.template.metadata.labels -- filter them out automatically.
-  safe_template_labels = {
-    for name, pool in local.pool_map : name => {
-      for k, v in pool.labels : k => v
-      if !can(regex("kubernetes\\.io|k8s\\.io", k))
-    }
   }
 }
 
@@ -58,8 +49,8 @@ resource "kubectl_manifest" "nodepool" {
           consolidateAfter    = each.value.consolidate_after
         }
         template = {
-          metadata = length(local.safe_template_labels[each.key]) > 0 ? {
-            labels = local.safe_template_labels[each.key]
+          metadata = length(each.value.labels) > 0 ? {
+            labels = each.value.labels
           } : {}
           spec = merge(
             {

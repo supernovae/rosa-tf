@@ -64,6 +64,26 @@ run "creation_only_credentials" {
     error_message = "Changing a creation-only username must preserve the existing credential and reported login."
   }
 }
+run "native_upgrade_and_tags" {
+  command = plan
+  variables {
+    openshift_version = "4.22.0"
+    cluster_options   = { channel = "stable-4.22", destroy_timeout = 120 }
+    tags              = { CapabilityAudit = "true" }
+  }
+  assert {
+    condition     = rhcs_cluster_rosa_classic.this.version == "4.22.0" && rhcs_cluster_rosa_classic.this.channel == "stable-4.22" && rhcs_cluster_rosa_classic.this.tags["CapabilityAudit"] == "true"
+    error_message = "Classic upgrades, native channels and AWS tags must reach RHCS."
+  }
+}
+run "trust_bundle_without_forward_proxy" {
+  command = plan
+  variables { additional_trust_bundle = "test-only-ca-bundle" }
+  assert {
+    condition     = rhcs_cluster_rosa_classic.this.proxy.additional_trust_bundle == "test-only-ca-bundle"
+    error_message = "A standalone trusted CA bundle must not be silently discarded."
+  }
+}
 run "govcloud_bootstrap" {
   command   = plan
   state_key = "govcloud"
