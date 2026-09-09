@@ -39,3 +39,14 @@ terraform test
 Tests use mocked AWS responses, not live FSx resources. Provider-free template tests
 live in `tests/netapp`; `scripts/check-netapp-contracts.py` checks pinned certified
 metadata, Go API field definitions and shared root/module contracts.
+
+When updating the AWS provider lockfile, record checksums for both the Linux CI
+runner and Apple Silicon development machines before committing:
+
+~~~sh
+terraform providers lock -platform=linux_amd64 -platform=darwin_arm64
+~~~
+
+Run this from this module's directory. Keep CI initialization read-only; do not
+disable checksum verification to work around missing platform hashes. See
+[Terraform's platform locking guidance](https://developer.hashicorp.com/terraform/cli/commands/providers/lock#specifying-target-platforms).
