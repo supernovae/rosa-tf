@@ -1,173 +1,58 @@
-# Makefile for ROSA Multi-Environment Terraform Framework
-
-.PHONY: help init upgrade-providers validate fmt lint security docs clean test pre-commit install-tools
-
-# Default target
-help: ## Show this help message
-	@echo "ROSA Multi-Environment Terraform Framework"
-	@echo ""
-	@echo "Usage: make [target] [ENV=<environment>]"
-	@echo ""
-	@echo "Environments: commercial-classic, commercial-hcp, govcloud-classic, govcloud-hcp"
-	@echo ""
-	@echo "Targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
-
-# Environment variable (default to govcloud-classic)
+# Explicit, fail-closed developer commands. Install approved tools separately.
+.PHONY: help init validate fmt plan apply lint security security-shell security-terraform security-secrets test validate-all pre-commit
 ENV ?= govcloud-classic
-TFVARS ?= dev.tfvars
 ENV_DIR = environments/$(ENV)
+TFVARS ?=
+PLAN ?=
 
-# Terraform commands for specific environment
-init: ## Initialize Terraform for ENV
-	cd $(ENV_DIR) && terraform init -lockfile=readonly
+help:
+	@echo 'Set ENV to a deployment root; use docs/DEPLOYMENT.md for ordered overlays.'
+	@echo 'Targets: init validate fmt plan apply lint security test pre-commit'
 
-upgrade-providers: ## Intentionally refresh provider selections for ENV (review and commit the lockfile)
-	cd $(ENV_DIR) && terraform init -backend=false -upgrade
+init:
+	terraform -chdir=$(ENV_DIR) init -lockfile=readonly
 
-validate: ## Validate Terraform configuration for ENV
-	cd $(ENV_DIR) && terraform init -backend=false -lockfile=readonly && terraform validate
+validate:
+	terraform -chdir=$(ENV_DIR) init -backend=false -lockfile=readonly
+	terraform -chdir=$(ENV_DIR) validate
 
-fmt: ## Format all Terraform files
+fmt:
 	terraform fmt -recursive
 
-plan: ## Run Terraform plan for ENV with TFVARS
-	cd $(ENV_DIR) && terraform init && terraform plan -var-file=$(TFVARS)
+plan:
+	@test -n "$(TFVARS)" && test -n "$(PLAN)" || (echo 'Set TFVARS and PLAN explicitly; protect the saved plan as a secret.'; exit 1)
+	terraform -chdir=$(ENV_DIR) init -lockfile=readonly
+	terraform -chdir=$(ENV_DIR) plan -var-file="$(TFVARS)" -out="$(PLAN)"
 
-apply: ## Apply Terraform configuration for ENV with TFVARS
-	cd $(ENV_DIR) && terraform init && terraform apply -var-file=$(TFVARS)
+apply:
+	@test -n "$(PLAN)" || (echo 'Set PLAN to the reviewed saved plan; this applies that exact plan.'; exit 1)
+	terraform -chdir=$(ENV_DIR) apply "$(PLAN)"
 
-destroy: ## Destroy Terraform resources for ENV with TFVARS
-	cd $(ENV_DIR) && terraform destroy -var-file=$(TFVARS)
-
-output: ## Show Terraform outputs for ENV
-	cd $(ENV_DIR) && terraform output
-
-# Linting and validation (runs on all code)
-lint: ## Run TFLint on all modules
+lint:
 	tflint --init
 	tflint --recursive
 
-security: security-shell security-terraform security-secrets ## Run all security scans
+security: security-shell security-terraform security-secrets
 
-security-shell: ## Run shell script security checks
-	@echo "============================================="
-	@echo "Running ShellCheck on shell scripts..."
-	@echo "============================================="
-	@find . -name "*.sh" -type f | xargs shellcheck -x -e SC1091 || true
-	@echo ""
+security-shell:
+	git ls-files -z '*.sh' | xargs -0 shellcheck -x -e SC1091
 
-security-terraform: ## Run Terraform security scans (checkov, tfsec, grype)
-	@echo "============================================="
-	@echo "Running checkov..."
-	@echo "============================================="
-	checkov -d . --framework terraform || true
-	@echo ""
-	@echo "============================================="
-	@echo "Running tfsec..."
-	@echo "============================================="
-	tfsec . --minimum-severity HIGH || true
-	@echo ""
-	@echo "============================================="
-	@echo "Running grype..."
-	@echo "============================================="
-	grype dir:. --only-fixed --fail-on high || true
+security-terraform:
+	checkov --config-file .checkov.yml
+	grype dir:. --fail-on high
 
-security-secrets: ## Scan for secrets and credentials
-	@echo "============================================="
-	@echo "Running gitleaks..."
-	@echo "============================================="
-	gitleaks detect --source . --config .gitleaks.toml --no-git || true
-	@echo ""
-	@echo "============================================="
-	@echo "Checking for common secret patterns..."
-	@echo "============================================="
-	@! grep -rn --include="*.tf" --include="*.tfvars" -E "(password|secret|token)\s*=\s*\"[^\"<][^\"]+\"" . 2>/dev/null | grep -v "_placeholder" | grep -v "sensitive" || echo "No hardcoded secrets found."
+security-secrets:
+	gitleaks detect --source . --config .gitleaks.toml
 
-# Documentation
-docs: ## Generate documentation with terraform-docs
-	@for dir in modules/*/*/; do \
-		if [ -f "$$dir/main.tf" ]; then \
-			echo "Generating docs for $$dir"; \
-			terraform-docs markdown table "$$dir" > "$$dir/README.md" 2>/dev/null || true; \
-		fi \
-	done
-
-# Pre-commit
-pre-commit: ## Run all pre-commit hooks
+pre-commit:
 	pre-commit run --all-files
 
-install-hooks: ## Install pre-commit hooks
-	pre-commit install
+test: lint security validate-all
+	uv run scripts/check-examples.py
+	python3 -m unittest discover -s tests/release -p 'test_*.py'
 
-# Test
-test: fmt lint security validate-all ## Run all tests
-
-validate-all: ## Validate all environments
-	@for env in commercial-classic commercial-hcp govcloud-classic govcloud-hcp; do \
-		echo "Validating environments/$$env..."; \
-		cd environments/$$env && terraform init -backend=false -lockfile=readonly && terraform validate && cd ../..; \
+validate-all:
+	@set -e; for target in commercial-classic commercial-hcp govcloud-classic govcloud-hcp; do \
+		terraform -chdir=environments/$$target init -backend=false -lockfile=readonly; \
+		terraform -chdir=environments/$$target validate; \
 	done
-
-# Clean
-clean: ## Clean up temporary files
-	rm -rf .terraform
-	rm -f crash.log
-	find . -name ".terraform" -type d -exec rm -rf {} + 2>/dev/null || true
-
-# Install required tools
-install-tools: ## Install required development tools
-	@echo "Installing pre-commit..."
-	pip install pre-commit
-	@echo ""
-	@echo "Installing shellcheck..."
-	brew install shellcheck || apt-get install -y shellcheck || echo "Install shellcheck manually: https://github.com/koalaman/shellcheck"
-	@echo ""
-	@echo "Installing terraform-docs..."
-	go install github.com/terraform-docs/terraform-docs@latest || brew install terraform-docs
-	@echo ""
-	@echo "Installing tflint..."
-	curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash || brew install tflint
-	@echo ""
-	@echo "Installing checkov..."
-	pip install checkov
-	@echo ""
-	@echo "Installing tfsec..."
-	brew install tfsec || go install github.com/aquasecurity/tfsec/cmd/tfsec@latest || echo "Install tfsec manually: https://github.com/aquasecurity/tfsec"
-	@echo ""
-	@echo "Installing grype..."
-	curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin || brew install grype
-	@echo ""
-	@echo "Installing gitleaks..."
-	brew install gitleaks || go install github.com/gitleaks/gitleaks/v8@latest || echo "Install gitleaks manually: https://github.com/gitleaks/gitleaks"
-	@echo ""
-	@echo "All tools installed successfully!"
-
-# Development
-dev-init: install-tools install-hooks ## Initialize development environment
-	@echo "Development environment ready!"
-
-# Quick environment shortcuts
-commercial-classic-dev: ## Deploy Commercial Classic dev
-	$(MAKE) apply ENV=commercial-classic TFVARS=dev.tfvars
-
-commercial-classic-prod: ## Deploy Commercial Classic prod
-	$(MAKE) apply ENV=commercial-classic TFVARS=prod.tfvars
-
-commercial-hcp-dev: ## Deploy Commercial HCP dev
-	$(MAKE) apply ENV=commercial-hcp TFVARS=dev.tfvars
-
-commercial-hcp-prod: ## Deploy Commercial HCP prod
-	$(MAKE) apply ENV=commercial-hcp TFVARS=prod.tfvars
-
-govcloud-classic-dev: ## Deploy GovCloud Classic dev
-	$(MAKE) apply ENV=govcloud-classic TFVARS=dev.tfvars
-
-govcloud-classic-prod: ## Deploy GovCloud Classic prod
-	$(MAKE) apply ENV=govcloud-classic TFVARS=prod.tfvars
-
-govcloud-hcp-dev: ## Deploy GovCloud HCP dev
-	$(MAKE) apply ENV=govcloud-hcp TFVARS=dev.tfvars
-
-govcloud-hcp-prod: ## Deploy GovCloud HCP prod
-	$(MAKE) apply ENV=govcloud-hcp TFVARS=prod.tfvars

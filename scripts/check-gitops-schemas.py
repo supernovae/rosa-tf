@@ -80,7 +80,7 @@ def main():
     resources = {(kind, name): spec for block in identity["resource"]
                  for kind, named in block.items() for name, spec in named.items()}
     assert resources[("kubernetes_service_account_v1", "terraform_operator")]["automount_service_account_token"] is False
-    assert "gitops_create_legacy_token" in resources[("kubernetes_secret_v1", "terraform_operator_token")]["count"]
+    assert ("kubernetes_secret_v1", "terraform_operator_token") not in resources, "Permanent cluster-admin token creation is not supported in 2.0"
     checked = 0
     for release, (commit, argo) in RELEASES.items():
         schemas = {

@@ -49,17 +49,17 @@ provider "registry.terraform.io/hashicorp/time" {
 }
 
 provider "registry.terraform.io/terraform-redhat/rhcs" {
-  version     = "1.7.7"
-  constraints = ">= 1.7.7, < 2.0.0"
+  version     = "1.7.8-prerelease.2"
+  constraints = "1.7.8-prerelease.2"
   hashes = [
-    "h1:8iD3EH+Oz0ebXJ4tC9fOGPLiFC4ULqwLP2Wi4bNNoI8=",
-    "h1:eGv303dJdf7pX5eVtL+/80qaE94iukyM8Vd7J2/pUDc=",
-    "zh:08b696690fea3b9f3f64d99a22ad7097d32719871c9014c16df05de31a2bd633",
-    "zh:17b3341ff235d42e6fe1ae60514a59a761fc359d3a29a17e3fb62cb6bced5903",
-    "zh:33a63c8c86b7fe341e28adf3db7539999ec24cd5871d4e84ab54310d7df0fb08",
-    "zh:a90285f0a0c1f65b834d38780c71d2090b892522ed39462d948ccb81e1db7069",
-    "zh:b4d5a3536ea746703b9101837be99d53ec0f429888dc293a215388fa7b99efff",
-    "zh:bca8b1cb0cf01a4641d367a3a25359edffaa8f19f8f2c82120c2858c9b3e3035",
+    "h1:3sY+OUWsVjRgzfAi/Hc9614/CG8Df8P9eF0FQchPA50=",
+    "h1:OVfqMZWv4V8crorpKWAEVMh6Elw0Q1gHl6tpuZMbEvk=",
+    "zh:502d06a7383eaf3af0d2e07c0668b4e1a556533490c2fd93fa04d5149008a12d",
+    "zh:68395d39f763d4546737fe773aebf9a9848c6551f7646a0ef4c07ad2688e78de",
+    "zh:9a0d3345eea7b5a47d2cf50c7364907448eac7c1360259fb43d79f7568ca8edd",
+    "zh:a2ef2236a141babfd40c5febaac126de76322cfaf454bd9baff0f07f309da1a6",
+    "zh:b4ea035d3217d67309354d3b3a99ff0fc11c0bc5b919b2b72891a3face37ce36",
+    "zh:e315ee5162ab24b4139d713837bbda0b2663060619928e766ac15e8e0834efdb",
     "zh:f26e0763dbe6a6b2195c94b44696f2110f7f55433dc142839be16b9697fa5597",
   ]
 }

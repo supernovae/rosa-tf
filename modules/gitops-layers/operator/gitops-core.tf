@@ -17,7 +17,7 @@ locals {
 }
 
 resource "kubectl_manifest" "openshift_gitops_ns" {
-  count = var.skip_k8s_destroy ? 0 : 1
+  count = 1
   yaml_body = yamlencode({
     apiVersion = "v1", kind = "Namespace"
     metadata = {
@@ -32,7 +32,7 @@ resource "kubectl_manifest" "openshift_gitops_ns" {
 }
 
 resource "kubectl_manifest" "gitops_operator_namespace" {
-  count = !var.skip_k8s_destroy && var.gitops_operator_config.namespace != "openshift-operators" ? 1 : 0
+  count = var.gitops_operator_config.namespace != "openshift-operators" ? 1 : 0
   yaml_body = yamlencode({
     apiVersion = "v1", kind = "Namespace"
     metadata   = { name = var.gitops_operator_config.namespace, labels = { "openshift.io/cluster-monitoring" = "true" } }
@@ -41,7 +41,7 @@ resource "kubectl_manifest" "gitops_operator_namespace" {
   apply_only        = true
 }
 resource "kubectl_manifest" "gitops_operator_group" {
-  count = !var.skip_k8s_destroy && var.gitops_operator_config.namespace != "openshift-operators" ? 1 : 0
+  count = var.gitops_operator_config.namespace != "openshift-operators" ? 1 : 0
   yaml_body = yamlencode({
     apiVersion = "operators.coreos.com/v1", kind = "OperatorGroup"
     metadata   = { name = "openshift-gitops-operator", namespace = var.gitops_operator_config.namespace }
@@ -51,7 +51,7 @@ resource "kubectl_manifest" "gitops_operator_group" {
   depends_on        = [kubectl_manifest.gitops_operator_namespace]
 }
 resource "kubectl_manifest" "gitops_subscription" {
-  count             = var.skip_k8s_destroy ? 0 : 1
+  count             = 1
   yaml_body         = local.gitops_subscription
   server_side_apply = true
   force_conflicts   = false
@@ -64,7 +64,7 @@ resource "kubectl_manifest" "gitops_subscription" {
   depends_on = [kubectl_manifest.openshift_gitops_ns, kubectl_manifest.gitops_operator_group]
 }
 resource "time_sleep" "wait_for_gitops_operator" {
-  count            = var.skip_k8s_destroy ? 0 : 1
+  count            = 1
   create_duration  = "120s"
   destroy_duration = "45s"
   depends_on       = [kubectl_manifest.gitops_subscription]
@@ -73,10 +73,10 @@ resource "time_sleep" "wait_for_gitops_operator" {
 # The old argocd_rbac cluster-admin binding is intentionally removed from config:
 # Terraform will delete it. Do not preserve an unnecessary administrative grant.
 resource "kubectl_manifest" "argocd_instance" {
-  count             = var.skip_k8s_destroy ? 0 : 1
+  count             = 1
   yaml_body         = local.gitops_instance
   server_side_apply = true
-  force_conflicts   = true # Explicitly manage the desired ArgoCD CR, not generated operands.
+  force_conflicts   = false # Explicitly manage the desired ArgoCD CR, not generated operands.
   wait_for {
     field {
       key   = "status.phase"
@@ -90,21 +90,21 @@ resource "kubectl_manifest" "argocd_instance" {
   depends_on = [time_sleep.wait_for_gitops_operator]
 }
 resource "time_sleep" "wait_for_argocd_ready" {
-  count           = var.skip_k8s_destroy ? 0 : 1
+  count           = 1
   create_duration = "10s"
   depends_on      = [kubectl_manifest.argocd_instance]
 }
 resource "kubectl_manifest" "gitops_default_project" {
-  count             = var.skip_k8s_destroy ? 0 : 1
+  count             = 1
   yaml_body         = file("${local.layers_path}/gitops/default-project.yaml")
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
   # Retain the deny policy if removing the module, instead of reopening default.
   apply_only = true
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 resource "kubectl_manifest" "gitops_workload_namespace" {
-  count = !var.skip_k8s_destroy && var.gitops_application.enabled ? 1 : 0
+  count = var.gitops_application.enabled ? 1 : 0
   yaml_body = yamlencode({
     apiVersion = "v1", kind = "Namespace"
     metadata = {
@@ -119,14 +119,14 @@ resource "kubectl_manifest" "gitops_workload_namespace" {
   depends_on        = [time_sleep.wait_for_argocd_ready]
 }
 resource "kubectl_manifest" "gitops_workload_project" {
-  count             = !var.skip_k8s_destroy && var.gitops_application.enabled ? 1 : 0
+  count             = var.gitops_application.enabled ? 1 : 0
   yaml_body         = local.gitops_project
   server_side_apply = true
   force_conflicts   = false
   depends_on        = [kubectl_manifest.gitops_default_project, kubectl_manifest.gitops_workload_namespace]
 }
 resource "kubectl_manifest" "external_repo_application" {
-  count             = !var.skip_k8s_destroy && var.gitops_application.enabled ? 1 : 0
+  count             = var.gitops_application.enabled ? 1 : 0
   yaml_body         = local.gitops_application_manifest
   server_side_apply = true
   force_conflicts   = false

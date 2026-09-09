@@ -23,6 +23,7 @@ data "aws_partition" "current" {}
 #------------------------------------------------------------------------------
 
 resource "rhcs_cluster_rosa_classic" "this" {
+  delete_protection = var.cluster_delete_protection
   # Native RHCS bootstrap creates the htpasswd user and grants admin access.
   admin_credentials = var.create_admin_user ? {
     username = var.admin_username

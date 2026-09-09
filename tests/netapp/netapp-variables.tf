@@ -20,15 +20,14 @@ variable "netapp_operator_config" {
 }
 variable "netapp_storage_config" {
   type = object({
-    san_enabled            = optional(bool, true)
-    use_chap               = optional(bool, true)
-    backend_secret_name    = optional(string, "")
-    management_endpoint    = optional(string, "")
-    trusted_ca_pem         = optional(string, "")
-    nas_unix_permissions   = optional(string, "0770")
-    qos_policy             = optional(string, "")
-    nfs_nconnect           = optional(number, 1)
-    legacy_classes_enabled = optional(bool, false)
+    san_enabled          = optional(bool, true)
+    use_chap             = optional(bool, true)
+    backend_secret_name  = optional(string, "")
+    management_endpoint  = optional(string, "")
+    trusted_ca_pem       = optional(string, "")
+    nas_unix_permissions = optional(string, "0770")
+    qos_policy           = optional(string, "")
+    nfs_nconnect         = optional(number, 1)
   })
   default     = {}
   description = "Verified ONTAP REST backends and retained storage classes. Supply trusted CA PEM and a separately managed Secret; CHAP requires all four CHAP keys."

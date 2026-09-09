@@ -1,38 +1,9 @@
 # All providers are mocked: these tests never create cloud resources.
 
-run "legacy_seed" {
-  command   = apply
-  state_key = "legacy"
-  module {
-    source = "./tests/fixtures/legacy"
+mock_provider "rhcs" {
+  mock_resource "rhcs_cluster_rosa_hcp" {
+    defaults = { current_version = "4.20.0" }
   }
-  override_resource {
-    target = rhcs_cluster_rosa_hcp.this
-    values = {
-      admin_credentials = { username = "", password = "" }
-    }
-  }
-}
-run "legacy_migration" {
-  command   = plan
-  state_key = "legacy"
-  assert {
-    condition     = rhcs_cluster_rosa_hcp.this.id == run.legacy_seed.cluster_id && rhcs_cluster_rosa_hcp.this.admin_credentials.username == ""
-    error_message = "An existing cluster must keep its identity and must not receive an immutable admin_credentials update."
-  }
-  assert {
-    condition     = output.admin_username == "test-admin" && output.admin_password == "TestOnly-Password123!"
-    error_message = "Migration must preserve the previous generated password and login outputs."
-  }
-}
-mock_provider "rhcs" {}
-run "unsupported_hcp_autoscaler" {
-  command   = plan
-  state_key = "unsupported-autoscaler"
-  variables {
-    cluster_autoscaler_enabled = true
-  }
-  expect_failures = [var.cluster_autoscaler_enabled]
 }
 mock_provider "time" {}
 mock_provider "random" {

@@ -14,6 +14,8 @@
 !modules/gitops-layers/netapp-storage/.terraform.lock.hcl
 !modules/gitops-layers/oadp/.terraform.lock.hcl
 !modules/gitops-layers/efs-storage/.terraform.lock.hcl
+!modules/cluster/component-routes/.terraform.lock.hcl
+!modules/cluster/machine-pools-hcp/.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfstate.backup

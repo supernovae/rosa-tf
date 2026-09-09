@@ -5,7 +5,7 @@
 # delegate this identity to application pods or untrusted PR jobs.
 
 resource "kubernetes_namespace_v1" "terraform_operator_ns" {
-  count = var.skip_k8s_destroy ? 0 : 1
+  count = 1
 
   metadata {
     name = var.terraform_sa_namespace
@@ -27,7 +27,7 @@ resource "kubernetes_namespace_v1" "terraform_operator_ns" {
 #------------------------------------------------------------------------------
 
 resource "kubernetes_service_account_v1" "terraform_operator" {
-  count                           = var.skip_k8s_destroy ? 0 : 1
+  count                           = 1
   automount_service_account_token = false
 
   metadata {
@@ -58,7 +58,7 @@ resource "kubernetes_service_account_v1" "terraform_operator" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "terraform_operator_crb" {
-  count = var.skip_k8s_destroy ? 0 : 1
+  count = 1
 
   yaml_body = <<-YAML
     apiVersion: rbac.authorization.k8s.io/v1
@@ -80,38 +80,7 @@ resource "kubectl_manifest" "terraform_operator_crb" {
   YAML
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubernetes_service_account_v1.terraform_operator]
-}
-
-#------------------------------------------------------------------------------
-# Legacy compatibility token only; not the preferred Kubernetes credential pattern.
-# Creation stores a permanent cluster-admin credential in state. To migrate or
-# rotate it, first authenticate with an independent authorized credential. Never
-# revoke the credential being used by the same apply. See docs/GITOPS.md.
-#------------------------------------------------------------------------------
-
-resource "kubernetes_secret_v1" "terraform_operator_token" {
-  count = !var.skip_k8s_destroy && var.gitops_create_legacy_token ? 1 : 0
-
-  metadata {
-    name      = "${var.terraform_sa_name}-token"
-    namespace = var.terraform_sa_namespace
-
-    annotations = {
-      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
-    }
-
-    labels = {
-      "app.kubernetes.io/managed-by" = "terraform"
-      "app.kubernetes.io/component"  = "gitops-operator"
-      "app.kubernetes.io/part-of"    = "rosa-gitops-layers"
-    }
-  }
-
-  type = "kubernetes.io/service-account-token"
-
-  # Wait for the token controller to populate the token data
-  wait_for_service_account_token = true
 }

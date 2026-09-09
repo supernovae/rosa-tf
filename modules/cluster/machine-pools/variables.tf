@@ -47,7 +47,7 @@ variable "machine_pools" {
       max     = number
     }))
 
-    # Spot instance configuration (Classic only - HCP coming soon)
+    # Spot instance configuration (Classic schema; HCP uses its dedicated module and numeric price)
     spot = optional(object({
       enabled   = bool
       max_price = optional(string) # Leave empty for on-demand price cap

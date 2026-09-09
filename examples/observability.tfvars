@@ -32,8 +32,8 @@ aws_region   = "us-east-1" # <-- CHANGE THIS
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.14" # <-- CHANGE to your desired version
-channel_group     = "stable"
+# Set openshift_version explicitly in your private cluster base after regional discovery.
+channel_group = "stable"
 
 #------------------------------------------------------------------------------
 # Network Configuration
@@ -46,7 +46,7 @@ multi_az = false # Set true for production HA
 # Cluster Configuration
 #------------------------------------------------------------------------------
 
-private_cluster      = false # Set true for private clusters
+private_cluster      = true # Private connectivity is a prerequisite.
 compute_machine_type = "m6i.xlarge"
 worker_node_count    = 3
 
@@ -54,8 +54,8 @@ worker_node_count    = 3
 # Encryption Configuration
 #------------------------------------------------------------------------------
 
-cluster_kms_mode = "provider_managed"
-infra_kms_mode   = "provider_managed"
+cluster_kms_mode = "create"
+infra_kms_mode   = "create"
 
 #------------------------------------------------------------------------------
 # IAM Configuration (HCP requires account roles to exist first)

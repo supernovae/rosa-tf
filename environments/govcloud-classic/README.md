@@ -1,248 +1,30 @@
-# ROSA Classic GovCloud Environment
-
-This environment deploys ROSA Classic clusters in AWS GovCloud with FedRAMP compliance.
-
-## Quick Start
-
-```bash
-# Set your OCM token
-export TF_VAR_ocm_token="your-token-from-console.openshiftusgov.com"
-
-# Initialize
-terraform init
-
-# Deploy dev cluster (single-AZ, cost optimized)
-terraform plan -var-file=dev.tfvars
-terraform apply -var-file=dev.tfvars
-
-# Deploy prod cluster (multi-AZ, HA)
-terraform plan -var-file=prod.tfvars
-terraform apply -var-file=prod.tfvars
-```
-
-## Environment Files
-
-| File | Topology | Workers | NAT Gateways | Use Case |
-|------|----------|---------|--------------|----------|
-| `dev.tfvars` | Single-AZ | 2 | 1 | Development, testing |
-| `prod.tfvars` | Multi-AZ | 3+ | 3 | Production |
-
-## Creating Your Own Environment
-
-Copy an existing tfvars and customize:
-
-```bash
-cp dev.tfvars staging.tfvars
-# Edit staging.tfvars with your settings
-terraform apply -var-file=staging.tfvars
-```
-
-## State Management
-
-Each cluster should have its own state file. Options:
-
-### Option 1: Separate State per Cluster (Recommended)
-
-```bash
-# Dev cluster state
-terraform init -backend-config="key=rosa/dev/terraform.tfstate"
-terraform apply -var-file=dev.tfvars
-
-# Prod cluster state (different terminal/directory)
-terraform init -backend-config="key=rosa/prod/terraform.tfstate"
-terraform apply -var-file=prod.tfvars
-```
-
-### Option 2: Terraform Workspaces
-
-```bash
-terraform workspace new dev
-terraform apply -var-file=dev.tfvars
-
-terraform workspace new prod
-terraform apply -var-file=prod.tfvars
-```
-
-## Security Posture
-
-Both dev and prod maintain identical security:
-
-| Feature | Dev | Prod |
-|---------|-----|------|
-| FIPS Mode | ✅ | ✅ |
-| Private Cluster | ✅ | ✅ |
-| STS Mode | ✅ | ✅ |
-| KMS Encryption | ✅ | ✅ |
-| etcd Encryption | ✅ | ✅ |
-
-> **Note**: GovCloud clusters are always private and use AWS PrivateLink for Red Hat SRE access.
-
-## VPC and Cluster Topology
-
-Each GovCloud Classic cluster should be deployed into **its own dedicated VPC**. While the BYO-VPC variables (`existing_vpc_id`, `existing_private_subnet_ids`) are available in this environment for flexibility, deploying multiple ROSA Classic clusters into a single VPC in GovCloud is **not recommended and not currently validated**.
-
-ROSA Classic creates PrivateLink endpoint services, internal load balancers, and security groups that are tightly coupled to the VPC. When a cluster is destroyed, these resources may not be fully cleaned up, requiring manual intervention to remove orphaned NLBs, VPC endpoint services, and ENIs before subnets or the VPC can be deleted. This teardown complexity multiplies with each additional cluster in the VPC.
-
-**Guidance:**
-
-- **One VPC per cluster** is the supported and tested pattern for GovCloud Classic
-- Use separate Terraform workspaces to manage multiple clusters independently (see [State Management](#state-management))
-- If you have a use case that requires shared networking, consider VPC peering or Transit Gateway to connect independent cluster VPCs
-- For multi-cluster in a single VPC scenarios, see [BYO-VPC.md](../../docs/BYO-VPC.md) for general documentation, but be aware that GovCloud Classic teardown has additional manual cleanup steps
-
-## KMS Encryption (Mandatory)
-
-GovCloud requires customer-managed KMS keys for FedRAMP compliance (SC-12/SC-13).
-
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `create` (DEFAULT) | Terraform creates customer-managed key | Most deployments |
-| `existing` | Use your own KMS key ARN | Centralized key management |
-
-**Note:** `provider_managed` is NOT available in GovCloud - FedRAMP requires customer control over cryptographic keys.
-
-Two separate KMS modes for blast radius containment:
-- `cluster_kms_mode` - For ROSA workers and etcd
-- `infra_kms_mode` - For jump host, CloudWatch, S3, VPN
-
-```hcl
-# Default - Terraform manages the keys
-cluster_kms_mode = "create"
-infra_kms_mode   = "create"
-
-# Bring your own keys
-cluster_kms_mode    = "existing"
-cluster_kms_key_arn = "arn:aws-us-gov:kms:us-gov-west-1:123456789012:key/cluster-key..."
-infra_kms_mode      = "existing"
-infra_kms_key_arn   = "arn:aws-us-gov:kms:us-gov-west-1:123456789012:key/infra-key..."
-```
-
-The only differences are availability and cost:
-
-| Aspect | Dev | Prod |
-|--------|-----|------|
-| Availability Zones | 1 | 3 |
-| NAT Gateways | 1 | 3 |
-| Worker Nodes | 2+ | 3+ |
-| VPC Flow Logs | Optional | Enabled |
-| Survives AZ Failure | ❌ | ✅ |
-
-## Cost Estimate (Default Configuration)
-
-ROSA Classic runs all nodes (control plane, infra, workers) in your AWS account.
-
-| Component | Dev (7 nodes) | Prod (9 nodes) |
-|-----------|---------------|----------------|
-| EC2 Instances (all 7/9 nodes) | ~$1,200/mo | ~$1,550/mo |
-| OpenShift Fee (workers only) | ~$250/mo (2) | ~$375/mo (3) |
-| NAT Gateway | ~$36/mo | ~$108/mo |
-| **Total Estimate** | **~$1,490/mo** | **~$2,030/mo** |
-
-*GovCloud EC2 ~10-15% higher. OpenShift fee ~$0.171/hr per 4 vCPUs (workers only, not CP/infra).*
-
-**Cost Savings Options:**
-- **EC2 Reserved Instances**: Save up to 40-60% on EC2 costs with 1 or 3-year commitments
-- **OpenShift 1-Year Commit**: Discounted hourly rate with annual commitment via AWS Marketplace
-- **Red Hat Private Offer**: Contact your Red Hat seller for custom pricing up to 3 years
-
-## Customizing Variables
-
-Override any variable in your tfvars file. See `variables.tf` for all options.
-
-Common customizations:
-
-```hcl
-# Larger workers for production workloads
-compute_machine_type = "m6i.2xlarge"
-worker_node_count    = 6
-
-# Custom VPC CIDR (for peering/TGW integration)
-vpc_cidr = "10.100.0.0/16"
-
-# Transit Gateway egress (instead of NAT)
-egress_type        = "tgw"
-transit_gateway_id = "tgw-0123456789abcdef0"
-
-# Enable Client VPN
-create_client_vpn     = true
-vpn_client_cidr_block = "10.200.0.0/22"
-```
-
-## Cluster Autoscaler
-
-ROSA Classic supports cluster-wide autoscaling. Enable the cluster autoscaler to automatically adjust cluster size based on workload demands.
-
-### Enable Autoscaler
-
-```hcl
-# Enable cluster autoscaler
-cluster_autoscaler_enabled = true
-
-# Set maximum total nodes (control plane + infra + workers)
-autoscaler_max_nodes_total = 50
-
-# Scale-down settings
-autoscaler_scale_down_enabled              = true
-autoscaler_scale_down_utilization_threshold = "0.5"  # Scale down if < 50% utilized
-autoscaler_scale_down_delay_after_add      = "10m"   # Wait 10 min after scale up
-autoscaler_scale_down_unneeded_time        = "10m"   # Node must be idle 10 min
-```
-
-### How It Works
-
-| Component | Purpose |
-|-----------|---------|
-| **Cluster Autoscaler** | Controls cluster-wide scaling behavior (thresholds, timing, limits) |
-| **Machine Pool Autoscaling** | Controls individual pool scaling (min/max replicas per pool) |
-
-Both must be enabled for full autoscaling:
-1. Enable `cluster_autoscaler_enabled = true` (cluster-wide settings)
-2. Add machine pools with `autoscaling = { enabled = true, min = X, max = Y }`
-
-### Key Settings
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `autoscaler_max_nodes_total` | 100 | Maximum nodes cluster can scale to |
-| `autoscaler_scale_down_enabled` | true | Allow scale down of idle nodes |
-| `autoscaler_scale_down_utilization_threshold` | 0.5 | Scale down if utilization < 50% |
-| `autoscaler_scale_down_delay_after_add` | 10m | Wait time after scale up |
-| `autoscaler_scale_down_unneeded_time` | 10m | How long node must be idle |
-
-### Example: Production with Autoscaling
-
-```hcl
-# Enable autoscaling
-cluster_autoscaler_enabled = true
-autoscaler_max_nodes_total = 100
-
-# Add autoscaling machine pool
-machine_pools = [
-  {
-    name          = "workers"
-    instance_type = "m6i.xlarge"
-    autoscaling   = { enabled = true, min = 3, max = 20 }
-  }
-]
-```
-
-See [docs/MACHINE-POOLS.md](../../docs/MACHINE-POOLS.md) for more machine pool examples.
-
-## Destroying Clusters
-
-```bash
-# Destroy dev cluster
-terraform destroy -var-file=dev.tfvars
-
-# Destroy prod cluster (be careful!)
-terraform destroy -var-file=prod.tfvars
-```
-
-**Note:** Cluster destruction takes 15-30 minutes. The ROSA API must fully process the deletion before IAM roles can be removed.
-
-## Related Documentation
-
-- [FedRAMP Deployment Guide](../../docs/FEDRAMP.md) - Forking, telemetry, provider vendoring, compliance checklist
-- [Security Scanning](../../docs/SECURITY.md) - Security tools, skipped checks, compliance notes
-- [ROSA GovCloud Guide](https://cloud.redhat.com/experts/rosa/rosa-govcloud/)
-- [FedRAMP Hybrid Cloud Console](https://console.openshiftusgov.com)
+# GovCloud ROSA Classic
+
+This is a **2.0 development / fix-forward** root, not a supported 1.x upgrade.
+Read [deployment and prerequisites](../../docs/DEPLOYMENT.md) before planning.
+RHCS is pinned to `1.7.8-prerelease.2`; development use requires explicit
+`allow_prerelease_provider=true`. Stable 2.0 tagging remains blocked.
+
+## Deployment contract
+
+- Supply an explicitly verified regional `openshift_version` in a private base tfvars file; seeds deliberately do not guess a patch release.
+- Apply `cluster-dev.tfvars` or `cluster-prod.tfvars` first, then the corresponding GitOps overlay with only required layers enabled.
+- Seeds use private endpoints, three workers, customer-managed KMS keys, encrypted etcd, deletion protection and no public jump host or VPN.
+- Use GovCloud credentials, regional STS and the aws-us-gov partition. FIPS and private access cannot be disabled in this root.
+- Classic control-plane and worker resources reside in your account. Budget and approve their capacity and required service egress.
+- Review the network path, required service endpoints and workload egress explicitly.
+- Manage layers only from a runner that can reach the private API. Protect Terraform state, plans and bootstrap credentials; remove bootstrap access after establishing managed identity.
+
+## Guides
+
+- [Examples and overlay ordering](../../examples/README.md)
+- [Machine pools and opt-in Spot](../../docs/MACHINE-POOLS.md)
+- [Native component routes](../../docs/COMPONENT-ROUTES.md)
+- [GitOps ownership and operations](../../docs/GITOPS.md)
+- [Zero egress](../../docs/ZERO-EGRESS.md)
+- [Security](../../docs/SECURITY.md) and [FedRAMP responsibilities](../../docs/FEDRAMP.md)
+- [Operations and deliberate decommission](../../docs/OPERATIONS.md)
+
+A successful Terraform validation is not evidence of regional service eligibility,
+operator support, successful installation or recoverability. Complete the
+[release acceptance checklist](../../docs/ROADMAP.md) on the intended target.

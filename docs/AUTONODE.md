@@ -52,7 +52,7 @@ Key benefits over machine pool autoscaling:
 
 - ROSA HCP cluster on OpenShift 4.19+
 - Commercial AWS only (not available in GovCloud)
-- RHCS Terraform provider >= 1.7.7, < 2.0
+- RHCS Terraform provider = 1.7.8-prerelease.2 (2.0 development only)
 
 ## Deployment Workflow
 
@@ -228,10 +228,8 @@ oc get nodes -l karpenter.sh/nodepool
 terraform destroy -var-file=cluster-dev.tfvars
 ```
 
-Do not use `skip_k8s_destroy` to bypass an unreachable API: it is a count switch
-that can plan resource deletion, not state removal, and does not prevent refresh.
-Keep the API reachable for teardown; see [GitOps lifecycle guidance](GITOPS.md)
-for reviewed recovery when the API is already gone.
+There is no Kubernetes destroy-bypass switch in 2.0. Keep the API reachable
+for deliberate teardown and evacuate workloads first. See [operations](OPERATIONS.md).
 
 ## Related Files
 

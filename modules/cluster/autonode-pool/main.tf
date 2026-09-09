@@ -39,7 +39,7 @@ locals {
 }
 
 resource "kubectl_manifest" "nodepool" {
-  for_each = !var.skip_k8s_destroy ? local.pool_map : {}
+  for_each = local.pool_map
 
   yaml_body = yamlencode({
     apiVersion = "karpenter.sh/v1"
@@ -99,5 +99,5 @@ resource "kubectl_manifest" "nodepool" {
   })
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 }

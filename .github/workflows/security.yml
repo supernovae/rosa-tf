@@ -14,16 +14,32 @@ permissions:
   security-events: write
 
 jobs:
+  v2-contracts:
+    name: V2 provider and deployment contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: "1.16.1"
+          terraform_wrapper: false
+      - run: python3 -m unittest discover -s tests/release -p 'test_*.py'
+      - run: python3 scripts/check-doc-links.py
+      - run: terraform -chdir=modules/cluster/component-routes init -backend=false -lockfile=readonly
+      - run: terraform -chdir=modules/cluster/component-routes test
+      - run: terraform -chdir=modules/cluster/machine-pools-hcp init -backend=false -lockfile=readonly
+      - run: terraform -chdir=modules/cluster/machine-pools-hcp test
+
   efs-tests:
     name: EFS security and integration contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/efs test
@@ -36,12 +52,12 @@ jobs:
     name: OADP security, schemas and VM recovery contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/oadp test
@@ -54,12 +70,12 @@ jobs:
     name: Virtualization and NetApp interoperability contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/virtualization test
@@ -70,12 +86,12 @@ jobs:
     name: NetApp storage security and release contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/netapp test
@@ -88,12 +104,12 @@ jobs:
     name: GitOps security contracts and release schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/gitops test
@@ -105,12 +121,12 @@ jobs:
     name: Monitoring templates and release schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/monitoring test
@@ -125,12 +141,12 @@ jobs:
     name: cert-manager templates and release schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - name: Test template behavior
@@ -144,8 +160,8 @@ jobs:
     name: Zero-egress network regression
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
@@ -160,8 +176,8 @@ jobs:
     name: Example input contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - name: Install pinned HCL parser
@@ -176,10 +192,10 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run ShellCheck
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca # master
         with:
           scandir: "."
           severity: warning
@@ -189,54 +205,26 @@ jobs:
 
   #----------------------------------------------------------------------------
   # Terraform Security Scanning
-  # tfsec + Checkov provide comprehensive IaC coverage.
-  #----------------------------------------------------------------------------
-  tfsec:
-    name: tfsec Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install tfsec
-        run: |
-          curl -sLo tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64
-          chmod +x tfsec
-          sudo mv tfsec /usr/local/bin/
-
-      - name: Run tfsec
-        run: |
-          tfsec . --format sarif --out tfsec-results.sarif --soft-fail || true
-          if [ ! -s tfsec-results.sarif ]; then
-            echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"tfsec","rules":[]}},"results":[]}]}' > tfsec-results.sarif
-          fi
-
-      - name: Upload tfsec results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: tfsec-results.sarif
-
-  #----------------------------------------------------------------------------
-  # Vulnerability Scanning
+  # Checkov enforces IaC policy; Grype checks dependency vulnerabilities.
   #----------------------------------------------------------------------------
   grype:
     name: Grype Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run Grype filesystem scan
-        uses: anchore/scan-action@v7
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7
         id: grype
         with:
           path: "."
-          fail-build: false
+          fail-build: true
           severity-cutoff: high
           output-format: sarif
           output-file: grype-results.sarif
 
       - name: Upload Grype results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         if: always()
         with:
           sarif_file: grype-results.sarif
@@ -245,20 +233,20 @@ jobs:
     name: Checkov
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@f967808197a8d784d3e72919f38c3ff0cda7884e # v12
         with:
           directory: .
           framework: terraform
-          soft_fail: true
+          soft_fail: false
           output_format: sarif
           output_file_path: checkov-results.sarif
           config_file: .checkov.yml
 
       - name: Upload Checkov results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         if: always()
         with:
           sarif_file: checkov-results.sarif
@@ -270,12 +258,12 @@ jobs:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.9
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -283,12 +271,12 @@ jobs:
     name: TruffleHog Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Run TruffleHog
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@54ff78b9a8800a5577a717e9ff5b813e93dc038e # main
         with:
           extra_args: --only-verified
 
@@ -306,10 +294,10 @@ jobs:
           - govcloud-classic
           - govcloud-hcp
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
@@ -329,21 +317,21 @@ jobs:
   # YAML Linting
   #----------------------------------------------------------------------------
   bootstrap-tests:
-    name: Bootstrap migration (${{ matrix.cluster_type }})
+    name: Fresh bootstrap (${{ matrix.cluster_type }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         cluster_type: [classic, hcp]
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
       - name: Initialize test module
         working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
         run: terraform init -backend=false -lockfile=readonly
-      - name: Test native bootstrap and legacy state migration
+      - name: Test native bootstrap
         working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
         run: bash ../../../scripts/test-bootstrap.sh
 
@@ -351,10 +339,10 @@ jobs:
     name: YAML Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run yamllint
-        uses: ibiqlik/action-yamllint@v3
+        uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c # v3
         with:
           file_or_dir: "."
           config_file: .yamllint.yml

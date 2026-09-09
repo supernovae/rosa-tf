@@ -109,12 +109,11 @@ provider CA field. Authentication headers are supplied to curl on stdin, not in
 process arguments; credentials/responses are not logged. No hostname guessing or
 insecure fallback is used when discovery fails.
 
-`gitops_create_legacy_token=false` is the new default. Existing installations using
-the stored SA Secret must first keep this flag **true**, establish replacement
-credentials and verify them, then turn it off in a separately reviewed apply.
-That apply deletes/revokes the old token Secret. Do not revoke the credential
-currently authenticating the same Terraform operation. Old state versions may
-still contain it; revocation and state retention are separate controls.
+2.0 does not create permanent service-account token Secrets. Use short-lived
+TokenRequest credentials from an independently authenticated trusted runner.
+There is no supported in-place 1.x authentication migration; revoke old tokens
+through a separately approved retirement workflow, never through the same
+credential being revoked.
 
 ## SSO, access and availability
 
@@ -251,36 +250,13 @@ Rebuild operators/instance from Terraform, restore external credentials/trust, v
 SSO and repository access, then review and sync workload revisions. Restore backups
 in isolation first; include RPO/RTO and fresh sync/alert evidence in acceptance.
 
-## Existing-install migration and retirement
+## Fix-forward adoption and retirement
 
-Before the first apply: inventory the old Subscription/CSV, ArgoCD CR, default-project
-Applications, controller grants, namespaces, stored token and current provider trust.
-Export desired configuration to protected storage. Stop automated/pruning apps and
-review outstanding deletions. Preserve `gitops_operator_config.namespace="openshift-operators"`
-and `gitops_create_legacy_token=true` initially when those match your existing setup.
-Migrate these separately after testing replacement access/OLM ownership.
+2.0 is a fresh deployment baseline, not a supported in-place 1.x state upgrade.
+Rebuild on separate state and restore approved workloads/data using tested recovery
+procedures. Do not import obsolete permanent-token or count-switch behavior.
 
-Restricting default-project permissions and removing cluster-admin are intentional
-behavior changes. Move legitimate workload apps into explicit projects/namespaces;
-do not grant cluster-admin again to keep a platform app-of-apps working. Disabled
-external Applications are removed without adding a cascade finalizer, preserving
-their workloads. Inspect **existing** finalizers before removal; Terraform cannot
-promise safe deletion of a live object someone else modified. Test SSO groups and
-API/OAuth CAs before removing local admin or replacing runner credentials.
-
-Annotation-based tracking replaces legacy label tracking. Review existing Argo CD
-tracking metadata and migration guidance before changing the tracking method;
-avoid pruning resources merely because ownership markers changed.
-
-`skip_k8s_destroy` is a legacy count-based switch: it does **not** magically forget
-resources or avoid API access. Applying it can delete resources. Keep it false
-for normal operations and use a reviewed reachable-cluster teardown with both
-tfvars files. This layer deliberately retains GitOps/operator/workload namespaces
-and the default-project deny policy (`apply_only`) instead of deleting their
-contents automatically. Retire remaining objects explicitly after checking
-workloads, finalizers, tokens, operator ownership and retained AWS data.
-
-If the API is permanently gone, recover connectivity where possible; otherwise
-back up state, review exact orphaned resource addresses and use an approved state
-removal procedure. State removal does not revoke credentials or clean surviving
-resources. Never use a blanket state removal as a normal upgrade step.
+Keep API access available during deliberate teardown. Inspect finalizers and
+external Applications before removal. Retained namespaces, policies and AWS data
+require separate retirement decisions; state removal does not delete those
+resources or revoke credentials. See [operations](OPERATIONS.md).

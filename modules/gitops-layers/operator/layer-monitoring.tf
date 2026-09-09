@@ -61,7 +61,7 @@ resource "kubectl_manifest" "monitoring_cluster_config" {
       error_message = "Monitoring requires supported block storage, not EFS/NFS. Select an EBS CSI storage class for Prometheus and Loki working volumes."
     }
   }
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_cluster_config
 
@@ -79,7 +79,7 @@ resource "kubectl_manifest" "monitoring_cluster_config" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_user_workload_config" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count             = var.enable_layer_monitoring ? 1 : 0
   yaml_body         = local.monitoring_user_workload_config
   server_side_apply = true
   force_conflicts   = false
@@ -100,7 +100,7 @@ removed {
 # openshift-logging namespace may already exist on fresh clusters (created by
 # OpenShift). Using kubectl_manifest with server_side_apply to be idempotent.
 resource "kubectl_manifest" "monitoring_logging_ns" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "v1"
@@ -117,14 +117,14 @@ resource "kubectl_manifest" "monitoring_logging_ns" {
   })
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 
 # openshift-operators-redhat namespace may already exist on fresh clusters.
 resource "kubectl_manifest" "monitoring_operators_redhat_ns" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "v1"
@@ -141,7 +141,7 @@ resource "kubectl_manifest" "monitoring_operators_redhat_ns" {
   })
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
@@ -151,34 +151,34 @@ resource "kubectl_manifest" "monitoring_operators_redhat_ns" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_operatorgroup_logging" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/operatorgroup-logging.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_logging_ns]
 }
 
 resource "kubectl_manifest" "monitoring_operatorgroup_operators_redhat" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/operatorgroup-operators-redhat.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_operators_redhat_ns]
 }
 
 resource "kubectl_manifest" "monitoring_loki_subscription" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_subscription_loki
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   lifecycle {
     precondition {
@@ -190,12 +190,12 @@ resource "kubectl_manifest" "monitoring_loki_subscription" {
 }
 
 resource "kubectl_manifest" "monitoring_logging_subscription" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_subscription_logging
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_operatorgroup_logging]
 }
@@ -205,7 +205,7 @@ resource "kubectl_manifest" "monitoring_logging_subscription" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_loki_operator" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   create_duration = "90s"
 
@@ -217,7 +217,7 @@ resource "time_sleep" "wait_for_loki_operator" {
 #------------------------------------------------------------------------------
 
 resource "kubernetes_secret_v1" "monitoring_loki_s3" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   metadata {
     name      = "logging-loki-s3"
@@ -238,7 +238,7 @@ resource "kubernetes_secret_v1" "monitoring_loki_s3" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_lokistack" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_lokistack
 
@@ -254,7 +254,7 @@ resource "kubectl_manifest" "monitoring_lokistack" {
   }
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [
     time_sleep.wait_for_loki_operator,
@@ -267,7 +267,7 @@ resource "kubectl_manifest" "monitoring_lokistack" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_logging_operator" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   create_duration = "90s"
 
@@ -279,12 +279,12 @@ resource "time_sleep" "wait_for_logging_operator" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_serviceaccount" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/serviceaccount-logcollector.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [
     time_sleep.wait_for_logging_operator,
@@ -293,56 +293,56 @@ resource "kubectl_manifest" "monitoring_serviceaccount" {
 }
 
 resource "kubectl_manifest" "monitoring_rbac_application" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/clusterlogging-rbac-application.yaml.tftpl")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_serviceaccount]
 }
 
 resource "kubectl_manifest" "monitoring_rbac_infrastructure" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/clusterlogging-rbac-infrastructure.yaml.tftpl")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_rbac_application]
 }
 
 resource "kubectl_manifest" "monitoring_rbac_audit" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/clusterlogging-rbac-audit.yaml.tftpl")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_rbac_infrastructure]
 }
 
 resource "kubectl_manifest" "monitoring_loki_writer_role" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/clusterrole-loki-writer.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_rbac_audit]
 }
 
 resource "kubectl_manifest" "monitoring_loki_writer_binding" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/clusterrolebinding-loki-writer.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.monitoring_loki_writer_role]
 }
@@ -352,7 +352,7 @@ resource "kubectl_manifest" "monitoring_loki_writer_binding" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_logforwarder" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = local.monitoring_logforwarder
 
@@ -368,7 +368,7 @@ resource "kubectl_manifest" "monitoring_logforwarder" {
   }
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [
     time_sleep.wait_for_logging_operator,
@@ -389,18 +389,18 @@ resource "kubectl_manifest" "monitoring_logforwarder" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_coo_subscription" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/subscription-coo.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 
 resource "time_sleep" "wait_for_coo_operator" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   create_duration = "90s"
 
@@ -412,7 +412,7 @@ resource "time_sleep" "wait_for_coo_operator" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_lokistack_ready" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   create_duration = "60s"
 
@@ -424,12 +424,12 @@ resource "time_sleep" "wait_for_lokistack_ready" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "monitoring_uiplugin" {
-  count = !var.skip_k8s_destroy && var.enable_layer_monitoring ? 1 : 0
+  count = var.enable_layer_monitoring ? 1 : 0
 
   yaml_body = file("${local.layers_path}/monitoring/uiplugin-logging.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [
     time_sleep.wait_for_coo_operator,
@@ -439,7 +439,7 @@ resource "kubectl_manifest" "monitoring_uiplugin" {
 
 # GA Perses dashboard management, opt-in until the regional catalog has COO >=1.5.
 resource "kubectl_manifest" "monitoring_dashboards" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_monitoring && var.monitoring_enable_perses ? 1 : 0
+  count             = var.enable_layer_monitoring && var.monitoring_enable_perses ? 1 : 0
   yaml_body         = file("${local.layers_path}/monitoring/uiplugin-monitoring.yaml")
   server_side_apply = true
   force_conflicts   = false

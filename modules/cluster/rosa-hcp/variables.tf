@@ -135,15 +135,6 @@ variable "upgrade_acknowledgements_for" {
   default     = null
 }
 
-variable "skip_version_drift_check" {
-  type        = bool
-  description = <<-EOT
-    Skip the version drift check between control plane and machine pools.
-    ROSA HCP requires machine pools to be within n-2 of control plane version.
-    Set to true to suppress the warning during upgrades.
-  EOT
-  default     = false
-}
 
 #------------------------------------------------------------------------------
 # Compute Configuration
@@ -392,71 +383,10 @@ variable "external_auth_providers_enabled" {
 # These settings control cluster-wide autoscaling behavior.
 #------------------------------------------------------------------------------
 
-variable "cluster_autoscaler_enabled" {
-  type        = bool
-  description = <<-EOT
-    Configure cluster-wide HCP autoscaler tuning. Currently unavailable in RHCS 1.7.7.
-    Keep false; HCP machine-pool autoscaling works independently of this setting.
-  EOT
-  default     = false
 
-  validation {
-    condition     = !var.cluster_autoscaler_enabled
-    error_message = "RHCS 1.7.7 does not support HCP cluster-wide autoscaler configuration. Set cluster_autoscaler_enabled = false and use machine-pool autoscaling."
-  }
-}
 
-variable "autoscaler_max_nodes_total" {
-  type        = number
-  description = <<-EOT
-    Maximum number of nodes across all autoscaling machine pools.
-    
-    IMPORTANT: This limit only applies to nodes in autoscaling machine pools.
-    Nodes in non-autoscaling pools are NOT counted toward this limit.
-    
-    Example: With max_nodes_total=50 and one non-autoscaling pool with 10 nodes,
-    the cluster could have up to 60 total nodes.
-  EOT
-  default     = 100
-}
 
-variable "autoscaler_max_node_provision_time" {
-  type        = string
-  description = <<-EOT
-    Maximum time the autoscaler waits for a node to become ready.
-    Format: duration string (e.g., "15m", "30m", "1h")
-    
-    If a node doesn't become ready within this time, it's considered failed
-    and the autoscaler may try to provision a different node.
-  EOT
-  default     = "25m"
-}
 
-variable "autoscaler_max_pod_grace_period" {
-  type        = number
-  description = <<-EOT
-    Graceful termination time in seconds for pods during scale down.
-    
-    When scaling down, pods are given this much time to terminate gracefully
-    before the node is removed. Set higher for stateful workloads.
-  EOT
-  default     = 600
-}
-
-variable "autoscaler_pod_priority_threshold" {
-  type        = number
-  description = <<-EOT
-    Priority threshold for pod scheduling.
-    
-    Pods with priority below this value:
-    - Won't trigger cluster scale up
-    - Won't prevent cluster scale down
-    
-    Useful for "best-effort" workloads that should only run on spare capacity.
-    Default: -10 (most pods have priority 0 by default)
-  EOT
-  default     = -10
-}
 
 #------------------------------------------------------------------------------
 # Additional Security Groups (Optional)

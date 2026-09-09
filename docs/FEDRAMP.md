@@ -1,5 +1,7 @@
 # FedRAMP Deployment Guide
 
+> 2.0 is a fix-forward development baseline, not an authorized deployment or a supported 1.x upgrade. RHCS prerelease use is explicitly opt-in; stable provider adoption and live acceptance are release blockers. See [deployment](DEPLOYMENT.md) and [release criteria](ROADMAP.md).
+
 This guide covers how to deploy and operate this ROSA Terraform framework in a FedRAMP-controlled environment. It is intended for organizations operating under **FedRAMP High**, **DoD IL4/IL5**, **NIST 800-53**, or similar regulatory controls.
 
 ## Virtual machine workloads
@@ -155,7 +157,6 @@ Configure your internal repository with:
 This repository includes automated security scanning:
 
 - **Dependabot** alerts for dependency vulnerabilities
-- **tfsec** SARIF results uploaded to the GitHub Security tab
 - **Grype** SARIF results uploaded to the GitHub Security tab
 - **Checkov** SARIF results for Terraform policy violations
 
@@ -198,7 +199,6 @@ This framework includes a comprehensive security scanning pipeline. See [SECURIT
 | Tool | Purpose | Scope |
 |------|---------|-------|
 | **Checkov** | Policy-as-code for Terraform | All `.tf` files |
-| **tfsec** | Terraform misconfiguration scanner | All `.tf` files |
 | **Grype** | Vulnerability scanner (SCA) | Full repository |
 | **ShellCheck** | Shell script static analysis | All `.sh` files |
 | **Gitleaks** | Secrets detection in Git history | Full repository |
@@ -211,7 +211,7 @@ This framework includes a comprehensive security scanning pipeline. See [SECURIT
 make security
 
 # Individual scans
-make security-terraform  # Checkov, tfsec, Grype
+make security-terraform  # Checkov, Grype
 make security-shell      # ShellCheck
 make security-secrets    # Gitleaks, pattern matching
 ```
@@ -221,7 +221,6 @@ make security-secrets    # Gitleaks, pattern matching
 The GitHub Actions workflow at `.github/workflows/security.yml` can be adapted for your internal CI system (Jenkins, GitLab CI, etc.). Key jobs to replicate:
 
 1. `terraform-validate` -- Format check and validation across all 4 environments
-2. `tfsec` -- Terraform misconfiguration scanning (HIGH/CRITICAL)
 3. `grype` -- Vulnerability scanning (HIGH/CRITICAL)
 4. `checkov` -- Policy-as-code checks with SARIF output
 5. `shellcheck` -- Shell script analysis
@@ -242,7 +241,7 @@ All modules in this framework use **local paths** (no external registry modules)
 | Provider | Source | Verified Version | Used For |
 |----------|--------|------------------|----------|
 | aws | `hashicorp/aws` | 6.63.0 | VPC, IAM, Route53, S3, KMS |
-| rhcs | `terraform-redhat/rhcs` | 1.7.7 | ROSA cluster lifecycle via OCM API |
+| rhcs | `terraform-redhat/rhcs` | 1.7.8-prerelease.2 (development only) | ROSA cluster lifecycle via OCM API |
 | kubernetes | `hashicorp/kubernetes` | 3.2.1 | Namespaces, ServiceAccounts, Secrets, ConfigMaps |
 | kubectl | `alekc/kubectl` | 2.4.1 | CRD-based resources (Subscriptions, ArgoCD, LokiStack) |
 | external | `hashicorp/external` | 2.4.1 | OAuth token retrieval (bootstrap only) |

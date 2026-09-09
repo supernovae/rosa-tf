@@ -82,8 +82,7 @@ variable "environment" {
 
 variable "openshift_version" {
   type        = string
-  description = "OpenShift version for control plane (e.g., 4.20.14). Run 'rosa list versions' to see available."
-  default     = "4.20.14"
+  description = "Explicit install version verified for this region and HCP architecture; no default patch is assumed."
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
@@ -93,20 +92,7 @@ variable "openshift_version" {
 
 variable "machine_pool_version" {
   type        = string
-  description = <<-EOT
-    OpenShift version for machine pools.
-    
-    Default: Same as openshift_version (control plane).
-    
-    For upgrades, HCP allows control plane and machine pools to be at
-    different versions (machine pools must be within n-2 of control plane).
-    
-    Upgrade workflow:
-      1. Update openshift_version → control plane upgrades
-      2. Update machine_pool_version → machine pools upgrade
-    
-    Set to null to use openshift_version (default, keeps in sync).
-  EOT
+  description = "Explicit install version verified for the selected region and architecture. No default patch is assumed; see docs/DEPLOYMENT.md."
   default     = null
 
   validation {
@@ -137,11 +123,6 @@ variable "upgrade_acknowledgements_for" {
   default     = null
 }
 
-variable "skip_version_drift_check" {
-  type        = bool
-  description = "Skip version drift validation between control plane and machine pools."
-  default     = false
-}
 
 #------------------------------------------------------------------------------
 # Network Configuration
@@ -562,9 +543,16 @@ variable "admin_username" {
 
 variable "machine_pools" {
   type = list(object({
-    name          = string
-    instance_type = string
-    replicas      = optional(number, 2)
+    spot = optional(object({
+      enabled   = optional(bool, false)
+      max_price = optional(number)
+    }), {})
+    disk_size                     = optional(number, 300)
+    node_drain_grace_period       = optional(number, 45)
+    additional_security_group_ids = optional(list(string), [])
+    name                          = string
+    instance_type                 = string
+    replicas                      = optional(number, 2)
     autoscaling = optional(object({
       enabled = bool
       min     = number
@@ -617,47 +605,10 @@ variable "machine_pools" {
 # for automatic scaling to work.
 #------------------------------------------------------------------------------
 
-variable "cluster_autoscaler_enabled" {
-  type        = bool
-  description = <<-EOT
-    Configure cluster-wide HCP autoscaler tuning. Currently unavailable in RHCS 1.7.7.
-    Keep false; configure autoscaling on individual HCP machine pools.
-  EOT
-  default     = false
-}
 
-variable "autoscaler_max_nodes_total" {
-  type        = number
-  description = <<-EOT
-    Maximum number of nodes across all autoscaling machine pools.
-    Nodes in non-autoscaling pools are NOT counted toward this limit.
-  EOT
-  default     = 100
-}
 
-variable "autoscaler_max_node_provision_time" {
-  type        = string
-  description = <<-EOT
-    Maximum time the autoscaler waits for a node to become ready.
-    Format: duration string (e.g., "15m", "30m")
-  EOT
-  default     = "25m"
-}
 
-variable "autoscaler_max_pod_grace_period" {
-  type        = number
-  description = "Graceful termination time in seconds for pods during scale down."
-  default     = 600
-}
 
-variable "autoscaler_pod_priority_threshold" {
-  type        = number
-  description = <<-EOT
-    Priority threshold for pod scheduling.
-    Pods below this priority won't trigger scale up or prevent scale down.
-  EOT
-  default     = -10
-}
 
 #------------------------------------------------------------------------------
 # Jump Host Configuration
@@ -735,25 +686,7 @@ variable "tags" {
 
 variable "install_gitops" {
   type        = bool
-  description = <<-EOT
-    Install OpenShift GitOps operator and layers framework.
-    
-    RECOMMENDED: Deploy in two stages for reliability:
-    
-      Stage 1 - Infrastructure (default):
-        terraform apply -var-file=dev.tfvars
-        # Creates VPC, IAM, ROSA cluster
-    
-      Stage 2 - GitOps (when ready):
-        terraform apply -var-file=dev.tfvars -var="install_gitops=true"
-        # Installs GitOps operator and configured layers
-    
-    For zero-egress clusters: Mirror required operators to ECR before Stage 2.
-    See docs/DISCONNECTED-OPERATIONS.md for operator mirroring guide.
-    
-    Set to false when destroying to skip GitOps connectivity checks:
-      terraform destroy -var="install_gitops=false" -var-file=dev.tfvars
-  EOT
+  description = "Enable phase-two GitOps only after cluster creation; see docs/DEPLOYMENT.md. Disabling does not safely forget managed objects."
   default     = false
 }
 
@@ -1463,11 +1396,6 @@ variable "terraform_sa_namespace" {
   default     = "rosa-terraform"
 }
 
-variable "skip_k8s_destroy" {
-  type        = bool
-  description = "Legacy count switch: true plans deletion of managed Kubernetes resources; it does NOT forget state or bypass refresh. See docs/GITOPS.md before teardown."
-  default     = false
-}
 
 #------------------------------------------------------------------------------
 # AutoNode (Karpenter) Configuration

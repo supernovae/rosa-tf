@@ -38,8 +38,8 @@ aws_region   = "us-east-1" # <-- Must match the existing VPC's region
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.14" # <-- CHANGE to your desired version
-channel_group     = "stable"
+# Set openshift_version explicitly in your private cluster base after regional discovery.
+channel_group = "stable"
 
 #------------------------------------------------------------------------------
 # BYO-VPC Configuration
@@ -99,8 +99,8 @@ worker_node_count    = 2 # Smaller for dev/test second cluster
 # Encryption Configuration
 #------------------------------------------------------------------------------
 
-cluster_kms_mode = "provider_managed"
-infra_kms_mode   = "provider_managed"
+cluster_kms_mode = "create"
+infra_kms_mode   = "create"
 
 #------------------------------------------------------------------------------
 # IAM Configuration

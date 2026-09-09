@@ -17,9 +17,7 @@ untrusted workload runner.
 | `gitops_instance_config` | HA, SSO groups, optional direct OIDC and opt-in break-glass admin |
 | `gitops_application` | Explicit workload opt-in, delegated namespace, viewer/sync groups and sync controls |
 | `gitops_repo_url/path/revision` | Explicit HTTPS workload source; automatic sync requires a commit SHA |
-| `gitops_create_legacy_token` | Compatibility-only permanent cluster-admin token; false by default |
 | `enable_layer_*` | Terraform-owned platform layers, independent of workload reconciliation |
-| `skip_k8s_destroy` | Legacy resource-count switch; does not forget state or bypass API refresh |
 
 The complete input schema is in [variables.tf](variables.tf) and
 [gitops-variables.tf](gitops-variables.tf). Provider authentication is configured in
@@ -55,10 +53,9 @@ SSO claims, ROSA admission or repository connectivity.
 GitOps/operator/workload namespaces and the deny-all default project use
 `apply_only` to retain them during module removal. Review workload disposition
 and retire these explicitly. Other resources remain Terraform-managed and may
-be deleted when disabled. Never use `skip_k8s_destroy` as a state-removal command.
 
 Use [the acceptance and migration checklist](../../../docs/GITOPS.md) and
 [contributor tests](../../../docs/GITOPS-LAYERS-GUIDE.md). The
-`terraform_sa_token` output is empty unless legacy token creation is enabled.
+Permanent-token creation and output are removed in 2.0; use short-lived runner credentials.
 Console output directs users to SSO; the admin password command is provided only
 when local admin was explicitly enabled.

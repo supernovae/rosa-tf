@@ -54,7 +54,7 @@ locals {
 #------------------------------------------------------------------------------
 
 resource "kubernetes_namespace_v1" "certmanager" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   metadata {
     name = "cert-manager-operator"
@@ -78,12 +78,12 @@ resource "kubernetes_namespace_v1" "certmanager" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_operatorgroup" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   yaml_body = file("${local.layers_path}/certmanager/operatorgroup.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubernetes_namespace_v1.certmanager]
 }
@@ -93,12 +93,12 @@ resource "kubectl_manifest" "certmanager_operatorgroup" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_subscription" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   yaml_body = templatefile("${local.layers_path}/certmanager/subscription.yaml.tftpl", { config = var.certmanager_operator_config })
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.certmanager_operatorgroup]
 }
@@ -108,7 +108,7 @@ resource "kubectl_manifest" "certmanager_subscription" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_certmanager_operator" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   create_duration = "120s"
 
@@ -123,7 +123,7 @@ resource "time_sleep" "wait_for_certmanager_operator" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_sa_irsa" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   yaml_body = <<-YAML
     apiVersion: v1
@@ -136,7 +136,7 @@ resource "kubectl_manifest" "certmanager_sa_irsa" {
   YAML
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_certmanager_operator]
 }
@@ -149,7 +149,7 @@ resource "kubectl_manifest" "certmanager_sa_irsa" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_dns_config" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   yaml_body = templatefile("${local.layers_path}/certmanager/controller-config.yaml.tftpl", {
     config         = var.certmanager_operator_config
@@ -158,7 +158,7 @@ resource "kubectl_manifest" "certmanager_dns_config" {
   })
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.certmanager_sa_irsa]
 }
@@ -171,7 +171,7 @@ resource "kubectl_manifest" "certmanager_dns_config" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_certmanager_restart" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   create_duration = "30s"
 
@@ -186,12 +186,12 @@ resource "time_sleep" "wait_for_certmanager_restart" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_issuer_production" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   yaml_body = local.certmanager_cluster_issuer
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_certmanager_restart]
 }
@@ -201,12 +201,12 @@ resource "kubectl_manifest" "certmanager_issuer_production" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_issuer_staging" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? 1 : 0
+  count = var.enable_layer_certmanager ? 1 : 0
 
   yaml_body = local.certmanager_cluster_issuer_staging
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.certmanager_issuer_production]
 }
@@ -216,12 +216,12 @@ resource "kubectl_manifest" "certmanager_issuer_staging" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_certificate" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager ? length(var.certmanager_certificate_domains) : 0
+  count = var.enable_layer_certmanager ? length(var.certmanager_certificate_domains) : 0
 
   yaml_body = local.certmanager_certificates[count.index]
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   wait_for {
     condition {
@@ -246,7 +246,7 @@ resource "kubectl_manifest" "certmanager_certificate" {
 
 # Leader election requires lease access for the routes controller SA
 resource "kubectl_manifest" "certmanager_routes_leader_election_role" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
 
   yaml_body = <<-YAML
     apiVersion: rbac.authorization.k8s.io/v1
@@ -264,13 +264,13 @@ resource "kubectl_manifest" "certmanager_routes_leader_election_role" {
   YAML
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.certmanager_issuer_production]
 }
 
 resource "kubectl_manifest" "certmanager_routes_leader_election_rolebinding" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
 
   yaml_body = <<-YAML
     apiVersion: rbac.authorization.k8s.io/v1
@@ -292,13 +292,13 @@ resource "kubectl_manifest" "certmanager_routes_leader_election_rolebinding" {
   YAML
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.certmanager_routes_leader_election_role]
 }
 
 resource "kubectl_manifest" "certmanager_routes_integration" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_enable_routes_integration ? 1 : 0
 
   yaml_body = <<-YAML
     apiVersion: apps/v1
@@ -328,7 +328,7 @@ resource "kubectl_manifest" "certmanager_routes_integration" {
   YAML
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.certmanager_routes_leader_election_rolebinding]
 }
@@ -338,7 +338,7 @@ resource "kubectl_manifest" "certmanager_routes_integration" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_certmanager_cert" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_ingress_enabled && length(var.certmanager_certificate_domains) > 0 ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_ingress_enabled && length(var.certmanager_certificate_domains) > 0 ? 1 : 0
 
   # Preserve this state address for upgrades; readiness is enforced above.
   create_duration = "0s"
@@ -354,12 +354,12 @@ resource "time_sleep" "wait_for_certmanager_cert" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "certmanager_ingress_controller" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   yaml_body = local.certmanager_ingress_controller
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_certmanager_cert]
 }
@@ -372,7 +372,7 @@ resource "kubectl_manifest" "certmanager_ingress_controller" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_ingress_nlb" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   create_duration = "300s"
 
@@ -387,7 +387,7 @@ resource "time_sleep" "wait_for_ingress_nlb" {
 #------------------------------------------------------------------------------
 
 data "kubernetes_service_v1" "custom_apps_router" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   metadata {
     name      = "router-custom-apps"
@@ -405,7 +405,7 @@ data "kubernetes_service_v1" "custom_apps_router" {
 #------------------------------------------------------------------------------
 
 resource "aws_route53_record" "certmanager_wildcard" {
-  count = !var.skip_k8s_destroy && var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
+  count = var.enable_layer_certmanager && var.certmanager_ingress_enabled ? 1 : 0
 
   zone_id = var.certmanager_hosted_zone_id
   name    = "*.${var.certmanager_ingress_domain}"

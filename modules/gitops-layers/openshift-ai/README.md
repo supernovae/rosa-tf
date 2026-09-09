@@ -502,7 +502,7 @@ serving — use OCI images or PVC instead.
 
 For shared datasets across notebooks, enable the
 [NetApp Storage layer](../netapp-storage/README.md) which provides
-`fsx-ontap-nfs-rwx` (RWX via NFS).
+`fsx-ontap-nfs-retain` (RWX via NFS).
 
 ## S3 Bucket (Opt-In for AI Pipelines)
 

@@ -18,7 +18,7 @@ locals {
 
 resource "aws_efs_file_system" "this" {
   #checkov:skip=CKV_AWS_184:Encryption is required; optional CMK is supplied by GovCloud infrastructure KMS.
-  encrypted        = var.efs_encrypted
+  encrypted        = true
   kms_key_id       = var.kms_key_arn != "" ? var.kms_key_arn : null
   performance_mode = var.efs_performance_mode
   throughput_mode  = var.efs_throughput_mode

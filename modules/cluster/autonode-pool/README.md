@@ -16,10 +16,9 @@ Creates Karpenter `NodePool` custom resources on the cluster. Each pool maps to 
 ```hcl
 module "autonode_pools" {
   source = "../../modules/cluster/autonode-pool"
-  count  = var.enable_autonode && var.install_gitops && !var.skip_k8s_destroy ? 1 : 0
+  count  = var.enable_autonode && var.install_gitops ? 1 : 0
 
   autonode_pools   = var.autonode_pools
-  skip_k8s_destroy = var.skip_k8s_destroy
 }
 ```
 
@@ -62,7 +61,6 @@ autonode_pools = [{
 | `autonode_pools` | list(object) | no | `[]` | Karpenter NodePool definitions (see field reference below) |
 | `node_class_group` | string | no | `"karpenter.k8s.aws"` | API group for nodeClassRef |
 | `node_class_kind` | string | no | `"EC2NodeClass"` | Kind for nodeClassRef |
-| `skip_k8s_destroy` | bool | no | `false` | Skip K8s resource deletion on destroy |
 
 ### Pool Object Fields
 

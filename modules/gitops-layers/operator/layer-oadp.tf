@@ -25,7 +25,7 @@ locals {
 }
 
 resource "kubernetes_namespace_v1" "oadp" {
-  count = !var.skip_k8s_destroy && var.enable_layer_oadp ? 1 : 0
+  count = var.enable_layer_oadp ? 1 : 0
   metadata {
     name = "openshift-adp"
     labels = {
@@ -62,14 +62,14 @@ resource "kubernetes_namespace_v1" "oadp" {
   depends_on = [time_sleep.wait_for_argocd_ready]
 }
 resource "kubectl_manifest" "oadp_operatorgroup" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_oadp ? 1 : 0
+  count             = var.enable_layer_oadp ? 1 : 0
   yaml_body         = file("${local.layers_path}/oadp/operatorgroup.yaml")
   server_side_apply = true
   force_conflicts   = false
   depends_on        = [kubernetes_namespace_v1.oadp]
 }
 resource "kubectl_manifest" "oadp_subscription" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_oadp ? 1 : 0
+  count             = var.enable_layer_oadp ? 1 : 0
   yaml_body         = local.oadp_subscription
   server_side_apply = true
   force_conflicts   = false
@@ -87,7 +87,7 @@ resource "kubectl_manifest" "oadp_subscription" {
   depends_on = [kubectl_manifest.oadp_operatorgroup]
 }
 resource "time_sleep" "wait_for_oadp_operator" {
-  count           = !var.skip_k8s_destroy && var.enable_layer_oadp ? 1 : 0
+  count           = var.enable_layer_oadp ? 1 : 0
   create_duration = "10s" # API-discovery propagation AFTER OLM installation.
   depends_on      = [kubectl_manifest.oadp_subscription]
 }
@@ -99,7 +99,7 @@ removed {
 }
 
 resource "kubectl_manifest" "oadp_netapp_snapshot_class" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_oadp && var.enable_layer_netapp_storage ? 1 : 0
+  count             = var.enable_layer_oadp && var.enable_layer_netapp_storage ? 1 : 0
   yaml_body         = file("${local.layers_path}/oadp/netapp-volumesnapshotclass.yaml")
   server_side_apply = true
   force_conflicts   = false
@@ -107,7 +107,7 @@ resource "kubectl_manifest" "oadp_netapp_snapshot_class" {
   depends_on        = [kubectl_manifest.trident_orchestrator]
 }
 resource "kubectl_manifest" "oadp_dpa" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_oadp ? 1 : 0
+  count             = var.enable_layer_oadp ? 1 : 0
   yaml_body         = local.oadp_dpa
   server_side_apply = true
   force_conflicts   = false
@@ -129,12 +129,12 @@ resource "kubectl_manifest" "oadp_dpa" {
   ]
 }
 resource "time_sleep" "wait_for_oadp_dpa" {
-  count           = !var.skip_k8s_destroy && var.enable_layer_oadp && var.oadp_config.schedule_enabled ? 1 : 0
+  count           = var.enable_layer_oadp && var.oadp_config.schedule_enabled ? 1 : 0
   create_duration = "10s"
   depends_on      = [kubectl_manifest.oadp_dpa]
 }
 resource "kubectl_manifest" "oadp_schedule" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_oadp && var.oadp_config.schedule_enabled && var.oadp_backup_retention_days > 0 ? 1 : 0
+  count             = var.enable_layer_oadp && var.oadp_config.schedule_enabled && var.oadp_backup_retention_days > 0 ? 1 : 0
   yaml_body         = local.oadp_schedule
   server_side_apply = true
   force_conflicts   = false

@@ -1,47 +1,11 @@
-#------------------------------------------------------------------------------
-# ROSA Classic - Commercial AWS - Dev GitOps Layer Configuration
-#
-# This file is an OVERLAY applied on top of the cluster tfvars.
-# It only contains GitOps-specific settings. All cluster-level variables
-# are inherited from cluster-dev.tfvars.
-#
-# Usage:
-#   terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
-#------------------------------------------------------------------------------
-
-install_gitops           = true
-enable_layer_terminal    = false # Web Terminal operator
-enable_layer_oadp        = false # Backup/restore (requires S3 bucket)
-enable_layer_monitoring  = false # Prometheus + Loki logging stack
-enable_layer_certmanager = false # Cert-Manager with Let's Encrypt (see examples/certmanager.tfvars)
-# enable_layer_virtualization  = false # Requires bare metal nodes
-# enable_layer_netapp_storage  = false # FSx ONTAP + Trident (see examples/netappstorage.tfvars)
-
-# Cert-Manager configuration (when enable_layer_certmanager = true)
-# certmanager_create_hosted_zone        = true
-# certmanager_hosted_zone_domain        = "apps.example.com"
-# certmanager_acme_email                = "platform-team@example.com"
-# certmanager_enable_dnssec             = true
-# certmanager_enable_query_logging      = true
-# certmanager_enable_routes_integration = false
-# certmanager_certificate_domains = [
-#   {
-#     name        = "apps-wildcard"
-#     namespace   = "openshift-ingress"
-#     secret_name = "custom-apps-default-cert"
-#     domains     = ["*.apps.example.com"]
-#   }
-# ]
-# # Or use an existing hosted zone:
-# # certmanager_hosted_zone_id     = "Z0123456789ABCDEF"
-# # certmanager_create_hosted_zone = false
-
-# Monitoring configuration (when enable_layer_monitoring = true)
-monitoring_loki_size      = "1x.extra-small" # Dev: extra-small, Prod: 1x.small or larger
-monitoring_retention_days = 7                # Dev: 7 days, Prod: 30 days
-
-# Workload reconciliation is a separate opt-in; see examples/gitops-workloads.tfvars.
-# Supply short-lived TF_VAR_gitops_cluster_token from your trusted runner/secret manager.
-# Do not place cluster tokens in tfvars. See docs/GITOPS.md for migration and TLS setup.
-
-# enable_layer_openshift_ai = true
+# Phase 2 overlay on the SAME private cluster tfvars and state.
+# Verify the endpoint/CA, credentials and regional operator catalogs first.
+# Add reviewed layer overlays from examples/ explicitly; no layer is implicit.
+install_gitops              = true
+enable_layer_terminal       = false
+enable_layer_oadp           = false
+enable_layer_virtualization = false
+enable_layer_monitoring     = false
+enable_layer_certmanager    = false
+enable_layer_netapp_storage = false
+enable_layer_efs_storage    = false

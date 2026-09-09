@@ -2,15 +2,10 @@
 # GitOps Module Outputs
 #------------------------------------------------------------------------------
 
-output "terraform_sa_token" {
-  description = "Legacy permanent cluster-admin token (empty unless explicitly enabled). Stored in state; never copy into tfvars. Prefer short-lived runner credentials; migrate using independent authentication."
-  value       = try(kubernetes_secret_v1.terraform_operator_token[0].data["token"], "")
-  sensitive   = true
-}
 
 output "terraform_sa_name" {
   description = "Name of the Terraform ServiceAccount."
-  value       = var.skip_k8s_destroy ? var.terraform_sa_name : kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
+  value       = kubernetes_service_account_v1.terraform_operator[0].metadata[0].name
 }
 
 output "terraform_sa_namespace" {
@@ -54,9 +49,10 @@ output "storage_classes" {
     to use FSx ONTAP storage instead of the default gp3-csi.
   EOT
   value = var.enable_layer_netapp_storage ? {
-    nfs_rwx        = "fsx-ontap-nfs-rwx"
-    iscsi_block    = "fsx-ontap-iscsi-block"
-    snapshot_class = "fsx-ontap-snapshots"
+    nfs_rwx        = "fsx-ontap-nfs-retain"
+    san_filesystem = var.netapp_storage_config.san_enabled ? "fsx-ontap-san-retain" : null
+    vm_rwx         = var.netapp_storage_config.san_enabled ? "fsx-ontap-vm-rwx" : null
+    snapshot_class = "fsx-ontap-snapshots-retain"
   } : {}
 }
 
@@ -71,7 +67,7 @@ output "layers_repo" {
 
 output "external_repo_deployed" {
   description = "Whether a custom GitOps Application was deployed for the external repo."
-  value       = !var.skip_k8s_destroy && local.has_custom_gitops_repo
+  value       = local.has_custom_gitops_repo
 }
 
 output "install_instructions" {
