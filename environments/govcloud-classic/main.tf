@@ -831,6 +831,7 @@ module "gitops" {
 
   virt_node_selector = var.virt_node_selector
   virt_tolerations   = var.virt_tolerations
+  virt_config        = var.virt_config
 
   # Monitoring resources from consolidated module
   monitoring_bucket_name             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].monitoring_bucket_name : ""

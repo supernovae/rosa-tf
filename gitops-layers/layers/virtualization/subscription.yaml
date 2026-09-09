@@ -1,15 +1,5 @@
-# OpenShift Virtualization Operator Subscription
-#
-# Installs the OpenShift Virtualization (KubeVirt) Operator from OperatorHub.
-#
-# Note: This is a reference file. Terraform uses the .yaml.tftpl template
-# in this directory to install the operator via kubectl_manifest.
-#
-# Channel: stable auto-selects appropriate version for OCP release
-#
-# IMPORTANT: Requires bare metal instances (.metal instance types)
-# for hardware virtualization support.
----
+# Reference only; Terraform uses subscription.yaml.tftpl.
+# stable resolves the compatible release from the cluster's catalog, not a global version.
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:

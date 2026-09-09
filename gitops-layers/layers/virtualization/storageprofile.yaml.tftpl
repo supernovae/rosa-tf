@@ -1,0 +1,13 @@
+${yamlencode({
+  apiVersion = "cdi.kubevirt.io/v1beta1"
+  kind = "StorageProfile"
+  metadata = { name = storage_class }
+  spec = {
+    claimPropertySets = [{
+      accessModes = ["ReadWriteMany"]
+      volumeMode = volume_mode
+    }]
+    cloneStrategy = "csi-clone"
+    snapshotClass = "fsx-ontap-snapshots-retain"
+  }
+})}

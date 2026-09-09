@@ -4,7 +4,8 @@ Scenario configurations and overlays for the environment roots. Use Terraform pi
 
 | Files | Kind | Target |
 | --- | --- | --- |
-| zeroegress, observability, ocpvirtualization, certmanager, byovpc | Complete cluster scenarios | commercial-hcp |
+| zeroegress, observability, certmanager, byovpc | Complete cluster scenarios | commercial-hcp |
+| ocpvirtualization | Virtualization overlay; requires an approved cluster base | Classic; confirm platform/region/storage support |
 | byovpc-classic-prod | Complete cluster scenario | commercial-classic |
 | openshiftai, netappstorage, gitops-workloads | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
 | autonode | Compute overlay; requires a cluster tfvars base | commercial-hcp |
@@ -91,7 +92,10 @@ Test both firing and resolved notifications before calling the stack operational
 
 ### `ocpvirtualization.tfvars`
 
-Bare metal nodes for OpenShift Virtualization (KubeVirt).
+Classic bare-metal overlay, not a complete cluster configuration. Follow the
+[virtualization guide](../docs/VIRTUALIZATION.md) for support confirmation,
+two-phase installation, NetApp CDI profiles, VM placement and recovery. Shared
+HCP/GovCloud inputs do not imply vendor certification.
 
 **Key configuration:**
 ```hcl
@@ -236,7 +240,7 @@ cp examples/zeroegress.tfvars environments/commercial-hcp/my-cluster.tfvars
 cp examples/observability.tfvars environments/commercial-hcp/my-cluster.tfvars
 
 # For virtualization
-cp examples/ocpvirtualization.tfvars environments/commercial-hcp/my-cluster.tfvars
+cp examples/ocpvirtualization.tfvars environments/commercial-classic/virtualization-overlay.tfvars
 
 # For cert-manager
 cp examples/certmanager.tfvars environments/commercial-hcp/my-cluster.tfvars

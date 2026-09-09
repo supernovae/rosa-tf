@@ -1,5 +1,8 @@
 # GitOps and platform layers
 
+See [Virtualization with NetApp](../docs/VIRTUALIZATION.md) for support confirmation,
+CDI storage profiles, secure operator lifecycle and VM recovery.
+
 The layer approach has two distinct owners: Terraform installs/configures platform
 operators and their AWS dependencies; OpenShift GitOps reconciles explicitly
 delegated application workloads. Enabling `install_gitops` alone does not deploy an

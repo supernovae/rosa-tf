@@ -54,7 +54,7 @@ def main():
             targets = [path.parts[1]]
         elif path.parts[0] == "examples":
             targets = CLUSTERS if path.stem in OVERLAYS else [
-                "commercial-classic" if path.stem == "byovpc-classic-prod"
+                "commercial-classic" if path.stem in {"byovpc-classic-prod", "ocpvirtualization"}
                 else "commercial-hcp"
             ]
         else:

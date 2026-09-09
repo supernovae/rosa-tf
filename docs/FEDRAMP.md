@@ -2,9 +2,22 @@
 
 This guide covers how to deploy and operate this ROSA Terraform framework in a FedRAMP-controlled environment. It is intended for organizations operating under **FedRAMP High**, **DoD IL4/IL5**, **NIST 800-53**, or similar regulatory controls.
 
+## Virtual machine workloads
+
+The [Virtualization guide](VIRTUALIZATION.md) requires explicit vendor support
+confirmation for the exact GovCloud architecture, release and storage combination.
+Shared HCP/Classic inputs do not establish support or extend an authorization
+boundary. Disable public boot-image imports until approved mirrors are ready;
+review guest hardening/patching, console RBAC, private migration traffic and
+application-consistent recovery. NetApp retained volumes/snapshots and AWS
+encryption are safeguards, not standalone evidence of FIPS validation or FedRAMP
+compliance. Include guest images, FSx, backup accounts/regions and KMS permissions
+in the system security plan and test recovery before production.
+
 ## Table of Contents
 
 - [Overview](#overview)
+- [Virtual machine workloads](#virtual-machine-workloads)
 - [GovCloud HCP zero-egress default](#govcloud-hcp-zero-egress-default)
 - [Fork and Control the Repository](#fork-and-control-the-repository)
 - [Disable Terraform Telemetry](#disable-terraform-telemetry)

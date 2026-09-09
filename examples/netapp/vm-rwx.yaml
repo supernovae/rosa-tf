@@ -25,6 +25,14 @@ spec:
         kubevirt.io/domain: storage-acceptance-vm
     spec:
       evictionStrategy: LiveMigrate
+      nodeSelector:
+        node-role.kubernetes.io/virtualization: ""
+        kubernetes.io/arch: amd64
+      tolerations:
+        - key: virtualization
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
       domain:
         cpu:
           cores: 2
