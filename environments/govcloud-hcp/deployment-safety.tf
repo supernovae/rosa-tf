@@ -45,23 +45,13 @@ variable "component_routes_ready" {
   description = "Confirm trusted TLS Secrets, DNS, platform eligibility and ownership of native default-ingress configuration before applying."
 }
 
-variable "allow_prerelease_provider" {
-  type        = bool
-  description = "Explicit development-only acknowledgment; RHCS prereleases are not production releases."
-  default     = false
-}
 variable "cluster_delete_protection" {
   type        = bool
   description = "OCM deletion protection; disable only in a separately reviewed decommission apply."
   default     = true
 }
-locals { release_status = jsondecode(file("${path.module}/../../release-status.json")) }
 resource "terraform_data" "deployment_safety" {
   lifecycle {
-    precondition {
-      condition     = !strcontains(local.release_status.rhcs_version, "-") || var.allow_prerelease_provider
-      error_message = "This 2.0 development branch pins prerelease RHCS. Explicitly acknowledge development use with allow_prerelease_provider=true; do not use it as a production release."
-    }
 
     precondition {
       condition = var.machine_pool_version == null ? true : try(

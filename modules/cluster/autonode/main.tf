@@ -5,11 +5,8 @@
 # 1. Karpenter controller IAM policy (EC2, IAM, SSM, SQS, Pricing)
 # 2. Karpenter IAM role with OIDC trust for kube-system:karpenter SA
 # 3. ec2:CreateTags inline policy on the control-plane-operator role
-# 4. Karpenter discovery tags on private subnets (when cluster_id is provided)
-#
-# When cluster_id is null, only IAM resources are created (IAM-only mode).
-# This allows the role to be created before the cluster, breaking dependency
-# cycles when the role ARN is passed to the cluster's auto_node block.
+# This module owns IAM only. The environment owns post-create discovery tags,
+# avoiding both duplicate ownership and a dependency cycle through the cluster.
 #------------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
@@ -347,21 +344,4 @@ resource "aws_iam_role_policy" "control_plane_create_tags" {
       }
     ]
   })
-}
-
-#------------------------------------------------------------------------------
-# 4. Karpenter Subnet Discovery Tags
-#
-# Tags each private subnet with karpenter.sh/discovery = <cluster_id>
-# so the Karpenter controller can auto-discover subnets for node placement.
-# The cluster_id (OCM internal ID) is used as the discovery value.
-#
-# Skipped when cluster_id is null (IAM-only mode).
-#------------------------------------------------------------------------------
-
-resource "aws_ec2_tag" "karpenter_subnet_discovery" {
-  for_each    = var.cluster_id != null ? toset(var.private_subnet_ids) : toset([])
-  resource_id = each.value
-  key         = "karpenter.sh/discovery"
-  value       = var.cluster_id
 }

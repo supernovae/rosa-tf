@@ -23,6 +23,14 @@ data "aws_partition" "current" {}
 #------------------------------------------------------------------------------
 
 resource "rhcs_cluster_rosa_classic" "this" {
+  base_dns_domain                     = var.cluster_options.base_dns_domain
+  destroy_timeout                     = var.cluster_options.destroy_timeout
+  domain_prefix                       = var.cluster_options.domain_prefix
+  max_cluster_wait_timeout_in_minutes = var.cluster_options.max_cluster_wait_timeout_in_minutes
+  private_hosted_zone                 = var.cluster_options.private_hosted_zone
+  channel                             = var.cluster_options.channel
+  tags                                = var.tags
+
   delete_protection = var.cluster_delete_protection
   # Native RHCS bootstrap creates the htpasswd user and grants admin access.
   admin_credentials = var.create_admin_user ? {
@@ -36,7 +44,7 @@ resource "rhcs_cluster_rosa_classic" "this" {
   # - Use channel_group = "eus" for Extended Update Support (4.14, 4.16, 4.18)
   # - Use channel_group = "stable" when upgrading through odd releases (4.15, 4.17)
   version                      = var.openshift_version
-  channel_group                = var.channel_group
+  channel_group                = var.cluster_options.channel == null ? var.channel_group : null
   upgrade_acknowledgements_for = var.upgrade_acknowledgements_for
 
   # Cloud Configuration
@@ -55,9 +63,10 @@ resource "rhcs_cluster_rosa_classic" "this" {
 
   # STS Configuration (required for both GovCloud and Commercial)
   sts = {
-    oidc_config_id   = var.oidc_config_id
-    role_arn         = local.installer_role_arn
-    support_role_arn = local.support_role_arn
+    trust_policy_external_id = var.cluster_options.trust_policy_external_id
+    oidc_config_id           = var.oidc_config_id
+    role_arn                 = local.installer_role_arn
+    support_role_arn         = local.support_role_arn
     instance_iam_roles = {
       master_role_arn = local.control_plane_role_arn
       worker_role_arn = local.worker_role_arn
@@ -104,31 +113,31 @@ resource "rhcs_cluster_rosa_classic" "this" {
   aws_additional_infra_security_group_ids         = length(var.aws_additional_infra_security_group_ids) > 0 ? var.aws_additional_infra_security_group_ids : null
 
   # Proxy Configuration (if provided)
-  proxy = var.http_proxy != null || var.https_proxy != null ? {
+  proxy = var.http_proxy != null || var.https_proxy != null || var.additional_trust_bundle != null ? {
     http_proxy              = var.http_proxy
     https_proxy             = var.https_proxy
     no_proxy                = var.no_proxy
     additional_trust_bundle = var.additional_trust_bundle
   } : null
 
-  # Properties (includes rosa_creator_arn and custom tags)
+  # OCM properties are distinct from AWS resource tags.
   properties = merge(
     {
       rosa_creator_arn = data.aws_caller_identity.current.arn
     },
-    var.tags
+    var.cluster_options.properties
   )
 
   # Timeouts - ensure Terraform waits for operations to complete
   wait_for_create_complete   = true
   disable_waiting_in_destroy = false
 
+  disable_scp_checks = false
+
   lifecycle {
     ignore_changes = [
       # Creation-only field: preserve existing clusters during bootstrap migration.
       admin_credentials,
-      # Ignore version changes as upgrades should be explicit
-      version,
     ]
   }
 }

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLUSTERS = [
     "commercial-classic", "commercial-hcp", "govcloud-classic", "govcloud-hcp"
 ]
-OVERLAYS = {"openshiftai", "netappstorage", "cluster-only", "gitops-workloads", "oadp", "efs-storage", "component-routes"}
+OVERLAYS = {"openshiftai", "netappstorage", "cluster-only", "gitops-workloads", "oadp", "efs-storage", "component-routes", "provider-options"}
 
 
 def read_hcl(path):

@@ -1,0 +1,765 @@
+{
+  "rhcs_version": "1.7.8",
+  "source": "https://github.com/terraform-redhat/terraform-provider-rhcs/tree/v1.7.8",
+  "data_sources": {
+    "rhcs_cloud_providers": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "order": "string",
+        "search": "string"
+      }
+    },
+    "rhcs_cluster_rosa_classic": {
+      "disposition": "implemented: native IAM metadata or post-create cluster lookup",
+      "input_fields": {
+        "domain_prefix": "string",
+        "id": "string",
+        "kms_key_arn": "string"
+      }
+    },
+    "rhcs_cluster_rosa_hcp": {
+      "disposition": "implemented: native IAM metadata or post-create cluster lookup",
+      "input_fields": {
+        "domain_prefix": "string",
+        "id": "string",
+        "kms_key_arn": "string",
+        "registry_config": "single",
+        "registry_config.additional_trusted_ca": [
+          "map",
+          "string"
+        ],
+        "registry_config.allowed_registries_for_import": "list",
+        "registry_config.allowed_registries_for_import.domain_name": "string",
+        "registry_config.allowed_registries_for_import.insecure": "bool",
+        "registry_config.platform_allowlist_id": "string",
+        "registry_config.registry_sources": "single",
+        "registry_config.registry_sources.allowed_registries": [
+          "list",
+          "string"
+        ],
+        "registry_config.registry_sources.blocked_registries": [
+          "list",
+          "string"
+        ],
+        "registry_config.registry_sources.insecure_registries": [
+          "list",
+          "string"
+        ]
+      }
+    },
+    "rhcs_groups": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "cluster": "string"
+      }
+    },
+    "rhcs_hcp_machine_pool": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "auto_repair": "bool",
+        "cluster": "string",
+        "name": "string",
+        "version": "string"
+      }
+    },
+    "rhcs_hcp_policies": {
+      "disposition": "implemented: native IAM metadata or post-create cluster lookup",
+      "input_fields": {}
+    },
+    "rhcs_image_mirrors": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "cluster_id": "string"
+      }
+    },
+    "rhcs_info": {
+      "disposition": "implemented: native IAM metadata or post-create cluster lookup",
+      "input_fields": {}
+    },
+    "rhcs_log_forwarders": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "cluster": "string"
+      }
+    },
+    "rhcs_machine_pool": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "cluster": "string",
+        "id": "string"
+      }
+    },
+    "rhcs_machine_types": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {}
+    },
+    "rhcs_policies": {
+      "disposition": "implemented: native IAM metadata or post-create cluster lookup",
+      "input_fields": {}
+    },
+    "rhcs_rosa_hcp_operator_roles": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "account_role_prefix": "string",
+        "operator_role_prefix": "string"
+      }
+    },
+    "rhcs_rosa_operator_roles": {
+      "disposition": "implemented: native IAM metadata or post-create cluster lookup",
+      "input_fields": {
+        "account_role_prefix": "string",
+        "operator_role_prefix": "string"
+      }
+    },
+    "rhcs_trusted_ip_addresses": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {}
+    },
+    "rhcs_versions": {
+      "disposition": "compose: native read-only discovery; use directly when needed without duplicating provider lookups",
+      "input_fields": {
+        "order": "string",
+        "search": "string"
+      }
+    }
+  },
+  "resources": {
+    "rhcs_break_glass_credential": {
+      "disposition": "compose: emergency credentials have a separate short-lived, audited lifecycle; do not persist routinely in cluster state",
+      "writable_fields": {
+        "cluster": "string",
+        "expiration_duration": "string",
+        "username": "string"
+      }
+    },
+    "rhcs_cluster": {
+      "disposition": "excluded: generic OSD/non-specialized cluster resource; ROSA uses architecture-specific resources",
+      "writable_fields": {
+        "availability_zones": [
+          "list",
+          "string"
+        ],
+        "aws_access_key_id": "string",
+        "aws_account_id": "string",
+        "aws_additional_compute_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_additional_control_plane_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_additional_infra_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_private_link": "bool",
+        "aws_secret_access_key": "string",
+        "aws_subnet_ids": [
+          "list",
+          "string"
+        ],
+        "ccs_enabled": "bool",
+        "cloud_provider": "string",
+        "cloud_region": "string",
+        "compute_machine_type": "string",
+        "compute_nodes": "number",
+        "domain_prefix": "string",
+        "host_prefix": "number",
+        "machine_cidr": "string",
+        "multi_az": "bool",
+        "name": "string",
+        "pod_cidr": "string",
+        "product": "string",
+        "properties": [
+          "map",
+          "string"
+        ],
+        "proxy": "single",
+        "proxy.additional_trust_bundle": "string",
+        "proxy.http_proxy": "string",
+        "proxy.https_proxy": "string",
+        "proxy.no_proxy": "string",
+        "service_cidr": "string",
+        "version": "string",
+        "wait": "bool"
+      }
+    },
+    "rhcs_cluster_autoscaler": {
+      "disposition": "implemented: Classic cluster-wide autoscaler; default optional tuning retained",
+      "writable_fields": {
+        "balance_similar_node_groups": "bool",
+        "balancing_ignored_labels": [
+          "list",
+          "string"
+        ],
+        "cluster": "string",
+        "ignore_daemonsets_utilization": "bool",
+        "log_verbosity": "number",
+        "max_node_provision_time": "string",
+        "max_pod_grace_period": "number",
+        "pod_priority_threshold": "number",
+        "resource_limits": "single",
+        "resource_limits.cores": "single",
+        "resource_limits.cores.max": "number",
+        "resource_limits.cores.min": "number",
+        "resource_limits.gpus": "list",
+        "resource_limits.gpus.range": "single",
+        "resource_limits.gpus.range.max": "number",
+        "resource_limits.gpus.range.min": "number",
+        "resource_limits.gpus.type": "string",
+        "resource_limits.max_nodes_total": "number",
+        "resource_limits.memory": "single",
+        "resource_limits.memory.max": "number",
+        "resource_limits.memory.min": "number",
+        "scale_down": "single",
+        "scale_down.delay_after_add": "string",
+        "scale_down.delay_after_delete": "string",
+        "scale_down.delay_after_failure": "string",
+        "scale_down.enabled": "bool",
+        "scale_down.unneeded_time": "string",
+        "scale_down.utilization_threshold": "string",
+        "skip_nodes_with_local_storage": "bool"
+      }
+    },
+    "rhcs_cluster_rosa_classic": {
+      "disposition": "implemented: modules/cluster/rosa-classic",
+      "writable_fields": {
+        "admin_credentials": "single",
+        "admin_credentials.password": "string",
+        "admin_credentials.username": "string",
+        "autoscaling_enabled": "bool",
+        "availability_zones": [
+          "list",
+          "string"
+        ],
+        "aws_account_id": "string",
+        "aws_additional_compute_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_additional_control_plane_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_additional_infra_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_private_link": "bool",
+        "aws_subnet_ids": [
+          "list",
+          "string"
+        ],
+        "base_dns_domain": "string",
+        "channel": "string",
+        "channel_group": "string",
+        "cloud_region": "string",
+        "compute_machine_type": "string",
+        "create_admin_user": "bool",
+        "default_mp_labels": [
+          "map",
+          "string"
+        ],
+        "delete_protection": "bool",
+        "destroy_timeout": "number",
+        "disable_scp_checks": "bool",
+        "disable_waiting_in_destroy": "bool",
+        "disable_workload_monitoring": "bool",
+        "domain_prefix": "string",
+        "ec2_metadata_http_tokens": "string",
+        "etcd_encryption": "bool",
+        "fips": "bool",
+        "host_prefix": "number",
+        "kms_key_arn": "string",
+        "machine_cidr": "string",
+        "max_cluster_wait_timeout_in_minutes": "number",
+        "max_replicas": "number",
+        "min_replicas": "number",
+        "multi_az": "bool",
+        "name": "string",
+        "pod_cidr": "string",
+        "private": "bool",
+        "private_hosted_zone": "single",
+        "private_hosted_zone.id": "string",
+        "private_hosted_zone.role_arn": "string",
+        "properties": [
+          "map",
+          "string"
+        ],
+        "proxy": "single",
+        "proxy.additional_trust_bundle": "string",
+        "proxy.http_proxy": "string",
+        "proxy.https_proxy": "string",
+        "proxy.no_proxy": "string",
+        "replicas": "number",
+        "service_cidr": "string",
+        "sts": "single",
+        "sts.instance_iam_roles": "single",
+        "sts.instance_iam_roles.master_role_arn": "string",
+        "sts.instance_iam_roles.worker_role_arn": "string",
+        "sts.oidc_config_id": "string",
+        "sts.oidc_endpoint_url": "string",
+        "sts.operator_role_prefix": "string",
+        "sts.role_arn": "string",
+        "sts.support_role_arn": "string",
+        "sts.trust_policy_external_id": "string",
+        "tags": [
+          "map",
+          "string"
+        ],
+        "upgrade_acknowledgements_for": "string",
+        "version": "string",
+        "wait_for_create_complete": "bool",
+        "worker_disk_size": "number"
+      }
+    },
+    "rhcs_cluster_rosa_hcp": {
+      "disposition": "implemented: modules/cluster/rosa-hcp",
+      "writable_fields": {
+        "admin_credentials": "single",
+        "admin_credentials.password": "string",
+        "admin_credentials.username": "string",
+        "audit_log_arn": "string",
+        "auto_node": "single",
+        "auto_node.mode": "string",
+        "auto_node.role_arn": "string",
+        "autoscaling_enabled": "bool",
+        "availability_zones": [
+          "list",
+          "string"
+        ],
+        "aws_account_id": "string",
+        "aws_additional_allowed_principals": [
+          "list",
+          "string"
+        ],
+        "aws_additional_compute_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_billing_account_id": "string",
+        "aws_subnet_ids": [
+          "list",
+          "string"
+        ],
+        "base_dns_domain": "string",
+        "channel": "string",
+        "channel_group": "string",
+        "cloud_region": "string",
+        "compute_machine_type": "string",
+        "create_admin_user": "bool",
+        "delete_protection": "bool",
+        "destroy_timeout": "number",
+        "disable_waiting_in_destroy": "bool",
+        "domain_prefix": "string",
+        "ec2_metadata_http_tokens": "string",
+        "etcd_encryption": "bool",
+        "etcd_kms_key_arn": "string",
+        "external_auth_providers_enabled": "bool",
+        "fips": "bool",
+        "host_prefix": "number",
+        "kms_key_arn": "string",
+        "log_forwarders_at_cluster_creation": "list",
+        "log_forwarders_at_cluster_creation.applications": [
+          "list",
+          "string"
+        ],
+        "log_forwarders_at_cluster_creation.cloudwatch": "single",
+        "log_forwarders_at_cluster_creation.cloudwatch.log_distribution_role_arn": "string",
+        "log_forwarders_at_cluster_creation.cloudwatch.log_group_name": "string",
+        "log_forwarders_at_cluster_creation.groups": "list",
+        "log_forwarders_at_cluster_creation.groups.id": "string",
+        "log_forwarders_at_cluster_creation.groups.version": "string",
+        "log_forwarders_at_cluster_creation.s3": "single",
+        "log_forwarders_at_cluster_creation.s3.bucket_name": "string",
+        "log_forwarders_at_cluster_creation.s3.bucket_prefix": "string",
+        "machine_cidr": "string",
+        "max_hcp_cluster_wait_timeout_in_minutes": "number",
+        "max_machinepool_wait_timeout_in_minutes": "number",
+        "max_replicas": "number",
+        "min_replicas": "number",
+        "name": "string",
+        "no_cni": "bool",
+        "pod_cidr": "string",
+        "private": "bool",
+        "properties": [
+          "map",
+          "string"
+        ],
+        "proxy": "single",
+        "proxy.additional_trust_bundle": "string",
+        "proxy.http_proxy": "string",
+        "proxy.https_proxy": "string",
+        "proxy.no_proxy": "string",
+        "registry_config": "single",
+        "registry_config.additional_trusted_ca": [
+          "map",
+          "string"
+        ],
+        "registry_config.allowed_registries_for_import": "list",
+        "registry_config.allowed_registries_for_import.domain_name": "string",
+        "registry_config.allowed_registries_for_import.insecure": "bool",
+        "registry_config.platform_allowlist_id": "string",
+        "registry_config.registry_sources": "single",
+        "registry_config.registry_sources.allowed_registries": [
+          "list",
+          "string"
+        ],
+        "registry_config.registry_sources.blocked_registries": [
+          "list",
+          "string"
+        ],
+        "registry_config.registry_sources.insecure_registries": [
+          "list",
+          "string"
+        ],
+        "replicas": "number",
+        "service_cidr": "string",
+        "shared_vpc": "single",
+        "shared_vpc.ingress_private_hosted_zone_id": "string",
+        "shared_vpc.internal_communication_private_hosted_zone_id": "string",
+        "shared_vpc.route53_role_arn": "string",
+        "shared_vpc.vpce_role_arn": "string",
+        "spot_termination_queue_url": "string",
+        "sts": "single",
+        "sts.instance_iam_roles": "single",
+        "sts.instance_iam_roles.worker_role_arn": "string",
+        "sts.oidc_config_id": "string",
+        "sts.oidc_endpoint_url": "string",
+        "sts.operator_role_prefix": "string",
+        "sts.role_arn": "string",
+        "sts.support_role_arn": "string",
+        "sts.trust_policy_external_id": "string",
+        "tags": [
+          "map",
+          "string"
+        ],
+        "upgrade_acknowledgements_for": "string",
+        "version": "string",
+        "wait_for_create_complete": "bool",
+        "wait_for_std_compute_nodes_complete": "bool",
+        "worker_disk_size": "number"
+      }
+    },
+    "rhcs_cluster_wait": {
+      "disposition": "compose: native wait helper for independent workflows; primary cluster resources already wait",
+      "writable_fields": {
+        "cluster": "string",
+        "timeout": "number"
+      }
+    },
+    "rhcs_default_ingress": {
+      "disposition": "implemented: modules/cluster/component-routes; optional non-route ingress tuning can use standalone native resource with a single owner",
+      "writable_fields": {
+        "cluster": "string",
+        "cluster_routes_hostname": "string",
+        "cluster_routes_tls_secret_ref": "string",
+        "component_routes": [
+          "map",
+          [
+            "object",
+            {
+              "hostname": "string",
+              "tls_secret_ref": "string"
+            }
+          ]
+        ],
+        "excluded_namespaces": [
+          "list",
+          "string"
+        ],
+        "id": "string",
+        "load_balancer_type": "string",
+        "route_namespace_ownership_policy": "string",
+        "route_selectors": [
+          "map",
+          "string"
+        ],
+        "route_wildcard_policy": "string"
+      }
+    },
+    "rhcs_dns_domain": {
+      "disposition": "compose: reserve shared-VPC DNS before creating the cluster; pass base_dns_domain",
+      "writable_fields": {
+        "cluster_arch": "string"
+      }
+    },
+    "rhcs_group_membership": {
+      "disposition": "compose: explicit group membership lifecycle separate from bootstrap",
+      "writable_fields": {
+        "cluster": "string",
+        "group": "string",
+        "user": "string"
+      }
+    },
+    "rhcs_hcp_cluster_autoscaler": {
+      "disposition": "unavailable: provider 1.7.8 documents this endpoint as unavailable; use per-pool autoscaling or AutoNode",
+      "writable_fields": {
+        "cluster": "string",
+        "max_node_provision_time": "string",
+        "max_pod_grace_period": "number",
+        "pod_priority_threshold": "number",
+        "resource_limits": "single",
+        "resource_limits.max_nodes_total": "number"
+      }
+    },
+    "rhcs_hcp_default_ingress": {
+      "disposition": "implemented: modules/cluster/component-routes; optional ingress tuning can use standalone native resource with a single owner",
+      "writable_fields": {
+        "cluster": "string",
+        "component_routes": [
+          "map",
+          [
+            "object",
+            {
+              "hostname": "string",
+              "tls_secret_ref": "string"
+            }
+          ]
+        ],
+        "listening_method": "string"
+      }
+    },
+    "rhcs_hcp_machine_pool": {
+      "disposition": "implemented: modules/cluster/machine-pools-hcp",
+      "writable_fields": {
+        "auto_repair": "bool",
+        "autoscaling": "single",
+        "autoscaling.enabled": "bool",
+        "autoscaling.max_replicas": "number",
+        "autoscaling.min_replicas": "number",
+        "aws_node_pool": "single",
+        "aws_node_pool.additional_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_node_pool.capacity_reservation_id": "string",
+        "aws_node_pool.capacity_reservation_preference": "string",
+        "aws_node_pool.disk_size": "number",
+        "aws_node_pool.ec2_metadata_http_tokens": "string",
+        "aws_node_pool.image_type": "string",
+        "aws_node_pool.instance_type": "string",
+        "aws_node_pool.max_spot_price": "number",
+        "aws_node_pool.node_drain_grace_period": "number",
+        "aws_node_pool.tags": [
+          "map",
+          "string"
+        ],
+        "aws_node_pool.use_spot_instances": "bool",
+        "cluster": "string",
+        "ignore_deletion_error": "bool",
+        "kubelet_configs": "string",
+        "labels": [
+          "map",
+          "string"
+        ],
+        "name": "string",
+        "replicas": "number",
+        "subnet_id": "string",
+        "taints": "list",
+        "taints.key": "string",
+        "taints.schedule_type": "string",
+        "taints.value": "string",
+        "tuning_configs": [
+          "list",
+          "string"
+        ],
+        "upgrade_acknowledgements_for": "string",
+        "version": "string"
+      }
+    },
+    "rhcs_identity_provider": {
+      "disposition": "compose: organizational identity secrets and rotation belong to a separately approved lifecycle; native example provided",
+      "writable_fields": {
+        "cluster": "string",
+        "github": "single",
+        "github.ca": "string",
+        "github.client_id": "string",
+        "github.client_secret": "string",
+        "github.hostname": "string",
+        "github.organizations": [
+          "list",
+          "string"
+        ],
+        "github.teams": [
+          "list",
+          "string"
+        ],
+        "gitlab": "single",
+        "gitlab.ca": "string",
+        "gitlab.client_id": "string",
+        "gitlab.client_secret": "string",
+        "gitlab.url": "string",
+        "google": "single",
+        "google.client_id": "string",
+        "google.client_secret": "string",
+        "google.hosted_domain": "string",
+        "htpasswd": "single",
+        "htpasswd.users": "list",
+        "htpasswd.users.password": "string",
+        "htpasswd.users.username": "string",
+        "ldap": "single",
+        "ldap.attributes": "single",
+        "ldap.attributes.email": [
+          "list",
+          "string"
+        ],
+        "ldap.attributes.id": [
+          "list",
+          "string"
+        ],
+        "ldap.attributes.name": [
+          "list",
+          "string"
+        ],
+        "ldap.attributes.preferred_username": [
+          "list",
+          "string"
+        ],
+        "ldap.bind_dn": "string",
+        "ldap.bind_password": "string",
+        "ldap.ca": "string",
+        "ldap.insecure": "bool",
+        "ldap.url": "string",
+        "mapping_method": "string",
+        "name": "string",
+        "openid": "single",
+        "openid.ca": "string",
+        "openid.claims": "single",
+        "openid.claims.email": [
+          "list",
+          "string"
+        ],
+        "openid.claims.groups": [
+          "list",
+          "string"
+        ],
+        "openid.claims.name": [
+          "list",
+          "string"
+        ],
+        "openid.claims.preferred_username": [
+          "list",
+          "string"
+        ],
+        "openid.client_id": "string",
+        "openid.client_secret": "string",
+        "openid.extra_authorize_parameters": [
+          "map",
+          "string"
+        ],
+        "openid.extra_scopes": [
+          "list",
+          "string"
+        ],
+        "openid.issuer": "string"
+      }
+    },
+    "rhcs_image_mirror": {
+      "disposition": "compose: digest mirror example, single owner with zero-egress image policies",
+      "writable_fields": {
+        "cluster_id": "string",
+        "mirrors": [
+          "list",
+          "string"
+        ],
+        "source": "string",
+        "type": "string"
+      }
+    },
+    "rhcs_kubeletconfig": {
+      "disposition": "compose: define native kubelet config and reference HCP pool kubelet_configs",
+      "writable_fields": {
+        "cluster": "string",
+        "id": "string",
+        "name": "string",
+        "pod_pids_limit": "number"
+      }
+    },
+    "rhcs_log_forwarder": {
+      "disposition": "compose: Day-2 lifecycle of forwarders; cluster_options exposes Day-1 configuration; do not duplicate workload logging ownership",
+      "writable_fields": {
+        "applications": [
+          "list",
+          "string"
+        ],
+        "cloudwatch": "single",
+        "cloudwatch.log_distribution_role_arn": "string",
+        "cloudwatch.log_group_name": "string",
+        "cluster": "string",
+        "groups": "list",
+        "groups.id": "string",
+        "groups.version": "string",
+        "s3": "single",
+        "s3.bucket_name": "string",
+        "s3.bucket_prefix": "string"
+      }
+    },
+    "rhcs_machine_pool": {
+      "disposition": "implemented: modules/cluster/machine-pools",
+      "writable_fields": {
+        "autoscaling_enabled": "bool",
+        "availability_zone": "string",
+        "aws_additional_security_group_ids": [
+          "list",
+          "string"
+        ],
+        "aws_tags": [
+          "map",
+          "string"
+        ],
+        "cluster": "string",
+        "disk_size": "number",
+        "ignore_deletion_error": "bool",
+        "labels": [
+          "map",
+          "string"
+        ],
+        "machine_type": "string",
+        "max_replicas": "number",
+        "max_spot_price": "number",
+        "min_replicas": "number",
+        "multi_availability_zone": "bool",
+        "name": "string",
+        "replicas": "number",
+        "subnet_id": "string",
+        "taints": "list",
+        "taints.key": "string",
+        "taints.schedule_type": "string",
+        "taints.value": "string",
+        "use_spot_instances": "bool"
+      }
+    },
+    "rhcs_rosa_ocm_role_link": {
+      "disposition": "implemented: modules/account/rosa-hcp-account",
+      "writable_fields": {
+        "role_arn": "string"
+      }
+    },
+    "rhcs_rosa_oidc_config": {
+      "disposition": "implemented: modules/security/iam/rosa-classic and rosa-hcp",
+      "writable_fields": {
+        "installer_role_arn": "string",
+        "issuer_url": "string",
+        "managed": "bool",
+        "secret_arn": "string"
+      }
+    },
+    "rhcs_rosa_oidc_config_input": {
+      "disposition": "compose: unmanaged OIDC input generation; normal roots use managed OIDC configuration",
+      "writable_fields": {
+        "prefix": "string",
+        "region": "string"
+      }
+    },
+    "rhcs_tuning_config": {
+      "disposition": "compose: define native tuning JSON spec and reference HCP pool tuning_configs",
+      "writable_fields": {
+        "cluster": "string",
+        "name": "string",
+        "spec": "string"
+      }
+    }
+  }
+}

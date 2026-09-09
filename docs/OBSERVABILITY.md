@@ -55,7 +55,7 @@ cluster-admin or blanket audit-log access just to let an application owner view 
 
 1. Verify the **running** cluster version, support coverage, catalog channels,
    machine types and storage class. Keep `openshift_version` aligned with reality:
-   editing it does not upgrade existing clusters (versions are lifecycle-ignored).
+   changing it now schedules a native RHCS upgrade; complete that upgrade before layer changes.
    Perform approved ROSA/OCM upgrades first. Keep Logging and Loki on the same minor.
 2. Use the two-phase cluster/GitOps workflow: create the cluster and pools first,
    then enable the layer in the environment's GitOps tfvars from a runner with

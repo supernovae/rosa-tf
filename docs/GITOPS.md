@@ -24,7 +24,7 @@ not independently upgraded upstream Argo CD or Redis images.
 Minor channels deliberately avoid an unreviewed minor upgrade through `latest`.
 Automatic InstallPlan approval applies patches within that stream; choose Manual
 when change governance requires it and provide a separate approval stage. Updating
-Terraform's `openshift_version` alone does not upgrade the actual cluster.
+The cluster modules forward explicit version changes to RHCS; verify the upgrade completes before changing layer streams.
 
 New installs use `openshift-gitops-operator` with a dedicated OperatorGroup, as in
 [Red Hat's installation guide](https://docs.redhat.com/en/documentation/red_hat_openshift_gitops/1.21/html/installing_gitops/installing-openshift-gitops).

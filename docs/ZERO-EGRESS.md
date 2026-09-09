@@ -290,7 +290,7 @@ When upgrading a zero-egress cluster:
 1. **Mirror new version first** - Update `ImageSetConfiguration` with new version range
 2. **Push to ECR** - Follow the mirror workflow
 3. **Verify IDMS** - Ensure IDMS covers the new release images
-4. **Upgrade control plane** - Via ROSA CLI or OCM Console (these modules ignore version changes)
+4. **Upgrade control plane** - Through a reviewed native RHCS version update; refresh before changing pool targets
 5. **Upgrade machine pools** - Within n-2 of control plane
 
 ```bash

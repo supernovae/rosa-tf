@@ -8,7 +8,7 @@ terraform {
     }
     rhcs = {
       source  = "terraform-redhat/rhcs"
-      version = "= 1.7.8-prerelease.2"
+      version = "= 1.7.8"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"

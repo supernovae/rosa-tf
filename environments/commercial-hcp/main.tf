@@ -476,10 +476,8 @@ module "autonode" {
   count  = var.enable_autonode ? 1 : 0
 
   cluster_name         = var.cluster_name
-  cluster_id           = null # IAM-only mode; subnet tags handled separately post-cluster
   oidc_endpoint_url    = module.iam_roles.oidc_endpoint_url
   operator_role_prefix = var.cluster_name
-  private_subnet_ids   = local.effective_private_subnet_ids
   enable_ecr_pull      = var.create_ecr && var.enable_autonode
 
   tags = local.common_tags
@@ -523,6 +521,7 @@ module "additional_security_groups" {
 }
 
 module "rosa_cluster" {
+  cluster_options           = var.cluster_options
   cluster_delete_protection = var.cluster_delete_protection
   source                    = "../../modules/cluster/rosa-hcp"
 

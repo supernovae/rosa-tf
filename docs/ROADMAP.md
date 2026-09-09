@@ -5,14 +5,13 @@ state is not a goal; maintain historical releases separately instead of adding
 compatibility aliases, silent fallbacks or migration fixtures to new features.
 
 Current status is recorded in [release-status.json](../release-status.json):
-development, RHCS `1.7.8-prerelease.2`, release approval **false**. No 2.0 tag is
-authorized. The workflow blocks tagging a prerelease provider even if GitHub's
-API incorrectly marks its release as non-prerelease.
+development, stable RHCS `1.7.8`, release approval **false**. No 2.0 tag is
+authorized. The release workflow still requires an explicitly reviewed ready state.
 
 ## Implemented preparation
 
 - Four-root EFS/layer integration and explicit layer support boundaries.
-- RHCS prerelease pin with Linux/macOS provider checksums.
+- Stable RHCS pin with Linux/macOS provider checksums.
 - Native component routes: Classic console/downloads/OAuth; HCP console/downloads.
 - Opt-in HCP Spot pools, reserved scheduling taint, on-demand base and IMDSv2.
 - Deletion protection, explicit regional OpenShift version choice and private seeds.
@@ -25,10 +24,9 @@ API incorrectly marks its release as non-prerelease.
 
 ## Required before a 2.0 tag
 
-1. RHCS 1.7.8 or a reviewed later stable version is published. Read its final
-   changelog; compare installed schemas with this prerelease implementation.
-2. Replace all exact RHCS constraints and cross-platform locks together. Remove
-   development-only prerelease acknowledgment only after reviewing stable behavior.
+1. Stable RHCS 1.7.8 adoption and final-schema comparison are complete. Recheck
+   release notes if moving to a later stable version.
+2. Keep all exact provider constraints, inventory and cross-platform locks in sync.
 3. Pass formatting, provider validation, fresh-bootstrap, network, pool, route,
    layer and repository contracts, plus security scans with reviewed exceptions.
 4. Complete real deployment/teardown and recovery acceptance for all four target

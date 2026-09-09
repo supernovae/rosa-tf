@@ -29,6 +29,18 @@ jobs:
       - run: terraform -chdir=modules/cluster/component-routes test
       - run: terraform -chdir=modules/cluster/machine-pools-hcp init -backend=false -lockfile=readonly
       - run: terraform -chdir=modules/cluster/machine-pools-hcp test
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install python-hcl2==8.1.4
+      - run: terraform -chdir=modules/cluster/rosa-hcp init -backend=false -lockfile=readonly
+      - run: python scripts/check-rhcs-capabilities.py
+      - run: terraform -chdir=modules/cluster/machine-pools init -backend=false -lockfile=readonly
+      - run: terraform -chdir=modules/cluster/machine-pools test
+      - run: terraform -chdir=modules/cluster/autonode-pool init -backend=false -lockfile=readonly
+      - run: terraform -chdir=modules/cluster/autonode-pool test
+      - run: terraform -chdir=examples/rhcs-companion-resources init -backend=false -lockfile=readonly
+      - run: terraform -chdir=examples/rhcs-companion-resources validate
 
   efs-tests:
     name: EFS security and integration contracts

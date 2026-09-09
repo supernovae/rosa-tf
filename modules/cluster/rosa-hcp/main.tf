@@ -23,6 +23,25 @@
 #------------------------------------------------------------------------------
 
 resource "rhcs_cluster_rosa_hcp" "this" {
+  audit_log_arn                           = var.cluster_options.audit_log_arn
+  aws_additional_allowed_principals       = var.cluster_options.aws_additional_allowed_principals
+  base_dns_domain                         = var.cluster_options.base_dns_domain
+  destroy_timeout                         = var.cluster_options.destroy_timeout
+  domain_prefix                           = var.cluster_options.domain_prefix
+  log_forwarders_at_cluster_creation      = var.cluster_options.log_forwarders_at_cluster_creation
+  max_hcp_cluster_wait_timeout_in_minutes = var.cluster_options.max_hcp_cluster_wait_timeout_in_minutes
+  max_machinepool_wait_timeout_in_minutes = var.cluster_options.max_machinepool_wait_timeout_in_minutes
+  proxy                                   = var.cluster_options.proxy
+  registry_config                         = var.cluster_options.registry_config
+  shared_vpc                              = var.cluster_options.shared_vpc
+  spot_termination_queue_url              = var.cluster_options.spot_termination_queue_url
+  worker_disk_size                        = var.cluster_options.worker_disk_size
+  autoscaling_enabled                     = var.cluster_options.autoscaling_enabled
+  min_replicas                            = var.cluster_options.min_replicas
+  max_replicas                            = var.cluster_options.max_replicas
+  channel                                 = var.cluster_options.channel
+  tags                                    = var.tags
+
   ec2_metadata_http_tokens = "required"
   delete_protection        = var.cluster_delete_protection
   # Native RHCS bootstrap creates the htpasswd user and grants admin access.
@@ -47,16 +66,17 @@ resource "rhcs_cluster_rosa_hcp" "this" {
 
   # OpenShift configuration
   version                      = var.openshift_version
-  channel_group                = var.channel_group
+  channel_group                = var.cluster_options.channel == null ? var.channel_group : null
   upgrade_acknowledgements_for = var.upgrade_acknowledgements_for
   compute_machine_type         = var.compute_machine_type
-  replicas                     = var.replicas
+  replicas                     = coalesce(var.cluster_options.autoscaling_enabled, false) ? null : var.replicas
 
   # Properties including required rosa_creator_arn and optional zero_egress
   properties = merge(
     {
       rosa_creator_arn = var.creator_arn
     },
+    var.cluster_options.properties,
     var.zero_egress ? { zero_egress = "true" } : {}
   )
 
@@ -78,10 +98,11 @@ resource "rhcs_cluster_rosa_hcp" "this" {
 
   # IAM configuration - uses AWS managed policies
   sts = {
-    role_arn             = var.installer_role_arn
-    support_role_arn     = var.support_role_arn
-    operator_role_prefix = var.operator_role_prefix
-    oidc_config_id       = var.oidc_config_id
+    trust_policy_external_id = var.cluster_options.trust_policy_external_id
+    role_arn                 = var.installer_role_arn
+    support_role_arn         = var.support_role_arn
+    operator_role_prefix     = var.operator_role_prefix
+    oidc_config_id           = var.oidc_config_id
     instance_iam_roles = {
       worker_role_arn = var.worker_role_arn
     }
@@ -112,7 +133,22 @@ resource "rhcs_cluster_rosa_hcp" "this" {
   wait_for_create_complete            = var.wait_for_create_complete
   wait_for_std_compute_nodes_complete = var.wait_for_std_compute_nodes_complete
 
+  disable_waiting_in_destroy = false
+  no_cni                     = false
+
   lifecycle {
+    precondition {
+      condition     = var.autonode_role_arn == null ? true : tonumber(split(".", var.openshift_version)[1]) >= 22
+      error_message = "The documented Red Hat build of Karpenter path requires OpenShift 4.22 or later."
+    }
+    precondition {
+      condition     = var.autonode_role_arn == null || var.wait_for_create_complete
+      error_message = "AutoNode requires native create completion waiting for post-create activation."
+    }
+    precondition {
+      condition     = !var.external_auth_providers_enabled || !var.create_admin_user
+      error_message = "External authentication and htpasswd admin bootstrap cannot be combined."
+    }
     precondition {
       condition     = length(var.private_subnet_ids) >= 1
       error_message = "At least one private subnet is required for ROSA HCP."
@@ -123,15 +159,10 @@ resource "rhcs_cluster_rosa_hcp" "this" {
       error_message = "Zero-egress mode requires private_cluster = true."
     }
 
-    # Ignore version changes - upgrades should be explicit
-    # This prevents Terraform from "downgrading" if cluster was upgraded
-    # via Hybrid Cloud Console or automatic z-stream updates
+    # RHCS owns version upgrades and mutable settings; do not hide drift.
     ignore_changes = [
       # Creation-only field: preserve existing clusters during bootstrap migration.
       admin_credentials,
-      version,
-      auto_node,
-      fips,
     ]
   }
 }

@@ -13,7 +13,7 @@ variable "autonode_pools" {
       value         = optional(string, "")
       schedule_type = string
     })), [])
-    capacity_type        = optional(string, "spot")
+    capacity_type        = optional(string, "on-demand")
     node_class           = optional(string, "default")
     consolidation_policy = optional(string, "WhenEmptyOrUnderutilized")
     consolidate_after    = optional(string, "30s")
@@ -55,9 +55,9 @@ variable "autonode_pools" {
     Fields:
       instance_type  - single instance type (use this OR instance_types)
       instance_types - multiple types; Karpenter picks best fit
-      capacity_type  - "spot" (default) or "on-demand"
+      capacity_type  - "on-demand" (default) or explicit "spot"
       node_class     - EC2NodeClass name (default: "default")
-      labels         - pod template labels (kubernetes.io domain auto-filtered)
+      labels         - pod template labels (reserved domains rejected)
       taints         - list of {key, value (optional), schedule_type}
       limits         - max resources pool can provision, e.g. {cpu="100"}
       weight         - priority between pools; higher = preferred (default 0)
@@ -66,27 +66,24 @@ variable "autonode_pools" {
       consolidate_after    - delay before consolidation (default "30s")
   EOT
 
+  validation {
+    condition = alltrue([for pool in var.autonode_pools :
+      (length(pool.instance_types) > 0) != (pool.instance_type != "") &&
+      contains(["on-demand", "spot"], pool.capacity_type) &&
+      alltrue([for key in keys(pool.labels) : !can(regex("(kubernetes[.]io|k8s[.]io)/", key))])
+    ])
+    error_message = "Choose exactly one instance_type or nonempty instance_types, a valid capacity type, and custom-domain labels; labels are never silently discarded."
+  }
   default = []
 }
 
 variable "node_class_group" {
   type        = string
-  description = <<-EOT
-    API group for the nodeClassRef in NodePool specs.
-    ROSA HCP AutoNode private preview requires karpenter.k8s.aws (EC2NodeClass),
-    NOT karpenter.hypershift.openshift.io (OpenshiftEC2NodeClass).
-    See AutoNode FAQ #7: NodePools reference EC2NodeClass during private preview.
-  EOT
+  description = "NodePool reference group for the provider-managed EC2NodeClass."
   default     = "karpenter.k8s.aws"
 }
-
 variable "node_class_kind" {
   type        = string
-  description = <<-EOT
-    Kind for the nodeClassRef in NodePool specs.
-    ROSA HCP AutoNode private preview requires EC2NodeClass.
-    OpenshiftEC2NodeClass is for creating custom node classes, but NodePools
-    must reference the corresponding EC2NodeClass (managed by HyperShift).
-  EOT
+  description = "NodePools reference EC2NodeClass, including classes derived from custom OpenshiftEC2NodeClass objects."
   default     = "EC2NodeClass"
 }

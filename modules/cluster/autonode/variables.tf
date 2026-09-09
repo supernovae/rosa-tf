@@ -7,15 +7,6 @@ variable "cluster_name" {
   description = "Name of the ROSA HCP cluster."
 }
 
-variable "cluster_id" {
-  type        = string
-  description = <<-EOT
-    OCM cluster ID (the internal identifier, not the cluster name).
-    Used as the value for karpenter.sh/discovery subnet tags.
-    When null, subnet tagging is skipped (IAM-only mode).
-  EOT
-  default     = null
-}
 
 variable "oidc_endpoint_url" {
   type        = string
@@ -35,13 +26,6 @@ variable "operator_role_prefix" {
   EOT
 }
 
-variable "private_subnet_ids" {
-  type        = list(string)
-  description = <<-EOT
-    List of private subnet IDs to tag with Karpenter discovery tags.
-    These subnets will be used by Karpenter for node placement.
-  EOT
-}
 
 variable "enable_ecr_pull" {
   type        = bool

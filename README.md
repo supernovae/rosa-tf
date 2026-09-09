@@ -3,10 +3,9 @@
 Deploy private ROSA Classic or Hosted Control Plane clusters in AWS commercial
 and GovCloud regions, then explicitly enable reviewed platform/GitOps layers.
 
-**This branch is development-only.** It pins RHCS `1.7.8-prerelease.2` while we
+**This branch is development-only.** It pins stable RHCS `1.7.8` while we
 prepare 2.0. No 2.0 release is approved or tagged. The release workflow blocks
-tagging until stable RHCS, verified provider locks and release approval are in
-place. See [release readiness](docs/ROADMAP.md).
+tagging until verified provider locks and release approval are in place. See [release readiness](docs/ROADMAP.md).
 
 2.0 is a **fix-forward fresh-deployment baseline**, not a supported in-place
 upgrade from 1.x. Do not point it at existing production state or apply it to
@@ -19,7 +18,7 @@ Historical 1.x tags retain their original behavior and documentation.
 2. Select an environment root and copy its seed into an ignored private tfvars
    file. Set an explicitly verified regional OpenShift patch; there is no stale
    default version. Keep credentials out of tfvars/Git.
-3. For development only, acknowledge the prerelease provider explicitly.
+3. Review [RHCS capabilities and native lifecycle behavior](docs/RHCS-CAPABILITIES.md).
 4. Review a saved plan before applying cluster infrastructure. Verify endpoints,
    CA trust, authentication and catalogs before the separate platform-layer apply.
 

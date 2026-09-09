@@ -6,7 +6,7 @@
 #
 # Key HCP characteristics:
 # - Version must be within n-2 of control plane
-# - Explicit Spot opt-in via RHCS 1.7.8-prerelease.2 (development only)
+# - Explicit Spot opt-in via RHCS stable RHCS 1.7.8
 # - Single subnet per pool
 # - Each pool has its own instance_profile (computed by ROSA)
 #
@@ -25,7 +25,8 @@ data "aws_partition" "current" {}
 #------------------------------------------------------------------------------
 
 resource "rhcs_hcp_machine_pool" "pool" {
-  for_each = { for pool in var.machine_pools : pool.name => pool }
+  ignore_deletion_error = false
+  for_each              = { for pool in var.machine_pools : pool.name => pool }
 
   cluster = var.cluster_id
   name    = each.value.name
@@ -35,14 +36,17 @@ resource "rhcs_hcp_machine_pool" "pool" {
   replicas = try(each.value.autoscaling.enabled, false) ? null : each.value.replicas
 
   aws_node_pool = {
-    instance_type                 = each.value.instance_type
-    use_spot_instances            = each.value.spot.enabled
-    max_spot_price                = each.value.spot.enabled ? each.value.spot.max_price : null
-    ec2_metadata_http_tokens      = "required"
-    disk_size                     = each.value.disk_size
-    node_drain_grace_period       = each.value.node_drain_grace_period
-    additional_security_group_ids = length(each.value.additional_security_group_ids) > 0 ? each.value.additional_security_group_ids : null
-    tags                          = var.tags
+    capacity_reservation_id         = each.value.capacity_reservation_id
+    capacity_reservation_preference = each.value.capacity_reservation_preference
+    image_type                      = each.value.image_type
+    instance_type                   = each.value.instance_type
+    use_spot_instances              = each.value.spot.enabled
+    max_spot_price                  = each.value.spot.enabled ? each.value.spot.max_price : null
+    ec2_metadata_http_tokens        = "required"
+    disk_size                       = each.value.disk_size
+    node_drain_grace_period         = each.value.node_drain_grace_period
+    additional_security_group_ids   = length(each.value.additional_security_group_ids) > 0 ? each.value.additional_security_group_ids : null
+    tags                            = merge(var.tags, each.value.aws_tags)
   }
 
   # Version configuration - must be within n-2 of control plane
@@ -80,9 +84,16 @@ resource "rhcs_hcp_machine_pool" "pool" {
   }], each.value.spot.enabled ? [{ key = "rosa-tf.io/spot", value = "true", schedule_type = "NoSchedule" }] : [])
 
   # Auto-repair configuration
-  auto_repair = var.auto_repair
+  auto_repair                  = coalesce(each.value.auto_repair, var.auto_repair)
+  kubelet_configs              = each.value.kubelet_configs
+  tuning_configs               = each.value.tuning_configs
+  upgrade_acknowledgements_for = each.value.upgrade_acknowledgements_for
 
   lifecycle {
+    precondition {
+      condition     = !each.value.spot.enabled || (each.value.capacity_reservation_id == null && each.value.capacity_reservation_preference == null)
+      error_message = "Spot cannot be combined with capacity reservations."
+    }
     precondition {
       condition     = var.openshift_version != ""
       error_message = "An explicit available OpenShift version is required for HCP machine pools."

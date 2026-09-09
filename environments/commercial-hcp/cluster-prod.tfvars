@@ -1,7 +1,7 @@
 # 2.0 fresh-deployment seed. NOT a ready-to-apply production configuration.
 # Copy to a private tfvars file and set openshift_version to a currently offered,
 # supported patch for this region/architecture and your selected optional layers.
-# RHCS is prerelease: development use also requires allow_prerelease_provider=true.
+# Stable RHCS 1.7.8 is pinned; repository 2.0 release acceptance remains pending.
 # See docs/DEPLOYMENT.md. No credentials belong in this file.
 cluster_name              = "com-hcp-prod"
 environment               = "prod"

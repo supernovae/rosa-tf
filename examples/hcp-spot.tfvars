@@ -1,4 +1,4 @@
-# HCP-only DEVELOPMENT overlay: requires RHCS 1.7.8-prerelease.2 and regional/API support.
+# HCP-only DEVELOPMENT overlay: requires RHCS 1.7.8 and regional/API support.
 # Keep the base workers and all critical/stateful services on demand.
 machine_pools = [{
   name          = "spot-batch"

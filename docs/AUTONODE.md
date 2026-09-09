@@ -1,240 +1,48 @@
-# AutoNode (Karpenter) on ROSA HCP
+# AutoNode / Red Hat build of Karpenter
 
-> **Generally Available** -- AutoNode (Red Hat build of Karpenter) is GA and fully supported
-> on ROSA HCP clusters in all AWS regions where ROSA is available. Requires OpenShift 4.19+
-> and ROSA CLI >= 1.2.61.
+The documented current path requires OpenShift **4.22+**. Confirm the target
+region/account is eligible before enabling; provider support is not a universal
+GovCloud availability guarantee. The packaged IAM/discovery/NodePool workflow
+currently lives in the commercial HCP root, not Classic or GovCloud roots.
 
-## Overview
+[Red Hat administration guide](https://docs.redhat.com/en/documentation/red_hat_openshift_service_on_aws/4/html/cluster_administration/managing-compute-nodes-using-red-hat-build-of-karpenter).
 
-AutoNode replaces traditional ROSA machine pool autoscaling with [Karpenter](https://karpenter.sh/), a Kubernetes-native node autoscaler. Karpenter watches for unschedulable pods, selects optimal instance types using bin-packing, and launches nodes directly via EC2 -- bypassing the machine pool abstraction entirely.
+## Ownership and lifecycle
 
-Key benefits over machine pool autoscaling:
+1. The AutoNode module creates controller IAM before the cluster.
+2. Native RHCS `auto_node` activates the service after cluster readiness and
+   handles later enablement/role changes. It is no longer lifecycle-ignored.
+3. The environment alone manages subnet discovery tags after the cluster exists.
+4. Phase two manages Kubernetes NodePools after CRDs and node classes are ready.
 
-- **Faster scaling** -- nodes launch in seconds, not minutes
-- **Bin-packing** -- Karpenter picks the cheapest instance that fits pending pods
-- **Multi-instance-type pools** -- a single NodePool can span many instance types
-- **Spot with fallback** -- pair Spot and On-Demand pools with weights
-- **Consolidation** -- automatically replaces underutilized nodes with smaller ones
+RHCS 1.7.8 does **not** support disabling AutoNode once enabled. Do not set
+`enable_autonode=false` as an uninstall recipe or remove controller IAM while
+nodes are running. Native cluster upgrades and Karpenter-managed node upgrades
+have different lifecycles; complete required readiness/maintenance checks first.
 
-## Architecture
+## Safe examples
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  Terraform (this module)                                 │
-│                                                          │
-│  modules/cluster/autonode/        IAM role + policy      │
-│                                   (created before cluster)│
-│                                                          │
-│  rhcs_cluster_rosa_hcp            auto_node block        │
-│                                   (enables Karpenter)    │
-│                                                          │
-│  aws_ec2_tag                      subnet discovery tags  │
-│                                   (applied after cluster)│
-│                                                          │
-│  modules/cluster/autonode-pool/   Karpenter NodePool     │
-│                                   CRDs on the cluster    │
-└──────────────┬───────────────────────────┬───────────────┘
-               │                           │
-               ▼                           ▼
-       AWS IAM / EC2                 Kubernetes API
-       (role, tags)               (NodePool resources)
-               │                           │
-               └───────────┬───────────────┘
-                           ▼
-                   Karpenter Controller
-                   (managed by ROSA HCP)
-                           │
-                           ▼
-                   EC2 Instances (nodes)
-```
+Use [the AutoNode overlay](../examples/autonode.tfvars) with a private base and
+verified OpenShift version. NodePools default to on-demand capacity. Spot is
+explicit and needs disruption-tolerant workloads, placement rules and tested
+recovery. Review consolidation, expiry, budgets and capacity limits before applying.
 
-## Requirements
+Select exactly one `instance_type` or `instance_types`. Reserved-domain labels
+are rejected rather than silently dropped. Use custom workload labels and matching
+pod selectors/tolerations. No second upstream Karpenter controller is installed.
 
-- ROSA HCP cluster on OpenShift 4.19+
-- Commercial AWS only (not available in GovCloud)
-- RHCS Terraform provider = 1.7.8-prerelease.2 (2.0 development only)
+NodePools reference `karpenter.k8s.aws/EC2NodeClass`. For custom classes, configure
+an `OpenshiftEC2NodeClass` using the current Red Hat schema; the platform manages
+its corresponding EC2NodeClass. Do not manage that generated object independently.
+Keep the default class untouched. Verify custom disk encryption, private subnets,
+IMDSv2, KMS grants and the desired node version. RHCS has no NodePool/NodeClass
+resource, so these remain Kubernetes configuration, not a missing RHCS wrapper.
 
-## Deployment Workflow
+## Acceptance
 
-AutoNode uses a **two-phase deployment**. No manual CLI step is required -- AutoNode is enabled natively via the RHCS provider's `auto_node` block on the cluster resource.
-
-### Phase 1: Infrastructure + Cluster + AutoNode
-
-Create the cluster with AutoNode enabled in a single apply:
-
-```bash
-cd environments/commercial-hcp
-
-terraform apply -var-file=cluster-dev.tfvars
-```
-
-This creates (in dependency order):
-1. VPC, KMS, IAM roles
-2. Karpenter controller IAM role with OIDC trust (before the cluster)
-3. ROSA HCP cluster with `auto_node` block enabled
-4. `karpenter.sh/discovery` tags on private subnets (after cluster)
-5. `ec2:CreateTags` permission on the control-plane-operator role
-
-Wait ~5 minutes for Karpenter CRDs to appear:
-
-```bash
-oc get crd | grep karpenter
-# Expected: ec2nodeclasses.karpenter.k8s.aws, nodeclaims.karpenter.sh, nodepools.karpenter.sh
-```
-
-### Phase 2: Deploy NodePools + GitOps Layers
-
-Apply with GitOps and your pool definitions:
-
-```bash
-terraform apply \
-  -var-file=cluster-dev.tfvars \
-  -var-file=gitops-dev.tfvars \
-  -var-file=openshiftai.tfvars   # optional, if using AI layers
-```
-
-Verify NodePools are ready:
-
-```bash
-oc get nodepools
-oc get nodeclaims
-```
-
-## Pool Configuration Reference
-
-Pools are defined in the `autonode_pools` variable. The format supports simple through complex configurations.
-
-### Minimal Pool
-
-Only `name` and `instance_type` are required. Everything else uses sensible defaults (Spot pricing, 30s consolidation delay, 30-day node expiry):
-
-```hcl
-autonode_pools = [
-  { name = "general", instance_type = "m6a.2xlarge" }
-]
-```
-
-### Multi-Instance-Type Pool
-
-Karpenter picks the best-fit instance from the list based on pending pod requirements and current Spot pricing:
-
-```hcl
-autonode_pools = [{
-  name           = "compute"
-  instance_types = ["m6a.2xlarge", "m6a.4xlarge", "m7a.2xlarge", "m6i.2xlarge"]
-  capacity_type  = "spot"
-  limits         = { cpu = "64", memory = "256Gi" }
-  expire_after   = "168h"
-}]
-```
-
-### GPU Pool with Taints
-
-Taints ensure only GPU-tolerant workloads are scheduled on expensive GPU nodes:
-
-```hcl
-autonode_pools = [{
-  name          = "gpu-l40"
-  instance_type = "g6e.2xlarge"
-  capacity_type = "spot"
-  labels = {
-    "node-role.autonode/gpu" = ""
-  }
-  taints = [{
-    key           = "nvidia.com/gpu"
-    value         = "true"
-    schedule_type = "NoSchedule"
-  }]
-  weight            = 10
-  consolidate_after = "10m"
-}]
-```
-
-### Spot + On-Demand Fallback
-
-Use `weight` to prefer cheaper Spot nodes. When Spot capacity is unavailable, the On-Demand pool catches pending pods:
-
-```hcl
-autonode_pools = [
-  {
-    name           = "compute-spot"
-    instance_types = ["m6a.2xlarge", "m6a.4xlarge"]
-    capacity_type  = "spot"
-    weight         = 100    # preferred
-  },
-  {
-    name           = "compute-fallback"
-    instance_types = ["m6a.2xlarge", "m6a.4xlarge"]
-    capacity_type  = "on-demand"
-    weight         = 1      # lower priority
-    consolidation_policy = "WhenEmpty"
-    consolidate_after    = "5m"
-  }
-]
-```
-
-### Field Reference
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | string | *required* | NodePool name (must be unique) |
-| `instance_type` | string | `""` | Single instance type (use this OR `instance_types`) |
-| `instance_types` | list(string) | `[]` | Multiple types; Karpenter picks best fit |
-| `capacity_type` | string | `"spot"` | `"spot"` or `"on-demand"` |
-| `node_class` | string | `"default"` | EC2NodeClass name |
-| `labels` | map(string) | `{}` | Pod template labels (`kubernetes.io` domain auto-filtered) |
-| `taints` | list(object) | `[]` | `{key, value (optional), schedule_type}` |
-| `limits` | map(string) | `{}` | Max resources the pool can provision (e.g. `{cpu = "100"}`) |
-| `weight` | number | `0` | Priority between pools; higher = preferred |
-| `expire_after` | string | `"720h"` | Node TTL before forced replacement (30 days) |
-| `consolidation_policy` | string | `"WhenEmptyOrUnderutilized"` | `"WhenEmpty"` only removes nodes with zero non-daemonset pods |
-| `consolidate_after` | string | `"30s"` | Delay before consolidation begins after conditions are met |
-
-## Known Limitations
-
-These limitations apply during the Technology Preview period:
-
-1. **ARM/Graviton not available** -- the default `EC2NodeClass` only contains amd64 AMIs. ARM instance types (c7g, m7g, etc.) will fail to launch with "Instance launch failed" errors.
-
-2. **`kubernetes.io` label restriction** -- Karpenter rejects `kubernetes.io` and `k8s.io` domain labels in `spec.template.metadata.labels`. The module automatically filters these out. Use custom domains instead (e.g. `node-role.autonode/gpu` instead of `node-role.kubernetes.io/gpu`).
-
-3. **NodePool CRD references** -- During private preview, NodePools must reference `EC2NodeClass` (group: `karpenter.k8s.aws`), not `OpenshiftEC2NodeClass`. The module defaults handle this correctly.
-
-4. **No migration path guaranteed** -- Red Hat does not guarantee a migration path from Technology Preview to GA. You may need to fully reinstall the cluster.
-
-5. **Commercial AWS only** -- AutoNode is not available in GovCloud.
-
-## Migration from Manual CLI Enablement
-
-If you previously enabled AutoNode manually via `rosa edit cluster --autonode=enabled`, Terraform will detect `auto_node` as already matching desired state (no-op). The `auto_node` attribute is in `ignore_changes`, so no drift will be reported.
-
-For clusters without AutoNode, setting `enable_autonode = true` will create the IAM role and enable AutoNode in a single `terraform apply`.
-
-## Teardown
-
-Before destroying a cluster with AutoNode enabled, delete all Karpenter resources first to avoid orphaned EC2 instances:
-
-```bash
-# Delete all NodePools (stops new node creation)
-oc delete nodepool --all
-
-# Delete all NodeClaims (terminates existing nodes)
-oc delete nodeclaim --all
-
-# Verify no Karpenter-managed nodes remain
-oc get nodes -l karpenter.sh/nodepool
-
-# Now safe to destroy
-terraform destroy -var-file=cluster-dev.tfvars
-```
-
-There is no Kubernetes destroy-bypass switch in 2.0. Keep the API reachable
-for deliberate teardown and evacuate workloads first. See [operations](OPERATIONS.md).
-
-## Related Files
-
-- `modules/cluster/autonode/` -- IAM role, policy, and subnet tagging
-- `modules/cluster/autonode-pool/` -- Karpenter NodePool CRD management
-- `examples/autonode.tfvars` -- Example pool configurations
-- `environments/commercial-hcp/` -- Production environment (autonode wired in)
-- `environments/stage-hcp/` -- Test environment (gitignored, for local experimentation)
+Confirm controller health, node-class/NodePool readiness, scheduling, private
+network paths, interruption/drain behavior and alerts. Keep critical platform
+capacity on demand. The native machine-pool Spot termination queue is not
+interchangeable with Karpenter event handling. Clean up workloads and their pools
+before retiring custom node classes; use a separately reviewed cluster retirement
+procedure for final teardown.

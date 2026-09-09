@@ -16,6 +16,9 @@
 !modules/gitops-layers/efs-storage/.terraform.lock.hcl
 !modules/cluster/component-routes/.terraform.lock.hcl
 !modules/cluster/machine-pools-hcp/.terraform.lock.hcl
+!modules/cluster/machine-pools/.terraform.lock.hcl
+!modules/cluster/autonode-pool/.terraform.lock.hcl
+!examples/rhcs-companion-resources/.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfstate.backup

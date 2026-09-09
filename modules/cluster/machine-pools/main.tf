@@ -5,7 +5,7 @@
 # Uses rhcs_machine_pool resource.
 #
 # Key Classic characteristics:
-# - Supports spot instances (HCP coming soon)
+# - Supports Spot instances with numeric price caps
 # - Supports multi-AZ distribution
 # - Configurable disk size
 #
@@ -21,7 +21,8 @@
 #------------------------------------------------------------------------------
 
 resource "rhcs_machine_pool" "pool" {
-  for_each = { for pool in var.machine_pools : pool.name => pool }
+  ignore_deletion_error = false
+  for_each              = { for pool in var.machine_pools : pool.name => pool }
 
   cluster      = var.cluster_id
   name         = each.value.name
@@ -37,14 +38,17 @@ resource "rhcs_machine_pool" "pool" {
   use_spot_instances = try(each.value.spot.enabled, false)
   max_spot_price     = try(each.value.spot.enabled, false) ? each.value.spot.max_price : null
 
+  aws_tags                          = merge(var.tags, each.value.aws_tags)
+  aws_additional_security_group_ids = each.value.aws_additional_security_group_ids
+
   # Disk configuration
   disk_size = each.value.disk_size
 
   # Labels for workload targeting
-  labels = each.value.labels
+  labels = length(each.value.labels) > 0 ? each.value.labels : null
 
   # Taints for workload isolation
-  taints = each.value.taints
+  taints = length(each.value.taints) > 0 ? each.value.taints : null
 
   # Subnet placement
   subnet_id = each.value.subnet_id

@@ -2,8 +2,8 @@
 
 This is a **2.0 development / fix-forward** root, not a supported 1.x upgrade.
 Read [deployment and prerequisites](../../docs/DEPLOYMENT.md) before planning.
-RHCS is pinned to `1.7.8-prerelease.2`; development use requires explicit
-`allow_prerelease_provider=true`. Stable 2.0 tagging remains blocked.
+RHCS is pinned to stable `1.7.8`. Repository 2.0 release readiness remains
+unapproved; native capabilities are documented in [the audit](../../docs/RHCS-CAPABILITIES.md).
 
 ## Deployment contract
 

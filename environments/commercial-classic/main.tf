@@ -496,6 +496,7 @@ module "additional_security_groups" {
 #------------------------------------------------------------------------------
 
 module "rosa_cluster" {
+  cluster_options           = var.cluster_options
   cluster_delete_protection = var.cluster_delete_protection
   source                    = "../../modules/cluster/rosa-classic"
 

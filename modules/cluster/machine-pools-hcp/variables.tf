@@ -66,6 +66,15 @@ variable "az_subnet_map" {
 
 variable "machine_pools" {
   type = list(object({
+    capacity_reservation_id         = optional(string)
+    capacity_reservation_preference = optional(string)
+    image_type                      = optional(string)
+    kubelet_configs                 = optional(string)
+    tuning_configs                  = optional(list(string))
+    upgrade_acknowledgements_for    = optional(string)
+    auto_repair                     = optional(bool)
+    aws_tags                        = optional(map(string), {})
+
     spot = optional(object({
       enabled   = optional(bool, false)
       max_price = optional(number)
