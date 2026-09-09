@@ -61,6 +61,24 @@ resource "aws_vpc" "this" {
 }
 
 #------------------------------------------------------------------------------
+# Default security group
+#
+# Adopt only the default group of this Terraform-created VPC and remove AWS's
+# default self-ingress and unrestricted egress rules. Workloads must use their
+# dedicated security groups. Never attach resources to this deny-all group.
+#------------------------------------------------------------------------------
+
+resource "aws_default_security_group" "this" {
+  vpc_id  = aws_vpc.this.id
+  ingress = []
+  egress  = []
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-default-deny-all"
+  })
+}
+
+#------------------------------------------------------------------------------
 # Internet Gateway (NAT mode only)
 #------------------------------------------------------------------------------
 

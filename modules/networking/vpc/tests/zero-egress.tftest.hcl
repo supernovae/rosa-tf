@@ -22,6 +22,10 @@ run "isolated_endpoints" {
     interface_endpoint_services = ["ec2", "sts", "kms", "ecr.api", "ecr.dkr"]
   }
   assert {
+    condition     = length(aws_default_security_group.this.ingress) == 0 && length(aws_default_security_group.this.egress) == 0
+    error_message = "Zero-egress VPCs must deny all traffic through the default security group."
+  }
+  assert {
     condition     = length(aws_internet_gateway.this) == 0 && length(aws_nat_gateway.this) == 0 && length(aws_subnet.public) == 0 && length(aws_route.private_tgw) == 0
     error_message = "Zero-egress must not create public subnets, NAT, IGW or TGW egress."
   }
@@ -37,6 +41,10 @@ run "isolated_endpoints" {
 
 run "existing_nat_default" {
   command = plan
+  assert {
+    condition     = length(aws_default_security_group.this.ingress) == 0 && length(aws_default_security_group.this.egress) == 0
+    error_message = "NAT VPCs must also deny all traffic through the default security group."
+  }
   assert {
     condition     = length(aws_internet_gateway.this) == 1 && length(aws_nat_gateway.this) == 1 && length(aws_vpc_endpoint.interface) == 0
     error_message = "Other environment callers must retain existing NAT defaults without new endpoints."

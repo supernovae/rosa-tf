@@ -32,6 +32,13 @@ endpoint policies and available IP space. GovCloud HCP defaults to zero-egress;
 that does not automatically provide every operator image, private Git source or
 service endpoint. See [network prerequisites](ZERO-EGRESS.md).
 
+Terraform-created VPCs have a deny-all default security group; workloads and
+endpoints must use dedicated groups. BYO-VPC default groups are not adopted by
+this module and must be reviewed by their owner. If independently adapting this
+code to an existing VPC, inventory interfaces using its default group first:
+adopting the group removes its existing ingress and egress rules and can interrupt
+dependent workloads. This is not an in-place 1.x upgrade procedure.
+
 ## Phase 1: infrastructure
 
 Copy the appropriate `cluster-dev.tfvars` or `cluster-prod.tfvars` seed to an
