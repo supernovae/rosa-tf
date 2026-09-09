@@ -698,8 +698,13 @@ resource "terraform_data" "validate_certmanager_egress" {
 }
 
 module "gitops_resources" {
-  source = "../../modules/gitops-layers/resources"
-  count  = var.install_gitops ? 1 : 0
+  enable_layer_efs_storage = var.enable_layer_efs_storage
+  efs_config               = var.efs_config
+  efs_performance_mode     = var.efs_performance_mode
+  efs_throughput_mode      = var.efs_throughput_mode
+  efs_encrypted            = var.efs_encrypted
+  source                   = "../../modules/gitops-layers/resources"
+  count                    = var.install_gitops ? 1 : 0
 
   depends_on = [module.iam_roles, module.rosa_cluster]
 
@@ -803,8 +808,13 @@ module "cluster_auth" {
 #------------------------------------------------------------------------------
 
 module "gitops" {
-  source = "../../modules/gitops-layers/operator"
-  count  = var.install_gitops ? 1 : 0
+  enable_layer_efs_storage = var.enable_layer_efs_storage
+  efs_config               = var.efs_config
+  efs_file_system_id       = length(module.gitops_resources) > 0 ? module.gitops_resources[0].efs_file_system_id : ""
+  efs_role_arn             = length(module.gitops_resources) > 0 ? module.gitops_resources[0].efs_role_arn : ""
+  efs_storage_class_name   = var.efs_storage_class_name
+  source                   = "../../modules/gitops-layers/operator"
+  count                    = var.install_gitops ? 1 : 0
 
   depends_on = [
     module.rosa_cluster,

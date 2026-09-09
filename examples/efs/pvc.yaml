@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-files
+  namespace: efs-acceptance
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteMany]
+  volumeMode: Filesystem
+  storageClassName: efs-rwx-retain
+  # Binding metadata only: EFS does not enforce a per-PVC capacity quota.
+  resources:
+    requests:
+      storage: 5Gi

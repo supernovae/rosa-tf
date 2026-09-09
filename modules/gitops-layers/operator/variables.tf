@@ -493,9 +493,9 @@ variable "enable_layer_efs_storage" {
   type        = bool
   description = <<-EOT
     Enable the EFS Storage layer (AWS EFS CSI Driver + StorageClass).
-    Installs the EFS CSI Driver Operator, creates credentials secret,
-    deploys ClusterCSIDriver, and creates an efs-sc StorageClass.
-    Works on Classic/HCP and Commercial/GovCloud.
+    Installs the supported Red Hat operator, supplies ROLEARN to CCO,
+    and creates a retained, TLS-enabled application-files StorageClass.
+    Confirm regional catalog and service availability before deployment.
   EOT
   default     = false
 }
@@ -515,7 +515,7 @@ variable "efs_role_arn" {
 variable "efs_storage_class_name" {
   type        = string
   description = "Name of the EFS StorageClass to create."
-  default     = "efs-sc"
+  default     = "efs-rwx-retain"
 }
 
 #------------------------------------------------------------------------------

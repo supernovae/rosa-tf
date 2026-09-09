@@ -790,8 +790,9 @@ resource "terraform_data" "validate_certmanager_egress" {
 }
 
 module "gitops_resources" {
-  source = "../../modules/gitops-layers/resources"
-  count  = var.install_gitops ? 1 : 0
+  efs_config = var.efs_config
+  source     = "../../modules/gitops-layers/resources"
+  count      = var.install_gitops ? 1 : 0
 
   depends_on = [module.iam_roles, module.rosa_cluster]
 
@@ -900,8 +901,9 @@ module "cluster_auth" {
 #------------------------------------------------------------------------------
 
 module "gitops" {
-  source = "../../modules/gitops-layers/operator"
-  count  = var.install_gitops ? 1 : 0
+  efs_config = var.efs_config
+  source     = "../../modules/gitops-layers/operator"
+  count      = var.install_gitops ? 1 : 0
 
   depends_on = [
     module.rosa_cluster,

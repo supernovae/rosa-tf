@@ -35,6 +35,7 @@ enable HA and require at least three schedulable workers.
 | Certificate automation | [cert-manager](../modules/gitops-layers/certmanager/README.md) |
 | NetApp Trident, FSx, container and VM storage | [NetApp storage](../docs/NETAPP-STORAGE.md) |
 | Backup and restore | [OADP layer](layers/oadp/README.md) |
+| Shared application files | [EFS layer](../docs/EFS-STORAGE.md) |
 | Additional native layer resources | [Operator module](../modules/gitops-layers/operator/README.md) |
 
 Layer YAML templates are rendered by Terraform, not directly installed by Argo CD.
