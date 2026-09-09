@@ -245,6 +245,10 @@ Read [secure GitOps operation and migration](docs/GITOPS.md) before upgrading:
 minor-pinned supported releases, SSO/RBAC, verified TLS, manual workload sync,
 HA prerequisites, private GovCloud repositories, recovery and acceptance checks.
 
+For persistent container and VM workloads, see [NetApp storage](docs/NETAPP-STORAGE.md):
+certified Trident, FSx generation/performance choices, namespace permissions,
+raw-block RWX VM disks, retained storage and backup acceptance.
+
 ## Repository Structure
 
 ```

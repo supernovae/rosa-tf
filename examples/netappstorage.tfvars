@@ -1,80 +1,44 @@
-#------------------------------------------------------------------------------
-# ROSA - NetApp FSx ONTAP Storage Example
-#
-# Complete example enabling the NetApp Storage layer with Astra Trident.
-# Creates FSx ONTAP filesystem, SVM, and configures Trident with:
-#   - fsx-ontap-nfs-rwx:     NFS StorageClass for RWX workloads (Dev Spaces)
-#   - fsx-ontap-iscsi-block: iSCSI StorageClass for block workloads (VMs, DBs)
-#   - fsx-ontap-snapshots:   VolumeSnapshotClass for enterprise backups
-#
-# COPY this file to your environment's gitops tfvars and customize.
-#
-# Usage (two-phase):
-#   Phase 1 - Cluster:
-#     terraform apply -var-file="cluster-dev.tfvars"
-#   Phase 2 - GitOps + Storage:
-#     terraform apply -var-file="cluster-dev.tfvars" -var-file="gitops-dev.tfvars"
-#
-# IMPORTANT: Set fsx_admin_password via environment variable for security:
-#   export TF_VAR_fsx_admin_password="YourSecurePassword123"
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-# GitOps + Layer Enablement
-#------------------------------------------------------------------------------
-
+# NetApp storage overlay for all four roots. Apply AFTER cluster provisioning.
+# Read docs/NETAPP-STORAGE.md; this sample requires real CA/endpoint/Secret inputs.
+# Supply separate TF_VAR_fsx_admin_password and TF_VAR_fsx_svm_password through
+# your secret-managed runner. Never put passwords or CHAP secrets in tfvars.
 install_gitops              = true
-enable_layer_terminal       = true
 enable_layer_netapp_storage = true
 
-# Other layers (uncomment to enable):
-# enable_layer_oadp           = false
-# enable_layer_virtualization = false
-# enable_layer_monitoring     = false
-# enable_layer_certmanager    = false
-
-#------------------------------------------------------------------------------
-# FSx ONTAP Configuration
-#------------------------------------------------------------------------------
-
-# Deployment type: SINGLE_AZ_1 (dev) or MULTI_AZ_1 (production)
-fsx_deployment_type = "SINGLE_AZ_1"
-
-# Storage capacity (minimum 1024 GiB, thin provisioned)
-fsx_storage_capacity_gb = 1024
-
-# Throughput: 128 MBps is sufficient for dev, 256-512 for production
+# Preserve an existing system's generation. This Gen1 example is cost-conscious,
+# not a production sizing recommendation. SSD is billed for provisioned capacity.
+fsx_deployment_type          = "SINGLE_AZ_1"
+fsx_storage_capacity_gb      = 1024
 fsx_throughput_capacity_mbps = 128
-
-# Subnet strategy:
-#   false (default): Reuse ROSA private subnets (simpler, good for dev)
-#   true:            Create dedicated /28 subnets (recommended for production)
 fsx_create_dedicated_subnets = false
 
-# SVM admin password -- set via environment variable:
-#   export TF_VAR_fsx_admin_password="YourSecurePassword123"
-# fsx_admin_password = "..." # DO NOT hardcode in tfvars
+netapp_operator_config = {
+  install_plan_approval = "Manual"
+  # Approve a maintenance window: this may roll/reboot workers.
+  node_prep_iscsi = true
+  # Enable only after measuring a control-plane provisioning backlog:
+  enable_concurrency = false
+}
+netapp_storage_config = {
+  san_enabled         = true
+  use_chap            = true
+  backend_secret_name = "trident-svm-credentials" # Delivered separately in trident
+  management_endpoint = "svm.example.internal"    # Must match the trusted certificate
+  trusted_ca_pem      = ""                        # REQUIRED: replace with approved PEM contents
+  # Existing installs only: retain immutable old classes until PVC migration.
+  legacy_classes_enabled = false
+}
+netapp_fsx_config = {
+  automatic_backup_retention_days = 7
+  # Empty client CIDRs use the ROSA worker subnet CIDRs.
+  # For BYO-VPC Multi-AZ, supply every client route table:
+  # client_route_table_ids = ["rtb-0123456789abcdef0", "rtb-0123456789abcdef1"]
+}
 
-#------------------------------------------------------------------------------
-# Trident Configuration
-#------------------------------------------------------------------------------
-
-# FIPS mode (recommended for GovCloud/FedRAMP)
-# netapp_enable_fips = false
-
-# Log level: info (default), debug, trace
-# netapp_trident_log_level = "info"
-
-# Custom image for air-gapped deployments:
-# netapp_trident_image = "your-registry.example.com/trident:24.06"
-
-#------------------------------------------------------------------------------
-# Production Example (uncomment for production deployment)
-#------------------------------------------------------------------------------
-#
-# fsx_deployment_type          = "MULTI_AZ_1"
+# New production deployment OPTION after regional/quota/cost checks:
+# fsx_deployment_type          = "MULTI_AZ_2"
+# fsx_throughput_capacity_mbps = 768
 # fsx_storage_capacity_gb      = 2048
-# fsx_throughput_capacity_mbps = 512
-# fsx_create_dedicated_subnets = true
-# fsx_dedicated_subnet_cidrs   = ["10.0.15.0/28", "10.0.15.16/28"]
-# netapp_enable_fips           = true
+# Do not use these overrides to replace an existing filesystem.
+# Choose new retained classes explicitly:
+# fsx-ontap-nfs-retain, fsx-ontap-san-retain, fsx-ontap-vm-rwx.

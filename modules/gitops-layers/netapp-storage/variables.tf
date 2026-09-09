@@ -26,29 +26,11 @@ variable "private_subnet_ids" {
   description = "Private subnet IDs from the ROSA VPC. Used when create_dedicated_subnets = false."
 }
 
-variable "oidc_endpoint_url" {
-  type        = string
-  description = <<-EOT
-    OIDC provider endpoint URL (without https:// prefix).
-    Used for Trident CSI controller IRSA trust policy.
-  EOT
-}
 
-variable "aws_account_id" {
-  type        = string
-  description = "AWS account ID for IAM role ARN construction."
-}
 
 variable "fsx_admin_password" {
   type        = string
-  description = <<-EOT
-    Password for the FSx ONTAP fsxadmin user and SVM vsadmin user.
-    Must be 8-50 characters with at least one letter and one digit.
-    
-    This value is marked sensitive and stored only in encrypted Terraform state.
-    For production, consider using External Secrets Operator to source from
-    AWS Secrets Manager instead of passing as a Terraform variable.
-  EOT
+  description = "FSx filesystem administrator password. Separate from the SVM password. Sensitive marking does not encrypt Terraform state."
   sensitive   = true
 
   validation {
@@ -66,43 +48,36 @@ variable "deployment_type" {
   description = <<-EOT
     FSx ONTAP deployment type.
     
-    SINGLE_AZ_1: Single-AZ, lower cost, suitable for dev/test.
-    MULTI_AZ_1:  Multi-AZ with automatic failover, recommended for production.
+    SINGLE_AZ_1/2: Single-AZ; retain generation on existing file systems.
+    MULTI_AZ_1/2: Multi-AZ failover. Gen2 availability must be confirmed per region.
   EOT
   default     = "SINGLE_AZ_1"
 
   validation {
-    condition     = contains(["SINGLE_AZ_1", "MULTI_AZ_1"], var.deployment_type)
-    error_message = "deployment_type must be 'SINGLE_AZ_1' or 'MULTI_AZ_1'."
+    condition     = contains(["SINGLE_AZ_1", "MULTI_AZ_1", "SINGLE_AZ_2", "MULTI_AZ_2"], var.deployment_type)
+    error_message = "Use SINGLE_AZ_1, MULTI_AZ_1, SINGLE_AZ_2 or MULTI_AZ_2; confirm regional availability."
   }
 }
 
 variable "storage_capacity_gb" {
   type        = number
-  description = <<-EOT
-    Total SSD storage capacity in GiB. Minimum 1024 GiB.
-    FSx ONTAP uses thin provisioning, so you only pay for data written.
-  EOT
+  description = "Provisioned SSD capacity in GiB (1024–196608 for the supported one-HA-pair configuration). Billed for provisioned SSD, not only written bytes."
   default     = 1024
 
   validation {
-    condition     = var.storage_capacity_gb >= 1024
-    error_message = "storage_capacity_gb must be at least 1024."
+    condition     = var.storage_capacity_gb >= 1024 && var.storage_capacity_gb <= 196608 && floor(var.storage_capacity_gb) == var.storage_capacity_gb
+    error_message = "storage_capacity_gb must be an integer from 1024 through 196608 for one HA pair."
   }
 }
 
 variable "throughput_capacity_mbps" {
   type        = number
-  description = <<-EOT
-    Sustained throughput capacity in MBps.
-    Single-AZ: 128, 256, 512, 1024, 2048, 4096
-    Multi-AZ:  128, 256, 512, 1024, 2048, 4096
-  EOT
+  description = "MBps for one HA pair. Gen1: 128/256/512/1024/2048/4096; Single-AZ2: 1536/3072/6144; Multi-AZ2: 384/768/1536/3072/6144."
   default     = 128
 
   validation {
-    condition     = contains([128, 256, 512, 1024, 2048, 4096], var.throughput_capacity_mbps)
-    error_message = "throughput_capacity_mbps must be one of: 128, 256, 512, 1024, 2048, 4096."
+    condition     = contains(var.deployment_type == "SINGLE_AZ_2" ? [1536, 3072, 6144] : var.deployment_type == "MULTI_AZ_2" ? [384, 768, 1536, 3072, 6144] : [128, 256, 512, 1024, 2048, 4096], var.throughput_capacity_mbps)
+    error_message = "Use a throughput value supported by the selected generation; see docs/NETAPP-STORAGE.md."
   }
 }
 
@@ -126,8 +101,8 @@ variable "dedicated_subnet_cidrs" {
   type        = list(string)
   description = <<-EOT
     CIDR blocks for dedicated FSxN subnets. Only used when create_dedicated_subnets = true.
-    Must be within the VPC CIDR. Minimum /28 per subnet.
-    If empty, auto-calculated from VPC CIDR (last /28 blocks in the VPC range).
+    Must be within the VPC CIDR and not overlap existing subnets. Size for generation and endpoint count.
+    Required when creating dedicated subnets; allocate explicit non-overlapping ranges.
   EOT
   default     = []
 }
@@ -158,11 +133,6 @@ variable "kms_key_arn" {
 # IAM
 #------------------------------------------------------------------------------
 
-variable "iam_role_path" {
-  type        = string
-  description = "Path for IAM roles."
-  default     = "/"
-}
 
 #------------------------------------------------------------------------------
 # Tags

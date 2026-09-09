@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-files
+spec:
+  storageClassName: fsx-ontap-nfs-retain
+  accessModes: [ReadWriteMany]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi

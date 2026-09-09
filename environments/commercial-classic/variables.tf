@@ -1010,7 +1010,7 @@ variable "certmanager_ingress_namespace_selector" {
 
 variable "enable_layer_netapp_storage" {
   type        = bool
-  description = "Enable NetApp FSx ONTAP + Astra Trident storage layer."
+  description = "Enable NetApp FSx ONTAP + NetApp Trident storage layer."
   default     = false
 }
 
@@ -1018,8 +1018,8 @@ variable "fsx_deployment_type" {
   type        = string
   description = <<-EOT
     FSx ONTAP deployment type.
-    SINGLE_AZ_1: Lower cost, suitable for dev/test.
-    MULTI_AZ_1:  Multi-AZ with automatic failover, recommended for production.
+    SINGLE_AZ_1/2: Single-AZ. Changing generation requires an explicit migration.
+    MULTI_AZ_1/2: Multi-AZ failover; verify generation availability in your region.
   EOT
   default     = "SINGLE_AZ_1"
 }
@@ -1050,16 +1050,11 @@ variable "fsx_dedicated_subnet_cidrs" {
 
 variable "fsx_admin_password" {
   type        = string
-  description = "Password for FSx ONTAP admin users (sensitive, stored in encrypted state)."
+  description = "FSx filesystem administrator password; use a separate fsx_svm_password. Sensitive marking does not encrypt state."
   default     = null
   sensitive   = true
 }
 
-variable "netapp_enable_fips" {
-  type        = bool
-  description = "Enable FIPS 140-2 compliant mode for Trident."
-  default     = false
-}
 
 variable "netapp_trident_log_level" {
   type        = string

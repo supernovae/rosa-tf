@@ -108,7 +108,7 @@ module "certmanager" {
 }
 
 #------------------------------------------------------------------------------
-# NetApp Storage Resources (FSx ONTAP + IAM for Trident)
+# NetApp Storage Resources (FSx ONTAP; direct SVM REST authentication)
 #------------------------------------------------------------------------------
 
 module "netapp_storage" {
@@ -119,8 +119,6 @@ module "netapp_storage" {
   vpc_id             = var.vpc_id
   vpc_cidr           = var.vpc_cidr
   private_subnet_ids = var.private_subnet_ids
-  oidc_endpoint_url  = var.oidc_endpoint_url
-  aws_account_id     = data.aws_caller_identity.current.account_id
   kms_key_arn        = var.kms_key_arn
 
   # FSx-specific config
@@ -128,6 +126,8 @@ module "netapp_storage" {
   storage_capacity_gb      = var.fsx_storage_capacity_gb
   throughput_capacity_mbps = var.fsx_throughput_capacity_mbps
   fsx_admin_password       = var.fsx_admin_password
+  fsx_svm_password         = var.fsx_svm_password
+  netapp_fsx_config        = var.netapp_fsx_config
 
   # Networking
   create_dedicated_subnets = var.fsx_create_dedicated_subnets

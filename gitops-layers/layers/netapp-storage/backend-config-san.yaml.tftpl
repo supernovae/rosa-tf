@@ -1,23 +1,26 @@
-# TridentBackendConfig: ontap-san (iSCSI)
-#
-# Configures Trident to provision iSCSI block volumes on the FSx ONTAP SVM.
-# Used by the fsx-ontap-iscsi-block StorageClass for RWO block workloads.
-#
-# Template variables (injected by Terraform):
-# - svm_management_ip: SVM management LIF IP address
-# - svm_name:          SVM name
-# - backend_secret:    Name of the K8s Secret containing SVM credentials
----
-apiVersion: trident.netapp.io/v1
-kind: TridentBackendConfig
-metadata:
-  name: backend-fsx-ontap-san
-  namespace: trident
-spec:
-  version: 1
-  storageDriverName: ontap-san
-  managementLIF: ${svm_management_ip}
-  svm: ${svm_name}
-  credentials:
-    name: ${backend_secret}
-  useCHAP: true
+${yamlencode({
+  apiVersion = "trident.netapp.io/v1"
+  kind = "TridentBackendConfig"
+  metadata = { name = "backend-fsx-ontap-san", namespace = "trident" }
+  spec = {
+    version = 1
+    storageDriverName = "ontap-san"
+    backendName = "backend-fsx-ontap-san"
+    sanType = "iscsi"
+    managementLIF = management_endpoint
+    # No SAN dataLIF: discover all target portals for multipathing.
+    svm = svm_name
+    credentials = { name = backend_secret }
+    useREST = true
+    trustedCACertificate = base64encode(config.trusted_ca_pem)
+    useCHAP = config.use_chap
+    deletionPolicy = "retain"
+    labels = { rosaLayer = "netapp-storage" }
+    defaults = merge({
+      spaceAllocation = "true"
+      spaceReserve = "none"
+      snapshotPolicy = "none"
+      tieringPolicy = "none"
+    }, config.qos_policy != "" ? { qosPolicy = config.qos_policy } : {})
+  }
+})}

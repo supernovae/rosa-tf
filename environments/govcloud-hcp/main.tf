@@ -752,6 +752,8 @@ module "gitops_resources" {
   fsx_create_dedicated_subnets = var.fsx_create_dedicated_subnets
   fsx_dedicated_subnet_cidrs   = var.fsx_dedicated_subnet_cidrs
   fsx_admin_password           = var.fsx_admin_password
+  fsx_svm_password             = var.fsx_svm_password
+  netapp_fsx_config            = var.netapp_fsx_config
 
   # OpenShift AI config
   enable_layer_openshift_ai        = var.enable_layer_openshift_ai
@@ -877,8 +879,11 @@ module "gitops" {
   # NetApp Storage resources from consolidated module
   fsx_svm_management_ip    = length(module.gitops_resources) > 0 ? module.gitops_resources[0].fsx_svm_management_ip : ""
   fsx_svm_name             = "${var.cluster_name}-svm"
-  fsx_admin_password       = var.fsx_admin_password != null ? var.fsx_admin_password : ""
-  netapp_enable_fips       = var.netapp_enable_fips
+  fsx_admin_password       = var.fsx_svm_password != null ? var.fsx_svm_password : ""
+  netapp_operator_config   = var.netapp_operator_config
+  netapp_storage_config    = var.netapp_storage_config
+  netapp_client_cidrs      = length(module.gitops_resources) > 0 ? module.gitops_resources[0].netapp_client_cidrs : []
+  fsx_svm_nfs_endpoint     = length(module.gitops_resources) > 0 ? module.gitops_resources[0].fsx_svm_nfs_endpoint : ""
   netapp_trident_log_level = var.netapp_trident_log_level
   netapp_trident_image     = var.netapp_trident_image
 

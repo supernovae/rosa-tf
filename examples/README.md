@@ -14,6 +14,16 @@ File names above have the `.tfvars` extension. Replace example names, domains, I
 
 ## Available Examples
 
+### NetApp container and VM storage
+
+[netappstorage.tfvars](netappstorage.tfvars) is a platform overlay for all four roots,
+with certified Trident, separate filesystem/SVM credentials, trusted-CA requirements,
+manual operator approval and explicit node preparation. It requires real endpoint,
+CA and separately delivered Secret values before use. See
+[NetApp storage guidance](../docs/NETAPP-STORAGE.md) and the
+[PVC, VM and snapshot examples](netapp/README.md). Existing systems need the migration
+checklist before adopting the new retained storage classes.
+
 ### Secure workload GitOps
 
 [gitops-workloads.tfvars](gitops-workloads.tfvars) is an explicit workload overlay:
