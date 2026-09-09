@@ -12,6 +12,7 @@
 !modules/networking/vpc/.terraform.lock.hcl
 !modules/gitops-layers/monitoring/.terraform.lock.hcl
 !modules/gitops-layers/netapp-storage/.terraform.lock.hcl
+!modules/gitops-layers/oadp/.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 *.tfstate.backup

@@ -1,0 +1,10 @@
+# Dedicated transient CSI staging snapshots for Velero; not a cluster default.
+# Ensure no other class for this driver has the Velero label before enabling.
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: fsx-ontap-oadp
+  labels:
+    velero.io/csi-volumesnapshot-class: "true"
+driver: csi.trident.netapp.io
+deletionPolicy: Delete

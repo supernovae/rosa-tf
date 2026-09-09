@@ -204,16 +204,12 @@ variable "oadp_role_arn" {
 
 variable "oadp_backup_retention_days" {
   type        = number
-  description = <<-EOT
-    Number of days to retain nightly backups.
-
-    A nightly backup schedule is created automatically when OADP is enabled.
-    This backs up all user namespaces (excluding OpenShift system namespaces)
-    every night at 2:00 AM UTC.
-
-    Set to 0 to disable the automatic backup schedule.
-  EOT
+  description = "Velero backup TTL in days; never S3 object-age expiration. Scheduling also requires oadp_config.schedule_enabled and explicit namespaces. Zero disables the schedule."
   default     = 7
+  validation {
+    condition     = var.oadp_backup_retention_days >= 0 && floor(var.oadp_backup_retention_days) == var.oadp_backup_retention_days
+    error_message = "Backup TTL must be a nonnegative whole number of days."
+  }
 }
 
 #------------------------------------------------------------------------------

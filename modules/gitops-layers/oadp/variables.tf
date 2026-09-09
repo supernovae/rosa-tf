@@ -21,21 +21,6 @@ variable "kms_key_arn" {
   default     = null
 }
 
-variable "backup_retention_days" {
-  type        = number
-  description = <<-EOT
-    Number of days to retain backups in S3. 
-    Set to 0 to disable lifecycle rules (manual cleanup).
-    Recommended: 30-90 days for regular backups.
-  EOT
-  default     = 30
-
-  validation {
-    condition     = var.backup_retention_days >= 0
-    error_message = "Backup retention days must be 0 or greater."
-  }
-}
-
 variable "iam_role_path" {
   type        = string
   description = "Path for the IAM role."

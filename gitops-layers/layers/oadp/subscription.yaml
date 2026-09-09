@@ -1,18 +1,4 @@
-# OpenShift API for Data Protection (OADP) Operator Subscription
-#
-# This operator provides backup and restore capabilities using Velero.
-# 
-# Layer: OADP (Layer 1)
-# Dependencies:
-#   - Terraform: S3 bucket (modules/oadp-resources)
-#   - Terraform: IAM role with OIDC trust (modules/oadp-resources)
-#
-# Configuration values are injected by Terraform via templatefile() in
-# modules/gitops-layers/operator/layer-oadp.tf
-#
-# Channel: Using 'stable' for automatic version selection based on
-# OpenShift version compatibility (avoids version-specific channel issues)
----
+# Reference only. Verify OpenShift/OADP support and replace the role ARN.
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -23,4 +9,8 @@ spec:
   name: redhat-oadp-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace
-  installPlanApproval: Automatic
+  installPlanApproval: Manual
+  config:
+    env:
+      - name: ROLEARN
+        value: REPLACE_WITH_APPROVED_OADP_ROLE_ARN

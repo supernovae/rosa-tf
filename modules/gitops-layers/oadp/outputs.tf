@@ -5,6 +5,7 @@
 output "bucket_name" {
   description = "Name of the S3 bucket for OADP backups."
   value       = local.bucket_name
+  depends_on  = [aws_cloudformation_stack.oadp_bucket]
 }
 
 output "bucket_arn" {
@@ -20,6 +21,7 @@ output "bucket_region" {
 output "role_arn" {
   description = "ARN of the IAM role for OADP."
   value       = aws_iam_role.oadp.arn
+  depends_on  = [time_sleep.role_propagation]
 }
 
 output "role_name" {
@@ -41,5 +43,5 @@ output "gitops_config" {
 output "ready" {
   description = "Indicates that OADP resources are ready."
   value       = true
-  depends_on  = [time_sleep.role_propagation]
+  depends_on  = [time_sleep.role_propagation, aws_cloudformation_stack.oadp_bucket]
 }

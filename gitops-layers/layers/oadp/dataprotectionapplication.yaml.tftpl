@@ -1,47 +1,34 @@
-# DataProtectionApplication CR for OADP
-#
-# This configures Velero for ROSA with:
-# - AWS S3 backup storage
-# - IAM role via STS/IRSA
-# - Kopia for filesystem backups
-# - OpenShift and AWS plugins
-#
-# Template variables (injected by Terraform):
-# - bucket_name: S3 bucket created by Terraform
-# - region: AWS region
-# - role_arn: IAM role ARN for OADP
----
-apiVersion: oadp.openshift.io/v1alpha1
-kind: DataProtectionApplication
-metadata:
-  name: rosa-dpa
-  namespace: openshift-adp
-  labels:
-    app.kubernetes.io/part-of: rosa-gitops-layers
-    app.kubernetes.io/component: oadp
-spec:
-  backupLocations:
-    - velero:
-        config:
-          enableSharedConfig: 'true'
-          profile: default
-          region: ${region}
-        credential:
-          key: cloud
-          name: cloud-credentials
-        default: true
-        objectStorage:
-          bucket: ${bucket_name}
-          prefix: velero
-        provider: aws
-  configuration:
-    nodeAgent:
-      enable: true
-      uploaderType: kopia
-    velero:
-      defaultPlugins:
-        - openshift
-        - aws
-        - csi
-      defaultSnapshotMoveData: true
-      resourceTimeout: 10m
+${yamlencode({
+  apiVersion = "oadp.openshift.io/v1alpha1"
+  kind = "DataProtectionApplication"
+  metadata = {
+    name = "rosa-dpa", namespace = "openshift-adp"
+    labels = { "app.kubernetes.io/part-of" = "rosa-gitops-layers", "app.kubernetes.io/component" = "oadp" }
+  }
+  spec = {
+    # Registry mirroring/backup is a separate workflow; VM disks are CSI volumes.
+    backupImages = false
+    backupLocations = [{
+      velero = {
+        provider = "aws"
+        default = true
+        config = { enableSharedConfig = "true", profile = "default", region = region }
+        credential = { key = "credentials", name = "cloud-credentials" }
+        objectStorage = { bucket = bucket_name, prefix = "velero" }
+      }
+    }]
+    configuration = {
+      nodeAgent = {
+        enable = true
+        uploaderType = "kopia"
+        podConfig = { tolerations = node_agent_tolerations }
+      }
+      velero = {
+        defaultPlugins = concat(["openshift", "aws", "csi"], virtualization_enabled ? ["kubevirt"] : [])
+        defaultSnapshotMoveData = true
+        disableFsBackup = !config.filesystem_backup_enabled
+        resourceTimeout = "10m"
+      }
+    }
+  }
+})}

@@ -1,0 +1,14 @@
+# One-off acceptance backup. OADP and supported VM/CSI prerequisites must be ready.
+# Change the name for each new backup; updating a completed Backup does not rerun it.
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: vm-acceptance
+  namespace: openshift-adp
+spec:
+  includedNamespaces: [vm-workloads]
+  storageLocation: rosa-dpa-1
+  snapshotVolumes: true
+  snapshotMoveData: true
+  defaultVolumesToFsBackup: false
+  ttl: 168h

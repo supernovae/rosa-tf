@@ -1,0 +1,16 @@
+# Use an isolated recovery environment/project, not a live production namespace.
+# The plugin restores guests Halted; verify runStrategy before any start.
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: vm-acceptance-restore
+  namespace: openshift-adp
+  labels:
+    velero.kubevirt.io/restore-run-strategy: Halted
+spec:
+  backupName: vm-acceptance
+  includedNamespaces: [vm-workloads]
+  namespaceMapping:
+    vm-workloads: vm-restore-validation
+  restorePVs: true
+  existingResourcePolicy: none

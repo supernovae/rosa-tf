@@ -30,10 +30,9 @@ module "oadp" {
   source = "../oadp"
   count  = var.enable_layer_oadp ? 1 : 0
 
-  cluster_name          = var.cluster_name
-  oidc_endpoint_url     = var.oidc_endpoint_url
-  kms_key_arn           = var.kms_key_arn
-  backup_retention_days = var.oadp_backup_retention_days
+  cluster_name      = var.cluster_name
+  oidc_endpoint_url = var.oidc_endpoint_url
+  kms_key_arn       = var.kms_key_arn
 
   tags = var.tags
 }

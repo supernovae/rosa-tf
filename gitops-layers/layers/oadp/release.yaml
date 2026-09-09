@@ -1,0 +1,12 @@
+# Verified documentation baseline; catalog heads can advance within the stream.
+reviewed: "2026-09-09"
+channel: stable
+streams:
+  "1.5":
+    latest_documented: "1.5.7"
+    openshift_minors: [19, 20, 21]
+    schema_commit: bdb91bda180ed6f7aeebd78c4a2624cca4605b1e
+  "1.6":
+    latest_documented: "1.6.1"
+    openshift_minors: [22]
+    schema_commit: c0da0daccd802c6c9ec7716723aeb613aef53fa6
