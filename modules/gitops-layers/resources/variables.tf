@@ -105,8 +105,12 @@ variable "enable_layer_certmanager" {
 
 variable "oadp_backup_retention_days" {
   type        = number
-  description = "Days to retain OADP backups."
+  description = "Velero backup TTL in days; never S3 object-age expiration. Scheduling also requires oadp_config.schedule_enabled and explicit namespaces. Zero disables the schedule."
   default     = 30
+  validation {
+    condition     = var.oadp_backup_retention_days >= 0 && floor(var.oadp_backup_retention_days) == var.oadp_backup_retention_days
+    error_message = "Backup TTL must be a nonnegative whole number of days."
+  }
 }
 
 #------------------------------------------------------------------------------

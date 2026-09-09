@@ -215,7 +215,9 @@ supported workflow, test restore, and define an accountable cleanup owner.
 
 Daily FSx backup retention defaults to seven days with explicit UTC windows.
 Confirm each Trident-created volume actually has successful backups and restore
-one into isolation. Use OADP or a separately reviewed Trident Protect deployment
+one into isolation. The optional [OADP integration](OADP.md) adds a separate
+Velero-labeled transient snapshot class and CSI data movement to S3; ordinary
+retained snapshots remain separate. Use OADP or a reviewed Trident Protect deployment
 for application metadata/data-movement requirements; do not assume a local snapshot
 or the legacy Velero class label provides off-system recovery. Replication/cross-region
 backup requires approved destinations, KMS policies, regional support and tested RPO/RTO.

@@ -1,113 +1,19 @@
-# OADP Resources Module
+# OADP AWS resources
 
-This module creates the AWS resources required for OpenShift API for Data Protection (OADP).
+This module supplies a retained, encrypted, versioned S3 bucket and STS role to
+the operator layer. See [the OADP guide](../../../docs/OADP.md) for support,
+migration, recovery and retention responsibilities.
 
-## Overview
+Required inputs: `cluster_name`, `oidc_endpoint_url`. Optional: `kms_key_arn`
+(null), `iam_role_path` (`/`) and `tags` (`{}`). There is no retention-days input
+here; the parent/operator layer applies Velero TTL.
 
-OADP provides backup and restore capabilities for OpenShift clusters using Velero. This module creates:
+Outputs: `bucket_name`, `bucket_arn`, `bucket_region`, `role_arn`, `role_name`,
+`gitops_config`, `ready`. Existing bucket/random suffix and CloudFormation logical
+identity are preserved. Terraform prevents stack destruction; CloudFormation
+retains the bucket. Decommissioning requires a recovery-preservation plan.
 
-- **S3 Bucket**: Versioned, encrypted storage for backup data
-- **IAM Role**: With OIDC trust for the OADP service accounts
-- **IAM Policy**: S3 and EC2 permissions for Velero operations
-
-## Usage
-
-```hcl
-module "oadp_resources" {
-  source = "./modules/oadp-resources"
-
-  cluster_name      = "my-cluster"
-  oidc_endpoint_url = module.iam_roles.oidc_endpoint_url
-  kms_key_arn       = module.kms.infrastructure_kms_key_arn
-
-  backup_retention_days = 30
-  
-  tags = {
-    Environment = "production"
-  }
-}
-```
-
-## Integration with Operator Module
-
-This module outputs configuration values that are passed to the operator module:
-
-```hcl
-# Pass to gitops operator module
-module "gitops" {
-  source = "./modules/gitops-layers/operator"
-  
-  enable_layer_oadp = true
-  oadp_bucket_name  = module.oadp_resources.bucket_name
-  oadp_role_arn     = module.oadp_resources.role_arn
-}
-```
-
-## S3 Bucket Naming
-
-S3 bucket names must be:
-- **Globally unique** across all AWS accounts worldwide
-- **DNS compliant**: 3-63 characters, lowercase letters, numbers, and hyphens only
-
-### Default Naming Pattern
-
-```
-{cluster_name}-{random_8hex}-oadp-backups
-```
-
-The module automatically:
-- Generates a random 8-character hex suffix for global uniqueness
-- Truncates cluster name to fit within the 63-character S3 limit
-- Converts to lowercase and replaces underscores with hyphens
-
-**Example**: For cluster `prod-hcp`:
-```
-prod-hcp-a3f7b2c1-oadp-backups
-```
-
-### S3 Bucket Lifecycle
-
-The S3 bucket is created via CloudFormation with `DeletionPolicy: Retain`. On
-`terraform destroy`, the bucket is **retained** (not deleted) to protect backup data.
-During destroy, Terraform prints cleanup commands for the retained bucket.
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| cluster_name | Name of the ROSA cluster | string | - | yes |
-| oidc_endpoint_url | OIDC provider endpoint URL | string | - | yes |
-| kms_key_arn | KMS key ARN for encryption | string | null | no |
-| iam_role_path | Path for IAM role | string | "/" | no |
-| backup_retention_days | Days to retain backups | number | 30 | no |
-| tags | Tags for resources | map(string) | {} | no |
-
-> **Note:** S3 buckets are NOT deleted on `terraform destroy` to prevent accidental data loss.
-> After destroying the cluster, manually clean up: `aws s3 rb s3://BUCKET_NAME --force`
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| bucket_name | S3 bucket name |
-| bucket_arn | S3 bucket ARN |
-| bucket_region | AWS region of the bucket |
-| role_arn | IAM role ARN |
-| role_name | IAM role name |
-| gitops_config | Values for operator module layer config |
-| ready | Dependency marker (true when all resources created) |
-
-## Security Considerations
-
-1. **Bucket Versioning**: Enabled to protect against accidental deletion
-2. **Encryption**: Uses KMS if provided, otherwise AES256
-3. **Public Access**: Blocked at all levels
-4. **IAM Trust**: Scoped to specific OADP service accounts
-
-## Backup Retention
-
-The `backup_retention_days` variable controls S3 lifecycle rules:
-
-- Set to `0` to disable automatic deletion (manual cleanup required)
-- Recommended: 30-90 days for regular backups
-- Consider compliance requirements when setting retention
+Public access and non-TLS requests are blocked. IAM restricts OIDC subject and
+audience, object access to `velero/`, and optional KMS use to regional S3.
+There are no native EC2 snapshot rights. Only abandoned multipart uploads expire;
+backup chunks/noncurrent versions do not. Budget for retained-version costs.

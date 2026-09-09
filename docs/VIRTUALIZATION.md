@@ -163,7 +163,9 @@ retention and team workflows; it is not required for HCO's built-in metrics.
 Retained CSI snapshots and FSx automatic backups are useful but are **not** a
 complete VM disaster-recovery plan. Protect VM/DataVolume definitions, Secrets
 and disks together using a supported OADP/CSI data-mover or Trident Protect
-design. This change does not install/configure either backup product.
+design. Enable the optional [OADP layer](OADP.md) for integrated KubeVirt plugins,
+NetApp CSI data movement and halted-VM restore examples. Virtualization alone
+does not install backup protection. Check the OADP support gate before enabling it.
 Use guest-agent quiescing/application hooks for application consistency.
 Keep encrypted recovery copies in approved AWS accounts/regions, test KMS/S3
 permissions and Object Lock/retention where appropriate, and measure restored

@@ -236,7 +236,7 @@ This framework includes optional GitOps integration for Day 2 operations via Ope
 
 **Included Layers:**
 - Web Terminal - Browser-based cluster access
-- OADP (Velero) - Backup/restore with Terraform-provisioned S3
+- [OADP](docs/OADP.md) - Supported-release application/VM backups, CSI data movement to S3 and tested-recovery guidance
 - OpenShift Virtualization - KubeVirt for VM workloads
 - Cert-Manager - Automated TLS with Let's Encrypt DNS01 + custom IngressController
 - Monitoring (Loki + Grafana) - Centralized log aggregation

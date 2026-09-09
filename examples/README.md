@@ -7,13 +7,21 @@ Scenario configurations and overlays for the environment roots. Use Terraform pi
 | zeroegress, observability, certmanager, byovpc | Complete cluster scenarios | commercial-hcp |
 | ocpvirtualization | Virtualization overlay; requires an approved cluster base | Classic; confirm platform/region/storage support |
 | byovpc-classic-prod | Complete cluster scenario | commercial-classic |
-| openshiftai, netappstorage, gitops-workloads | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
+| openshiftai, netappstorage, gitops-workloads, oadp | GitOps overlays; require a cluster tfvars base | All four cluster roots, subject to platform prerequisites |
 | autonode | Compute overlay; requires a cluster tfvars base | commercial-hcp |
 | cluster-only | Phase 1 safety overlay, passed last | All four cluster roots |
 
 File names above have the `.tfvars` extension. Replace example names, domains, IDs and CIDRs before use. Do not commit credentials or customized private tfvars.
 
 ## Available Examples
+
+### Application and VM backups
+
+[oadp.tfvars](oadp.tfvars) is a scoped, paused backup overlay requiring support
+confirmation and OpenShift 4.19–4.22. It does not install Virtualization itself.
+Follow the [OADP guide](../docs/OADP.md) and [VM restore acceptance](oadp/README.md)
+before unpausing production backups. Existing 4.18 scenarios require an upgrade
+and support review first.
 
 ### NetApp container and VM storage
 

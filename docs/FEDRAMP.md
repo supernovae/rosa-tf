@@ -14,10 +14,23 @@ encryption are safeguards, not standalone evidence of FIPS validation or FedRAMP
 compliance. Include guest images, FSx, backup accounts/regions and KMS permissions
 in the system security plan and test recovery before production.
 
+## Application and VM recovery
+
+The [OADP guide](OADP.md) covers explicit workload scope, paused schedules,
+short-lived STS credentials, private AWS connectivity and isolated VM restore
+acceptance. Protect repository passwords and KMS recovery permissions outside
+the source cluster. Record backup RPO/RTO evidence, recovery-copy account/region
+boundaries and operator approvals in the system security plan. Encryption,
+versioning and this configuration do not by themselves establish compliance.
+Object Lock and cross-account replication require a separate reviewed design;
+do not expire shared Kopia chunks by object age. OpenShift 4.18 is blocked by
+the current OADP support gate; do not bypass it for GovCloud deployments.
+
 ## Table of Contents
 
 - [Overview](#overview)
 - [Virtual machine workloads](#virtual-machine-workloads)
+- [Application and VM recovery](#application-and-vm-recovery)
 - [GovCloud HCP zero-egress default](#govcloud-hcp-zero-egress-default)
 - [Fork and Control the Repository](#fork-and-control-the-repository)
 - [Disable Terraform Telemetry](#disable-terraform-telemetry)

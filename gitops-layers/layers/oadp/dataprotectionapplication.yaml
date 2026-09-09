@@ -1,59 +1,39 @@
-# DataProtectionApplication CR for OADP
-#
-# This configures Velero for ROSA GovCloud with:
-# - AWS S3 backup storage (bucket from Terraform)
-# - IAM role via STS/IRSA (role from Terraform)
-# - Restic for filesystem backups
-# - OpenShift and AWS plugins
-#
-# NOTE: This is a reference/example file. Terraform uses the .yaml.tftpl
-# template in this directory, which injects environment-specific values
-# (bucket name, role ARN, region) via templatefile().
----
+# VM profile reference: requires supported OpenShift Virtualization and OADP.
+# Replace bucket/region and use the Subscription ROLEARN flow; do not co-manage
+# cloud-credentials. For container-only use omit kubevirt.
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
 metadata:
-  name: dpa
+  name: rosa-dpa
   namespace: openshift-adp
 spec:
-  configuration:
-    velero:
-      defaultPlugins:
-        - openshift
-        - aws
-      resourceTimeout: 10m
-    restic:
-      enable: true
-      podConfig:
-        resourceAllocations:
-          limits:
-            cpu: "1"
-            memory: 1Gi
-          requests:
-            cpu: 500m
-            memory: 256Mi
+  backupImages: false
   backupLocations:
     - velero:
         provider: aws
         default: true
         objectStorage:
-          # Value injected by Terraform via templatefile()
-          bucket: "OADP_BUCKET_NAME_PLACEHOLDER"
-          prefix: backups
+          bucket: REPLACE_WITH_BACKUP_BUCKET
+          prefix: velero
         config:
-          # Value injected by Terraform via templatefile()
-          region: "us-gov-west-1"
+          region: us-east-1
+          enableSharedConfig: "true"
           profile: default
         credential:
-          key: cloud
+          key: credentials
           name: cloud-credentials
-  snapshotLocations:
-    - velero:
-        provider: aws
-        config:
-          # Value injected by Terraform via templatefile()
-          region: "us-gov-west-1"
-          profile: default
-  # Uncomment if using STS role assumption (recommended for ROSA)
-  # Note: This requires OADP 1.3+ for STS support
-  # backupImages: true
+  configuration:
+    velero:
+      defaultPlugins: [openshift, aws, csi, kubevirt]
+      defaultSnapshotMoveData: true
+      disableFsBackup: true
+      resourceTimeout: 10m
+    nodeAgent:
+      enable: true
+      uploaderType: kopia
+      podConfig:
+        tolerations:
+          - key: virtualization
+            operator: Equal
+            value: "true"
+            effect: NoSchedule

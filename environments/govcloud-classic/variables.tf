@@ -719,8 +719,12 @@ variable "enable_layer_oadp" {
 
 variable "oadp_backup_retention_days" {
   type        = number
-  description = "Number of days to retain OADP backups in S3."
+  description = "Velero backup TTL in days; never S3 object-age expiration. Scheduling also requires oadp_config.schedule_enabled and explicit namespaces. Zero disables the schedule."
   default     = 30
+  validation {
+    condition     = var.oadp_backup_retention_days >= 0 && floor(var.oadp_backup_retention_days) == var.oadp_backup_retention_days
+    error_message = "Backup TTL must be a nonnegative whole number of days."
+  }
 }
 
 variable "enable_layer_virtualization" {

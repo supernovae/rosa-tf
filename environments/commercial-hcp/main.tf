@@ -943,6 +943,7 @@ module "gitops" {
   # Layer resources from consolidated module
   oadp_bucket_name           = length(module.gitops_resources) > 0 ? module.gitops_resources[0].oadp_bucket_name : ""
   oadp_role_arn              = length(module.gitops_resources) > 0 ? module.gitops_resources[0].oadp_role_arn : ""
+  oadp_config                = var.oadp_config
   oadp_backup_retention_days = var.oadp_backup_retention_days
 
   virt_node_selector = var.virt_node_selector
