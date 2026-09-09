@@ -40,11 +40,6 @@ variable "terraform_sa_namespace" {
   default     = "rosa-terraform"
 }
 
-variable "skip_k8s_destroy" {
-  type        = bool
-  description = "Legacy count switch: true plans resource deletion, not state removal, and does not bypass refresh. Keep the API reachable; see docs/GITOPS.md."
-  default     = false
-}
 
 variable "cluster_name" {
   type        = string
@@ -126,7 +121,7 @@ variable "enable_layer_terminal" {
     Installs the OpenShift Web Terminal operator for in-console terminal access.
     This layer has no Terraform dependencies.
   EOT
-  default     = true
+  default     = false
 }
 
 variable "enable_layer_oadp" {

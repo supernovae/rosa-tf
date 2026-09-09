@@ -18,7 +18,7 @@
 # Supply short-lived runner credentials; verified-TLS OAuth is a bootstrap fallback.
 # Legacy permanent SA token creation requires explicit opt-in.
 # Retained namespaces/default project are not deleted with module removal.
-# skip_k8s_destroy is a count switch, NOT a state-forgetting mechanism.
+# No destroy-bypass switch: retain API access during reviewed teardown.
 # See docs/GITOPS.md for migration, lifecycle and ownership requirements.
 #------------------------------------------------------------------------------
 

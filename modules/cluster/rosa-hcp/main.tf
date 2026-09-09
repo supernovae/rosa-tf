@@ -19,40 +19,12 @@
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
-# Version Drift Check
-# HCP machine pools must be within n-2 minor versions of control plane
-#------------------------------------------------------------------------------
-
-locals {
-  # Parse control plane version for validation
-  version_parts       = split(".", var.openshift_version)
-  control_plane_major = local.version_parts[0]
-  control_plane_minor = tonumber(local.version_parts[1])
-
-  # Minimum allowed machine pool version (n-2)
-  min_machine_pool_minor = local.control_plane_minor - 2
-}
-
-# Version drift validation (warning or error based on configuration)
-check "version_drift_check" {
-  assert {
-    condition     = var.skip_version_drift_check || true
-    error_message = <<-EOT
-      ROSA HCP requires machine pool versions to be within n-2 of control plane.
-      Control plane: ${var.openshift_version}
-      Minimum machine pool version: ${local.control_plane_major}.${local.min_machine_pool_minor}.x
-      
-      When upgrading, update control plane first, then machine pools.
-      Set skip_version_drift_check = true to suppress this check.
-    EOT
-  }
-}
-
-#------------------------------------------------------------------------------
 # ROSA HCP Cluster
 #------------------------------------------------------------------------------
 
 resource "rhcs_cluster_rosa_hcp" "this" {
+  ec2_metadata_http_tokens = "required"
+  delete_protection        = var.cluster_delete_protection
   # Native RHCS bootstrap creates the htpasswd user and grants admin access.
   admin_credentials = var.create_admin_user ? {
     username = var.admin_username
@@ -222,27 +194,3 @@ resource "random_password" "cluster_admin" {
 # rejects enabling this resource until the provider/API supports it.
 # Machine-pool autoscaling (min/max replicas) works without this resource.
 #------------------------------------------------------------------------------
-
-resource "rhcs_hcp_cluster_autoscaler" "this" {
-  count = var.cluster_autoscaler_enabled ? 1 : 0
-
-  cluster = rhcs_cluster_rosa_hcp.this.id
-
-  # Maximum nodes across all autoscaling machine pools
-  # Note: Nodes in non-autoscaling pools are NOT counted toward this limit
-  resource_limits = {
-    max_nodes_total = var.autoscaler_max_nodes_total
-  }
-
-  # Node provisioning timeout
-  max_node_provision_time = var.autoscaler_max_node_provision_time
-
-  # Pod grace period for scale down (seconds)
-  max_pod_grace_period = var.autoscaler_max_pod_grace_period
-
-  # Pod priority threshold
-  # Pods below this priority won't trigger scale up or prevent scale down
-  pod_priority_threshold = var.autoscaler_pod_priority_threshold
-
-  depends_on = [rhcs_cluster_rosa_hcp.this]
-}

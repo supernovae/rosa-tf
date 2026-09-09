@@ -188,7 +188,7 @@ and [NetApp VM protection](https://docs.netapp.com/us-en/netapp-solutions-virtua
 - Read the NetApp migration guide before switching legacy classes. Existing
   disks are not moved automatically; use an approved disk/VM migration workflow.
 - Namespace destruction is blocked; HCO and profiles are retained on removal.
-  `skip_k8s_destroy` is not a state-forgetting operation. Uninstall requires a
+  There is no Kubernetes destroy-bypass switch. Uninstall requires a
   separately reviewed workflow after workload backup and evacuation.
 
 Offline checks: `terraform -chdir=tests/virtualization test` and

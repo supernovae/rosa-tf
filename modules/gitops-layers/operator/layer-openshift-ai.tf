@@ -22,7 +22,7 @@
 
 locals {
   # Gate expressions
-  ai_enabled    = !var.skip_k8s_destroy && var.enable_layer_openshift_ai
+  ai_enabled    = var.enable_layer_openshift_ai
   nfd_enabled   = local.ai_enabled && var.openshift_ai_install_nfd
   gpu_enabled   = local.ai_enabled && var.openshift_ai_install_gpu_operator
   kueue_enabled = local.ai_enabled && var.openshift_ai_install_kueue
@@ -132,7 +132,7 @@ resource "kubectl_manifest" "nfd_operatorgroup" {
   yaml_body = file("${local.layers_path}/openshift-ai/nfd-operatorgroup.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubernetes_namespace_v1.openshift_nfd]
 }
@@ -143,7 +143,7 @@ resource "kubectl_manifest" "nfd_subscription" {
   yaml_body = local.nfd_subscription
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.nfd_operatorgroup]
 }
@@ -162,7 +162,7 @@ resource "kubectl_manifest" "nfd_nodefeaturediscovery" {
   yaml_body = file("${local.layers_path}/openshift-ai/nfd-nodefeaturediscovery.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_nfd_operator]
 }
@@ -177,7 +177,7 @@ resource "kubectl_manifest" "gpu_namespace" {
   yaml_body = file("${local.layers_path}/openshift-ai/gpu-namespace.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.nfd_nodefeaturediscovery]
 }
@@ -188,7 +188,7 @@ resource "kubectl_manifest" "gpu_operatorgroup" {
   yaml_body = file("${local.layers_path}/openshift-ai/gpu-operatorgroup.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.gpu_namespace]
 }
@@ -199,7 +199,7 @@ resource "kubectl_manifest" "gpu_subscription" {
   yaml_body = local.gpu_subscription
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.gpu_operatorgroup]
 }
@@ -218,7 +218,7 @@ resource "kubectl_manifest" "gpu_clusterpolicy" {
   yaml_body = local.gpu_clusterpolicy
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_gpu_operator]
 }
@@ -236,7 +236,7 @@ resource "kubectl_manifest" "kueue_namespace" {
   yaml_body = file("${local.layers_path}/openshift-ai/kueue-namespace.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [
     kubectl_manifest.gpu_clusterpolicy,
@@ -252,7 +252,7 @@ resource "kubectl_manifest" "kueue_operatorgroup" {
   yaml_body = file("${local.layers_path}/openshift-ai/kueue-operatorgroup.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.kueue_namespace]
 }
@@ -263,7 +263,7 @@ resource "kubectl_manifest" "kueue_subscription" {
   yaml_body = local.kueue_subscription
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.kueue_operatorgroup]
 }
@@ -282,7 +282,7 @@ resource "kubectl_manifest" "kueue_cr" {
   yaml_body = file("${local.layers_path}/openshift-ai/kueue-cr.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_kueue_operator]
 }
@@ -300,7 +300,7 @@ resource "kubectl_manifest" "rhoai_namespace" {
   yaml_body = file("${local.layers_path}/openshift-ai/rhoai-namespace.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [
     kubectl_manifest.gpu_clusterpolicy,
@@ -317,7 +317,7 @@ resource "kubectl_manifest" "rhoai_operatorgroup" {
   yaml_body = file("${local.layers_path}/openshift-ai/rhoai-operatorgroup.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.rhoai_namespace]
 }
@@ -328,7 +328,7 @@ resource "kubectl_manifest" "rhoai_subscription" {
   yaml_body = local.rhoai_subscription
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.rhoai_operatorgroup]
 }
@@ -347,7 +347,7 @@ resource "kubectl_manifest" "rhoai_dscinitialize" {
   yaml_body = file("${local.layers_path}/openshift-ai/rhoai-dscinitialize.yaml")
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_rhoai_operator]
 }
@@ -366,7 +366,7 @@ resource "kubectl_manifest" "rhoai_datasciencecluster" {
   yaml_body = local.rhoai_datasciencecluster
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_dsci_ready]
 }
@@ -402,7 +402,7 @@ resource "kubectl_manifest" "rhoai_irsa_sa_annotation" {
   })
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [kubectl_manifest.rhoai_datasciencecluster]
 }

@@ -18,7 +18,7 @@ output "cluster_name" {
 
 output "cluster_state" {
   description = "Current cluster state."
-  value       = module.rosa_cluster.cluster_state
+  value       = module.rosa_cluster.state
 }
 
 output "cluster_api_url" {
@@ -33,7 +33,7 @@ output "cluster_console_url" {
 
 output "cluster_version" {
   description = "Current OpenShift version running on the cluster."
-  value       = module.rosa_cluster.openshift_version
+  value       = module.rosa_cluster.current_version
 }
 
 #------------------------------------------------------------------------------
@@ -196,10 +196,10 @@ output "machine_pools_summary" {
 
 locals {
   # Calculate actual machine pool version being used
-  actual_machine_pool_version = coalesce(var.machine_pool_version, var.openshift_version)
+  actual_machine_pool_version = coalesce(var.machine_pool_version, module.rosa_cluster.current_version)
 
   # Parse versions for comparison
-  cp_parts = split(".", var.openshift_version)
+  cp_parts = split(".", module.rosa_cluster.current_version)
   mp_parts = split(".", local.actual_machine_pool_version)
 
   # Calculate version drift (minor version difference)
@@ -214,13 +214,13 @@ locals {
 output "version_info" {
   description = "Version and upgrade information."
   value = {
-    control_plane_version = var.openshift_version
+    control_plane_version = module.rosa_cluster.current_version
     machine_pool_version  = local.actual_machine_pool_version
     channel_group         = var.channel_group
     version_drift         = local.version_drift
     drift_status          = local.drift_status
     drift_warning         = local.version_drift > 0 ? "Machine pools are ${local.version_drift} minor version(s) behind control plane. Upgrade machine pools when ready." : null
-    upgrade_note          = "HCP upgrade workflow: 1) Update openshift_version, 2) Update machine_pool_version. Machine pools must stay within n-2 of control plane."
+    upgrade_note          = "Upgrade the control plane through the supported ROSA procedure, refresh its observed version, then review machine_pool_version. Changing openshift_version alone does not upgrade the control plane."
   }
 }
 
@@ -290,11 +290,6 @@ output "cluster_auth_summary" {
   }
 }
 
-output "terraform_sa_token" {
-  description = "Legacy permanent cluster-admin token, empty unless explicitly enabled. Prefer short-lived runner credentials; never store tokens in tfvars. See docs/GITOPS.md."
-  value       = var.install_gitops && length(module.gitops) > 0 ? module.gitops[0].terraform_sa_token : null
-  sensitive   = true
-}
 
 output "gitops_installed" {
   description = "Whether GitOps was installed."

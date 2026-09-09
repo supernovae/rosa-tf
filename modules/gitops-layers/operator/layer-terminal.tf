@@ -9,7 +9,7 @@
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "terminal_subscription" {
-  count = !var.skip_k8s_destroy && var.enable_layer_terminal ? 1 : 0
+  count = var.enable_layer_terminal ? 1 : 0
 
   yaml_body = <<-YAML
     apiVersion: operators.coreos.com/v1alpha1
@@ -30,7 +30,7 @@ resource "kubectl_manifest" "terminal_subscription" {
   YAML
 
   server_side_apply = true
-  force_conflicts   = true
+  force_conflicts   = false
 
   depends_on = [time_sleep.wait_for_argocd_ready]
 }

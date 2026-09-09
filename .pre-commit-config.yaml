@@ -34,10 +34,6 @@ repos:
         name: tflint - Terraform linter
         args:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
-      - id: terraform_tfsec
-        name: tfsec - Terraform security scanner
-        args:
-          - --args=--minimum-severity=HIGH
 
   #----------------------------------------------------------------------------
   # Secrets Detection
@@ -48,7 +44,6 @@ repos:
       - id: detect-secrets
         name: detect-secrets - Prevent secrets in commits
         args: ["--baseline", ".secrets.baseline"]
-        exclude: ".*\\.tfvars$"  # tfvars may have example tokens
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.1

@@ -74,8 +74,3 @@ variable "gitops_application" {
     error_message = "prune/self_heal require automated=true; all are off by default."
   }
 }
-variable "gitops_create_legacy_token" {
-  type        = bool
-  default     = false
-  description = "Explicit compatibility opt-in for a long-lived cluster-admin SA Secret. Prefer short-lived runner credentials; migrate authentication before turning this off on an existing installation."
-}

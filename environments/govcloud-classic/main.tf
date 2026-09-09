@@ -463,20 +463,6 @@ resource "null_resource" "infrastructure_ready" {
 # 4. VPC, KMS, IAM destroyed last
 #------------------------------------------------------------------------------
 
-resource "null_resource" "wait_for_cluster_destroy" {
-  triggers = {
-    cluster_name = var.cluster_name
-    vpc_id       = local.effective_vpc_id
-    script_path  = "${path.module}/../../scripts/vpc-cleanup.sh"
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "bash \"${self.triggers.script_path}\" \"${self.triggers.vpc_id}\" \"${self.triggers.cluster_name}\""
-  }
-
-  depends_on = [module.vpc]
-}
 
 #------------------------------------------------------------------------------
 # Additional Security Groups (Optional)
@@ -524,13 +510,13 @@ module "additional_security_groups" {
 #------------------------------------------------------------------------------
 
 module "rosa_cluster" {
-  source = "../../modules/cluster/rosa-classic"
+  cluster_delete_protection = var.cluster_delete_protection
+  source                    = "../../modules/cluster/rosa-classic"
 
   # Cluster is created LAST - depends on all infrastructure
   # Also depends on wait_for_cluster_destroy for proper destroy ordering
   depends_on = [
     null_resource.infrastructure_ready,
-    null_resource.wait_for_cluster_destroy,
     module.additional_security_groups,
   ]
 
@@ -814,18 +800,16 @@ module "gitops" {
   cluster_token          = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
   terraform_sa_name      = var.terraform_sa_name
   terraform_sa_namespace = var.terraform_sa_namespace
-  skip_k8s_destroy       = var.skip_k8s_destroy
   cluster_type           = local.cluster_type
   aws_region             = var.aws_region
   aws_account_id         = data.aws_caller_identity.current.account_id
 
-  gitops_repo_url            = var.gitops_repo_url == null ? "" : var.gitops_repo_url
-  gitops_operator_config     = var.gitops_operator_config
-  gitops_instance_config     = var.gitops_instance_config
-  gitops_application         = var.gitops_application
-  gitops_create_legacy_token = var.gitops_create_legacy_token
-  gitops_repo_path           = coalesce(var.gitops_repo_path, ".")
-  gitops_repo_revision       = coalesce(var.gitops_repo_revision, "main")
+  gitops_repo_url        = var.gitops_repo_url == null ? "" : var.gitops_repo_url
+  gitops_operator_config = var.gitops_operator_config
+  gitops_instance_config = var.gitops_instance_config
+  gitops_application     = var.gitops_application
+  gitops_repo_path       = coalesce(var.gitops_repo_path, ".")
+  gitops_repo_revision   = coalesce(var.gitops_repo_revision, "main")
 
   enable_layer_terminal       = var.enable_layer_terminal
   enable_layer_oadp           = var.enable_layer_oadp

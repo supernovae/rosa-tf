@@ -44,7 +44,6 @@ locals {
 # VPC
 #------------------------------------------------------------------------------
 
-#tfsec:ignore:aws-ec2-require-vpc-flow-logs-for-all-vpcs -- Flow logs are optional (enable_flow_logs variable)
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -59,6 +58,24 @@ resource "aws_vpc" "this" {
       Name = "${var.cluster_name}-vpc"
     }
   )
+}
+
+#------------------------------------------------------------------------------
+# Default security group
+#
+# Adopt only the default group of this Terraform-created VPC and remove AWS's
+# default self-ingress and unrestricted egress rules. Workloads must use their
+# dedicated security groups. Never attach resources to this deny-all group.
+#------------------------------------------------------------------------------
+
+resource "aws_default_security_group" "this" {
+  vpc_id  = aws_vpc.this.id
+  ingress = []
+  egress  = []
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-default-deny-all"
+  })
 }
 
 #------------------------------------------------------------------------------

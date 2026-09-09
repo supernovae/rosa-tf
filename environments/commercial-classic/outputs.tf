@@ -236,11 +236,6 @@ output "cluster_auth_summary" {
 # GitOps Outputs
 #------------------------------------------------------------------------------
 
-output "terraform_sa_token" {
-  description = "Legacy permanent cluster-admin token, empty unless explicitly enabled. Prefer short-lived runner credentials; never store tokens in tfvars. See docs/GITOPS.md."
-  value       = var.install_gitops && length(module.gitops) > 0 ? module.gitops[0].terraform_sa_token : null
-  sensitive   = true
-}
 
 output "gitops_installed" {
   description = "Whether GitOps was successfully installed."

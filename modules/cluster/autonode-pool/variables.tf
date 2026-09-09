@@ -90,9 +90,3 @@ variable "node_class_kind" {
   EOT
   default     = "EC2NodeClass"
 }
-
-variable "skip_k8s_destroy" {
-  type        = bool
-  description = "Set true before terraform destroy to skip K8s resource deletion."
-  default     = false
-}

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLUSTERS = [
     "commercial-classic", "commercial-hcp", "govcloud-classic", "govcloud-hcp"
 ]
-OVERLAYS = {"openshiftai", "netappstorage", "cluster-only", "gitops-workloads", "oadp", "efs-storage"}
+OVERLAYS = {"openshiftai", "netappstorage", "cluster-only", "gitops-workloads", "oadp", "efs-storage", "component-routes"}
 
 
 def read_hcl(path):
@@ -43,8 +43,10 @@ def main():
     tracked = subprocess.check_output(
         ["git", "ls-files", "*.tfvars"], cwd=ROOT, text=True
     ).splitlines()
+    deleted = set(subprocess.check_output(["git", "ls-files", "--deleted", "*.tfvars"], cwd=ROOT, text=True).splitlines())
+    tracked = [filename for filename in tracked if filename not in deleted]
     # Include the new safety overlay before its first commit.
-    tracked = sorted(set(tracked) | {"examples/cluster-only.tfvars", "examples/gitops-workloads.tfvars", "examples/oadp.tfvars", "examples/efs-storage.tfvars"})
+    tracked = sorted(set(tracked) | {"examples/cluster-only.tfvars", "examples/gitops-workloads.tfvars", "examples/oadp.tfvars", "examples/efs-storage.tfvars", "examples/component-routes.tfvars", "examples/hcp-spot.tfvars"})
     schemas = {}
     checks = 0
     for filename in tracked:
@@ -70,6 +72,10 @@ def main():
                 )
             checks += 1
         for pool in values.get("machine_pools", []):
+            if pool.get("autoscaling", {}).get("enabled", False):
+                scaling = pool["autoscaling"]
+                assert "replicas" not in pool, f"{filename}: omit replicas for autoscaling"
+                assert 0 <= scaling["min"] <= scaling["max"] and scaling["max"] > 0, filename
             if pool.get("autoscaling_enabled", False):
                 assert "replicas" not in pool, f"{filename}: omit replicas for autoscaling"
                 assert pool["min_replicas"] <= pool["max_replicas"], filename

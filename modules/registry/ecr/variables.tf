@@ -52,7 +52,7 @@ variable "image_tag_mutability" {
     - MUTABLE: Allow overwriting existing image tags
     - IMMUTABLE: Prevent overwriting existing image tags (recommended for production)
   EOT
-  default     = "MUTABLE"
+  default     = "IMMUTABLE"
 
   validation {
     condition     = contains(["MUTABLE", "IMMUTABLE"], var.image_tag_mutability)

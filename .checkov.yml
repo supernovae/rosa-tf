@@ -17,10 +17,7 @@ directory:
 # Skip checks that conflict with ROSA requirements
 # Each skip includes justification for compliance auditing
 skip-check:
-  # ROSA manages its own security groups
-  - CKV_AWS_23   # Ensure every security group rule has a description
-  - CKV_AWS_260  # Ensure no security groups allow ingress from 0.0.0.0/0
-  - CKV_AWS_277  # Ensure no security groups allow ingress from ::/0
+  # Public ingress and IAM administrative grants are checked, not globally exempted.
 
   # ROSA Classic requires unrestricted egress to Red Hat services
   # (quay.io, registry.redhat.io, sso.redhat.com, CDNs, etc.)
@@ -29,11 +26,6 @@ skip-check:
   # Reference: https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa_getting_started_iam/rosa-aws-prereqs.html
   - CKV_AWS_382  # Ensure no security groups allow egress to 0.0.0.0/0
   - CKV2_AWS_5   # Ensure that Security Groups are attached to resources
-
-  # ROSA requires specific IAM configurations
-  - CKV_AWS_61   # Ensure IAM policy does not allow assume role permission across all services
-  - CKV_AWS_62   # Ensure no IAM policies that allow full "*-*" administrative privileges
-  - CKV_AWS_63   # Ensure no IAM policies documents allow "*" as a statement's actions
 
   # VPC configuration requirements
   - CKV_AWS_130  # Ensure VPC subnets do not assign public IP by default
@@ -65,10 +57,7 @@ skip-check:
   # via tfvars: set kms_key_arn to enable KMS encryption.
   - CKV_AWS_136  # ECR KMS encryption (configurable via kms_key_arn variable)
 
-  # ECR tag mutability is configurable via image_tag_mutability variable.
-  # Module defaults to MUTABLE for dev flexibility; production environments
-  # should set image_tag_mutability = "IMMUTABLE" in tfvars.
-  - CKV_AWS_51   # ECR image tag immutability (configurable via variable)
+  # ECR tags default to IMMUTABLE; mutable tags require an explicit risk decision.
 
   # S3 cross-region replication is not required for single-region ROSA
   # deployments. Multi-region DR is handled at the cluster level via OADP.

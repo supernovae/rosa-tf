@@ -469,7 +469,8 @@ module "additional_security_groups" {
 #------------------------------------------------------------------------------
 
 module "rosa_cluster" {
-  source = "../../modules/cluster/rosa-hcp"
+  cluster_delete_protection = var.cluster_delete_protection
+  source                    = "../../modules/cluster/rosa-hcp"
 
   cluster_name   = var.cluster_name
   aws_region     = var.aws_region
@@ -525,15 +526,9 @@ module "rosa_cluster" {
   external_auth_providers_enabled = var.external_auth_providers_enabled
 
   # Version drift check
-  skip_version_drift_check = var.skip_version_drift_check
 
   # Cluster autoscaler (controls HOW autoscaling works)
   # Machine pools also need autoscaling enabled (controls IF autoscaling happens)
-  cluster_autoscaler_enabled         = var.cluster_autoscaler_enabled
-  autoscaler_max_nodes_total         = var.autoscaler_max_nodes_total
-  autoscaler_max_node_provision_time = var.autoscaler_max_node_provision_time
-  autoscaler_max_pod_grace_period    = var.autoscaler_max_pod_grace_period
-  autoscaler_pod_priority_threshold  = var.autoscaler_pod_priority_threshold
 
   tags = local.common_tags
 
@@ -543,7 +538,6 @@ module "rosa_cluster" {
     module.kms,
     module.additional_security_groups,
     module.ecr,
-    null_resource.wait_for_cluster_destroy,
   ]
 }
 
@@ -561,20 +555,6 @@ module "rosa_cluster" {
 # 4. VPC, KMS, IAM destroyed last
 #------------------------------------------------------------------------------
 
-resource "null_resource" "wait_for_cluster_destroy" {
-  triggers = {
-    cluster_name = var.cluster_name
-    vpc_id       = local.effective_vpc_id
-    script_path  = "${path.module}/../../scripts/vpc-cleanup.sh"
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "bash \"${self.triggers.script_path}\" \"${self.triggers.vpc_id}\" \"${self.triggers.cluster_name}\""
-  }
-
-  depends_on = [module.vpc]
-}
 
 #------------------------------------------------------------------------------
 # Machine Pools (HCP-specific)
@@ -585,7 +565,7 @@ module "machine_pools" {
   count  = length(var.machine_pools) > 0 ? 1 : 0
 
   cluster_id        = module.rosa_cluster.cluster_id
-  openshift_version = coalesce(var.machine_pool_version, var.openshift_version)
+  openshift_version = coalesce(var.machine_pool_version, module.rosa_cluster.current_version)
   subnet_id         = local.effective_private_subnet_ids[0]
   az_subnet_map     = zipmap(local.effective_availability_zones, local.effective_private_subnet_ids)
 
@@ -595,7 +575,7 @@ module "machine_pools" {
 
   tags = local.common_tags
 
-  depends_on = [module.rosa_cluster]
+  depends_on = [module.rosa_cluster, terraform_data.deployment_safety]
 }
 
 #------------------------------------------------------------------------------
@@ -827,18 +807,16 @@ module "gitops" {
   cluster_token          = length(module.cluster_auth) > 0 ? module.cluster_auth[0].token : ""
   terraform_sa_name      = var.terraform_sa_name
   terraform_sa_namespace = var.terraform_sa_namespace
-  skip_k8s_destroy       = var.skip_k8s_destroy
   cluster_type           = local.cluster_type
   aws_region             = var.aws_region
   aws_account_id         = data.aws_caller_identity.current.account_id
 
-  gitops_repo_url            = var.gitops_repo_url == null ? "" : var.gitops_repo_url
-  gitops_operator_config     = var.gitops_operator_config
-  gitops_instance_config     = var.gitops_instance_config
-  gitops_application         = var.gitops_application
-  gitops_create_legacy_token = var.gitops_create_legacy_token
-  gitops_repo_path           = coalesce(var.gitops_repo_path, ".")
-  gitops_repo_revision       = coalesce(var.gitops_repo_revision, "main")
+  gitops_repo_url        = var.gitops_repo_url == null ? "" : var.gitops_repo_url
+  gitops_operator_config = var.gitops_operator_config
+  gitops_instance_config = var.gitops_instance_config
+  gitops_application     = var.gitops_application
+  gitops_repo_path       = coalesce(var.gitops_repo_path, ".")
+  gitops_repo_revision   = coalesce(var.gitops_repo_revision, "main")
 
   enable_layer_terminal       = var.enable_layer_terminal
   enable_layer_oadp           = var.enable_layer_oadp

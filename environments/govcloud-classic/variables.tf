@@ -114,24 +114,11 @@ variable "availability_zones" {
 
 variable "openshift_version" {
   type        = string
-  description = <<-EOT
-    OpenShift version for the cluster (x.y.z format).
-    
-    To see available versions, run:
-      rosa list versions --channel-group eus
-      rosa list versions --channel-group stable
-    
-    Example output:
-      VERSION         DEFAULT  AVAILABLE UPGRADES
-      4.18.34         no
-      4.18.33         no       4.18.34
-      4.18.32         no       4.18.33, 4.18.34
-  EOT
-  default     = "4.18.34"
+  description = "Explicit install version verified for the selected region and architecture. No default patch is assumed; see docs/DEPLOYMENT.md."
 
   validation {
     condition     = can(regex("^4\\.[0-9]+\\.[0-9]+$", var.openshift_version))
-    error_message = "OpenShift version must be in x.y.z format (e.g., 4.18.34). Run 'rosa list versions' to see available versions."
+    error_message = "OpenShift version must be in x.y.z format (X.Y.Z). Run 'rosa list versions' to see available versions."
   }
 }
 
@@ -622,25 +609,7 @@ variable "vpn_session_timeout_hours" {
 
 variable "install_gitops" {
   type        = bool
-  description = <<-EOT
-    Install OpenShift GitOps operator and layers framework.
-    
-    RECOMMENDED: Deploy in two stages for reliability:
-    
-      Stage 1 - Infrastructure (default):
-        terraform apply -var-file=dev.tfvars
-        # Creates VPC, IAM, ROSA cluster
-    
-      Stage 2 - GitOps (when ready):
-        terraform apply -var-file=dev.tfvars -var="install_gitops=true"
-        # Installs GitOps operator and configured layers
-    
-    For zero-egress clusters: Mirror required operators to ECR before Stage 2.
-    See docs/DISCONNECTED-OPERATIONS.md for operator mirroring guide.
-    
-    Set to false when destroying to skip GitOps connectivity checks:
-      terraform destroy -var="install_gitops=false" -var-file=dev.tfvars
-  EOT
+  description = "Enable phase-two GitOps only after cluster creation; see docs/DEPLOYMENT.md. Disabling does not safely forget managed objects."
   default     = false
 }
 
@@ -1559,11 +1528,6 @@ variable "terraform_sa_namespace" {
   default     = "rosa-terraform"
 }
 
-variable "skip_k8s_destroy" {
-  type        = bool
-  description = "Legacy count switch: true plans deletion of managed Kubernetes resources; it does NOT forget state or bypass refresh. See docs/GITOPS.md before teardown."
-  default     = false
-}
 
 #------------------------------------------------------------------------------
 # OpenShift AI Configuration

@@ -89,7 +89,6 @@ module "autonode" {
 |------|-------------|
 | `karpenter_role_arn` | ARN of the Karpenter controller IAM role |
 | `karpenter_policy_arn` | ARN of the Karpenter controller IAM policy |
-| `rosa_enable_command` | DEPRECATED: empty string (AutoNode is now enabled via Terraform) |
 | `tagged_subnet_ids` | Subnet IDs tagged with Karpenter discovery tags (empty in IAM-only mode) |
 
 ## See Also

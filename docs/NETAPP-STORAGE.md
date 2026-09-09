@@ -251,10 +251,9 @@ filesystem generation, credential, protocol and VM migration into one blind appl
   removed. If Terraform proposes replacing the existing CR, stop and reconcile its
   recorded identity through a reviewed state/import procedure. Do not delete a
   working CSI installation just to resolve a namespace/state mismatch.
-- Set `netapp_storage_config.legacy_classes_enabled=true` before the first upgrade
-  if old classes are in use. Old names/immutable parameters are retained for migration
-  only and still have Delete policies. Review the plan: leaving the flag false on
-  an old installation can plan removal of those classes before retention is recorded.
+- The 2.0 baseline does not recreate obsolete Delete-policy classes. There is no
+  supported in-place 1.x state upgrade; deploy separately and restore/move data
+  using a validated recovery workflow. Old PV policies are not changed by this code.
 - New retained class names avoid mutating immutable old StorageClass parameters.
   Existing PV policies and mounted options are unchanged. Move data by supported
   clone/restore/migration; a PVC's storageClassName is not an in-place migration.

@@ -66,9 +66,16 @@ variable "az_subnet_map" {
 
 variable "machine_pools" {
   type = list(object({
-    name          = string
-    instance_type = string
-    replicas      = optional(number, 2)
+    spot = optional(object({
+      enabled   = optional(bool, false)
+      max_price = optional(number)
+    }), {})
+    disk_size                     = optional(number, 300)
+    node_drain_grace_period       = optional(number, 45)
+    additional_security_group_ids = optional(list(string), [])
+    name                          = string
+    instance_type                 = string
+    replicas                      = optional(number, 2)
 
     # Autoscaling configuration (mutually exclusive with replicas when enabled)
     autoscaling = optional(object({
@@ -133,11 +140,6 @@ variable "auto_repair" {
   default     = true
 }
 
-variable "skip_version_validation" {
-  type        = bool
-  description = "Skip OpenShift version validation for machine pools."
-  default     = false
-}
 
 variable "tags" {
   type        = map(string)

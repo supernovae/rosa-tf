@@ -11,7 +11,7 @@ locals {
   })
 }
 resource "kubectl_manifest" "efs_operatorgroup" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_efs_storage && var.efs_config.manage_operator_group ? 1 : 0
+  count             = var.enable_layer_efs_storage && var.efs_config.manage_operator_group ? 1 : 0
   yaml_body         = file("${local.layers_path}/efs-storage/operatorgroup.yaml")
   server_side_apply = true
   force_conflicts   = false
@@ -19,7 +19,7 @@ resource "kubectl_manifest" "efs_operatorgroup" {
   depends_on        = [time_sleep.wait_for_argocd_ready]
 }
 resource "kubectl_manifest" "efs_subscription" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_efs_storage ? 1 : 0
+  count             = var.enable_layer_efs_storage ? 1 : 0
   yaml_body         = local.efs_subscription
   server_side_apply = true
   force_conflicts   = false
@@ -48,7 +48,7 @@ resource "kubectl_manifest" "efs_subscription" {
   depends_on = [kubectl_manifest.efs_operatorgroup, time_sleep.wait_for_argocd_ready]
 }
 resource "time_sleep" "wait_for_efs_operator" {
-  count           = !var.skip_k8s_destroy && var.enable_layer_efs_storage ? 1 : 0
+  count           = var.enable_layer_efs_storage ? 1 : 0
   create_duration = "10s" # discovery propagation after OLM has installed the CSV
   depends_on      = [kubectl_manifest.efs_subscription]
 }
@@ -58,7 +58,7 @@ removed {
   lifecycle { destroy = false }
 }
 resource "kubectl_manifest" "efs_cluster_csi_driver" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_efs_storage ? 1 : 0
+  count             = var.enable_layer_efs_storage ? 1 : 0
   yaml_body         = local.efs_cluster_csi_driver
   server_side_apply = true
   force_conflicts   = false
@@ -80,12 +80,12 @@ resource "kubectl_manifest" "efs_cluster_csi_driver" {
   depends_on = [time_sleep.wait_for_efs_operator]
 }
 resource "time_sleep" "wait_for_efs_csi_driver" {
-  count           = !var.skip_k8s_destroy && var.enable_layer_efs_storage ? 1 : 0
+  count           = var.enable_layer_efs_storage ? 1 : 0
   create_duration = "10s"
   depends_on      = [kubectl_manifest.efs_cluster_csi_driver]
 }
 resource "kubectl_manifest" "efs_storageclass" {
-  count             = !var.skip_k8s_destroy && var.enable_layer_efs_storage ? 1 : 0
+  count             = var.enable_layer_efs_storage ? 1 : 0
   yaml_body         = local.efs_storageclass
   server_side_apply = true
   force_conflicts   = false

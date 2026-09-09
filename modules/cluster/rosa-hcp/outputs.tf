@@ -17,11 +17,6 @@ output "state" {
   value       = rhcs_cluster_rosa_hcp.this.state
 }
 
-# Alias for backward compatibility
-output "cluster_state" {
-  description = "Current state of the cluster (alias for state)."
-  value       = rhcs_cluster_rosa_hcp.this.state
-}
 
 output "api_url" {
   description = "API server URL."
@@ -58,11 +53,6 @@ output "current_version" {
   value       = rhcs_cluster_rosa_hcp.this.current_version
 }
 
-# Alias for backward compatibility
-output "openshift_version" {
-  description = "Deployed OpenShift version (alias for current_version)."
-  value       = rhcs_cluster_rosa_hcp.this.current_version
-}
 
 #------------------------------------------------------------------------------
 # Admin Credentials
@@ -83,19 +73,7 @@ output "admin_password" {
   depends_on  = [time_sleep.cluster_ready]
 }
 
-# Aliases for backward compatibility
-output "cluster_admin_username" {
-  description = "Cluster admin username (alias for admin_username)."
-  value       = var.create_admin_user ? try(coalesce(rhcs_cluster_rosa_hcp.this.admin_credentials.username, var.admin_username), var.admin_username) : null
-  depends_on  = [time_sleep.cluster_ready]
-}
 
-output "cluster_admin_password" {
-  description = "Cluster admin password (alias for admin_password)."
-  value       = var.create_admin_user ? try(coalesce(rhcs_cluster_rosa_hcp.this.admin_credentials.password, random_password.cluster_admin[0].result), random_password.cluster_admin[0].result) : null
-  sensitive   = true
-  depends_on  = [time_sleep.cluster_ready]
-}
 
 #------------------------------------------------------------------------------
 # Network Information
@@ -128,7 +106,7 @@ output "version_info" {
   description = "Version information for upgrade planning."
   value = {
     control_plane_version    = var.openshift_version
-    min_machine_pool_version = "${local.control_plane_major}.${local.min_machine_pool_minor}.0"
+    min_machine_pool_version = "4.${tonumber(split(".", rhcs_cluster_rosa_hcp.this.current_version)[1]) - 2}.0"
     channel_group            = var.channel_group
     version_drift_note       = "Machine pools must be within n-2 of control plane version"
   }
@@ -138,20 +116,7 @@ output "version_info" {
 # Cluster Autoscaler
 #------------------------------------------------------------------------------
 
-output "cluster_autoscaler_enabled" {
-  description = "Whether cluster autoscaler is enabled."
-  value       = var.cluster_autoscaler_enabled
-}
 
-output "cluster_autoscaler_config" {
-  description = "Cluster autoscaler configuration (null if not enabled)."
-  value = var.cluster_autoscaler_enabled ? {
-    max_nodes_total         = var.autoscaler_max_nodes_total
-    max_node_provision_time = var.autoscaler_max_node_provision_time
-    max_pod_grace_period    = var.autoscaler_max_pod_grace_period
-    pod_priority_threshold  = var.autoscaler_pod_priority_threshold
-  } : null
-}
 
 #------------------------------------------------------------------------------
 # Additional Security Groups
@@ -187,7 +152,6 @@ output "cluster_summary" {
     external_auth_providers_enabled = var.external_auth_providers_enabled
     worker_replicas                 = var.replicas
     etcd_encrypted                  = var.etcd_encryption
-    cluster_autoscaler_enabled      = var.cluster_autoscaler_enabled
     type                            = "hcp"
   }
 }

@@ -35,8 +35,8 @@ aws_region   = "us-east-1" # <-- CHANGE THIS
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.14" # <-- Zero egress requires 4.18+
-channel_group     = "stable"
+# Set openshift_version explicitly in your private cluster base after regional discovery.
+channel_group = "stable"
 
 #------------------------------------------------------------------------------
 # Network Configuration
@@ -69,8 +69,8 @@ worker_node_count    = 3
 # Encryption Configuration
 #------------------------------------------------------------------------------
 
-cluster_kms_mode = "provider_managed"
-infra_kms_mode   = "provider_managed"
+cluster_kms_mode = "create"
+infra_kms_mode   = "create"
 
 #------------------------------------------------------------------------------
 # IAM Configuration (HCP requires account roles to exist first)

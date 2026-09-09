@@ -3,7 +3,7 @@
 #
 # Usage:
 #   1. Go to Actions > Release > Run workflow
-#   2. Enter version tag (e.g., v1.1.0)
+#   2. Enter version tag (e.g., v2.0.0)
 #   3. Enter changelog description
 #   4. Workflow validates, tags, and creates a GitHub release
 
@@ -13,31 +13,62 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag (e.g. v1.1.0)"
+        description: "Version tag (e.g. v2.0.0)"
         required: true
       changelog:
         description: "Changelog summary for this release"
         required: true
 
 permissions:
-  contents: write
+  contents: read
   security-events: write
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
 
 env:
   CHECKPOINT_DISABLE: 1
-  TF_LOG: ERROR
 
 jobs:
+  v2-contracts:
+    name: V2 provider and deployment contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: "1.16.1"
+          terraform_wrapper: false
+      - run: python3 -m unittest discover -s tests/release -p 'test_*.py'
+      - run: python3 scripts/check-doc-links.py
+      - run: terraform -chdir=modules/cluster/component-routes init -backend=false -lockfile=readonly
+      - run: terraform -chdir=modules/cluster/component-routes test
+      - run: terraform -chdir=modules/cluster/machine-pools-hcp init -backend=false -lockfile=readonly
+      - run: terraform -chdir=modules/cluster/machine-pools-hcp test
+
+  release-readiness:
+    name: Stable provider and release approval gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Require reviewed main and stable RHCS
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          python3 scripts/check-release-ready.py "$RELEASE_VERSION"
+
   efs-tests:
     name: EFS security and integration contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/efs test
@@ -50,12 +81,12 @@ jobs:
     name: OADP security, schemas and VM recovery contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/oadp test
@@ -68,12 +99,12 @@ jobs:
     name: Virtualization and NetApp interoperability contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/virtualization test
@@ -84,12 +115,12 @@ jobs:
     name: NetApp storage security and release contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/netapp test
@@ -102,12 +133,12 @@ jobs:
     name: GitOps security contracts and release schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/gitops test
@@ -119,12 +150,12 @@ jobs:
     name: Monitoring templates and release schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - run: terraform -chdir=tests/monitoring test
@@ -139,12 +170,12 @@ jobs:
     name: cert-manager templates and release schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - name: Test template behavior
@@ -158,8 +189,8 @@ jobs:
     name: Zero-egress network regression
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
@@ -184,10 +215,10 @@ jobs:
           - govcloud-classic
           - govcloud-hcp
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
@@ -204,64 +235,48 @@ jobs:
         run: terraform validate -json | jq -e 'if .valid and .warning_count == 0 then . else error(tojson) end'
 
   bootstrap-tests:
-    name: Bootstrap migration (${{ matrix.cluster_type }})
+    name: Fresh bootstrap (${{ matrix.cluster_type }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         cluster_type: [classic, hcp]
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: "1.16.1"
           terraform_wrapper: false
       - name: Initialize test module
         working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
         run: terraform init -backend=false -lockfile=readonly
-      - name: Test native bootstrap and legacy state migration
+      - name: Test native bootstrap
         working-directory: modules/cluster/rosa-${{ matrix.cluster_type }}
         run: bash ../../../scripts/test-bootstrap.sh
 
   #----------------------------------------------------------------------------
   # Gate 2: Security Scanning
   #----------------------------------------------------------------------------
-  tfsec:
-    name: tfsec Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install tfsec
-        run: |
-          curl -sLo tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64
-          chmod +x tfsec
-          sudo mv tfsec /usr/local/bin/
-
-      - name: Run tfsec
-        run: |
-          tfsec . --format sarif --out tfsec-results.sarif --soft-fail || true
-
   grype:
     name: Grype Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run Grype filesystem scan
-        uses: anchore/scan-action@v7
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7
         with:
           path: "."
-          fail-build: false
+          fail-build: true
           severity-cutoff: high
 
   checkov:
     name: Checkov Policy Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@f967808197a8d784d3e72919f38c3ff0cda7884e # v12
         with:
           directory: .
           framework: terraform
@@ -271,10 +286,10 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run ShellCheck
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca # master
         with:
           scandir: "."
           severity: warning
@@ -286,12 +301,12 @@ jobs:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.9
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -300,17 +315,22 @@ jobs:
   #----------------------------------------------------------------------------
   release:
     name: Create Release
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_CHANGELOG: ${{ inputs.changelog }}
     runs-on: ubuntu-latest
-    needs: [validate, bootstrap-tests, network-tests, certmanager-tests, monitoring-tests, gitops-tests, netapp-tests, virtualization-tests, oadp-tests, efs-tests, tfsec, grype, checkov, shellcheck, gitleaks]
+    needs: [v2-contracts, release-readiness, validate, bootstrap-tests, network-tests, certmanager-tests, monitoring-tests, gitops-tests, netapp-tests, virtualization-tests, oadp-tests, efs-tests, grype, checkov, shellcheck, gitleaks]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Verify tag does not exist
         run: |
-          if git rev-parse "${{ github.event.inputs.version }}" >/dev/null 2>&1; then
-            echo "ERROR: Tag ${{ github.event.inputs.version }} already exists."
+          if git rev-parse "refs/tags/$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "ERROR: Tag $RELEASE_VERSION already exists."
             exit 1
           fi
 
@@ -332,14 +352,14 @@ jobs:
           {
             echo "## What's Changed"
             echo ""
-            echo "${{ github.event.inputs.changelog }}"
+            printf '%s\n' "$RELEASE_CHANGELOG"
             echo ""
             echo "## Commits since ${PREV_TAG:-initial}"
             echo ""
             echo "$COMMITS"
             echo ""
             echo "---"
-            echo "*Full diff: [${PREV_TAG:-initial}...${{ github.event.inputs.version }}](https://github.com/${{ github.repository }}/compare/${PREV_TAG:-main}...${{ github.event.inputs.version }})*"
+            echo "*Full diff: [${PREV_TAG:-initial}...$RELEASE_VERSION](https://github.com/$GITHUB_REPOSITORY/compare/${PREV_TAG:-main}...$RELEASE_VERSION)*"
           } > release-notes.md
           
           cat release-notes.md
@@ -348,11 +368,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ github.event.inputs.version }}" -m "Release ${{ github.event.inputs.version }}"
-          git push origin "${{ github.event.inputs.version }}"
+          python3 scripts/check-release-ready.py "$RELEASE_VERSION"
+          git tag -a "$RELEASE_VERSION" -m "Release $RELEASE_VERSION"
+          git push origin "refs/tags/$RELEASE_VERSION"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}

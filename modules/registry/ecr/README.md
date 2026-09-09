@@ -315,7 +315,7 @@ See [docs/ZERO-EGRESS.md](../../../docs/ZERO-EGRESS.md) for:
 | repository_name | Custom repository name (defaults to {cluster_name}-registry) | `string` | `""` | no |
 | kms_key_arn | KMS key ARN for encryption | `string` | `null` | no |
 | prevent_destroy | Protect ECR from cluster destruction | `bool` | `false` | no |
-| image_tag_mutability | MUTABLE or IMMUTABLE | `string` | `"MUTABLE"` | no |
+| image_tag_mutability | MUTABLE or IMMUTABLE | `string` | `"IMMUTABLE"` | no |
 | scan_on_push | Enable vulnerability scanning | `bool` | `true` | no |
 | lifecycle_policy_enabled | Enable image retention policy | `bool` | `true` | no |
 | lifecycle_untagged_days | Days to keep untagged images | `number` | `14` | no |

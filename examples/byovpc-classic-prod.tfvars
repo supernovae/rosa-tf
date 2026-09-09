@@ -29,8 +29,8 @@ aws_region   = "us-east-1"
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.14" # <-- CHANGE to your desired version
-channel_group     = "stable"
+# Set openshift_version explicitly in your private cluster base after regional discovery.
+channel_group = "stable"
 
 #------------------------------------------------------------------------------
 # BYO-VPC Configuration (Multi-AZ Production)

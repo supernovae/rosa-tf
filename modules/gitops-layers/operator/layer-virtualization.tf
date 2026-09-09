@@ -31,7 +31,7 @@ locals {
 #------------------------------------------------------------------------------
 
 resource "kubernetes_namespace_v1" "virtualization" {
-  count = !var.skip_k8s_destroy && var.enable_layer_virtualization ? 1 : 0
+  count = var.enable_layer_virtualization ? 1 : 0
 
   metadata {
     name = "openshift-cnv"
@@ -69,7 +69,7 @@ resource "kubernetes_namespace_v1" "virtualization" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "virt_operatorgroup" {
-  count = !var.skip_k8s_destroy && var.enable_layer_virtualization ? 1 : 0
+  count = var.enable_layer_virtualization ? 1 : 0
 
   yaml_body = file("${local.layers_path}/virtualization/operatorgroup.yaml")
 
@@ -84,7 +84,7 @@ resource "kubectl_manifest" "virt_operatorgroup" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "virt_subscription" {
-  count = !var.skip_k8s_destroy && var.enable_layer_virtualization ? 1 : 0
+  count = var.enable_layer_virtualization ? 1 : 0
 
   yaml_body = local.virt_subscription
 
@@ -110,7 +110,7 @@ resource "kubectl_manifest" "virt_subscription" {
 #------------------------------------------------------------------------------
 
 resource "time_sleep" "wait_for_virt_operator" {
-  count = !var.skip_k8s_destroy && var.enable_layer_virtualization ? 1 : 0
+  count = var.enable_layer_virtualization ? 1 : 0
 
   # Short API-discovery propagation delay AFTER OLM records an installed CSV.
   create_duration = "10s"
@@ -123,7 +123,7 @@ resource "time_sleep" "wait_for_virt_operator" {
 #------------------------------------------------------------------------------
 
 resource "kubectl_manifest" "virt_hyperconverged" {
-  count = !var.skip_k8s_destroy && var.enable_layer_virtualization ? 1 : 0
+  count = var.enable_layer_virtualization ? 1 : 0
 
   yaml_body = local.virt_hyperconverged
 
@@ -155,7 +155,7 @@ resource "kubectl_manifest" "virt_hyperconverged" {
 # CDI owns generated status; Terraform manages only explicit storage policy.
 # Profiles exist only when both layers are enabled; SAN is additionally opt-in.
 resource "kubectl_manifest" "virt_netapp_storage_profile" {
-  for_each = !var.skip_k8s_destroy && var.enable_layer_virtualization ? local.virt_netapp_profiles : {}
+  for_each = var.enable_layer_virtualization ? local.virt_netapp_profiles : {}
   yaml_body = templatefile("${local.layers_path}/virtualization/storageprofile.yaml.tftpl", {
     storage_class = each.key, volume_mode = each.value
   })

@@ -46,8 +46,8 @@ aws_region   = "us-east-1"
 # OpenShift Version
 #------------------------------------------------------------------------------
 
-openshift_version = "4.20.14"
-channel_group     = "stable"
+# Set openshift_version explicitly in your private cluster base after regional discovery.
+channel_group = "stable"
 
 #------------------------------------------------------------------------------
 # Network Configuration
@@ -71,9 +71,9 @@ worker_node_count    = 2
 # Encryption
 #------------------------------------------------------------------------------
 
-cluster_kms_mode = "provider_managed"
-infra_kms_mode   = "provider_managed"
-etcd_encryption  = false
+cluster_kms_mode = "create"
+infra_kms_mode   = "create"
+etcd_encryption  = true
 
 #------------------------------------------------------------------------------
 # Zero Egress - MUST be false for cert-manager
