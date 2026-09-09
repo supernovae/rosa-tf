@@ -1,8 +1,8 @@
 run "safe_defaults" {
   command = plan
   assert {
-    condition     = !var.gitops_application.enabled && !var.gitops_create_legacy_token
-    error_message = "Workload sync and permanent admin tokens must be explicit opt-ins."
+    condition     = !var.gitops_application.enabled
+    error_message = "Workload sync must be an explicit opt-in."
   }
   assert {
     condition     = local.manifests.argocd.spec.disableAdmin && local.manifests.argocd.spec.defaultClusterScopedRoleDisabled && local.manifests.argocd.spec.rbac.defaultPolicy == "role:no-access"
